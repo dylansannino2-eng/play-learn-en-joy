@@ -20,14 +20,21 @@ const GamePage = () => {
 
   useEffect(() => {
     const fetchGame = async () => {
-      if (!slug) return;
+      if (!slug) {
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Fetching game with slug:', slug);
 
       const { data, error } = await supabase
         .from('games')
         .select('id, title, image, slug, description')
-        .or(`slug.eq.${slug},id.eq.${slug}`)
+        .eq('slug', slug)
         .eq('is_active', true)
         .maybeSingle();
+
+      console.log('Game query result:', { data, error });
 
       if (!error && data) {
         setGame(data);
