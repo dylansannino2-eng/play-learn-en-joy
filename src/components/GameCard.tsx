@@ -1,7 +1,9 @@
 import { cn } from "@/lib/utils";
 import { Flame, Star, Sparkles, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface GameCardProps {
+  id: number;
   title: string;
   image: string;
   badge?: "new" | "hot" | "top" | "updated";
@@ -31,12 +33,13 @@ const badgeConfig = {
   },
 };
 
-const GameCard = ({ title, image, badge, delay = 0 }: GameCardProps) => {
+const GameCard = ({ id, title, image, badge, delay = 0 }: GameCardProps) => {
   const BadgeIcon = badge ? badgeConfig[badge].icon : null;
   
   return (
-    <div 
-      className="group relative flex-shrink-0 w-52 cursor-pointer animate-slide-in"
+    <Link 
+      to={`/game/${id}`}
+      className="group relative flex-shrink-0 w-52 cursor-pointer animate-slide-in block"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="relative overflow-hidden rounded-2xl aspect-[4/3] bg-card">
@@ -67,7 +70,7 @@ const GameCard = ({ title, image, badge, delay = 0 }: GameCardProps) => {
       <h3 className="mt-2 font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
         {title}
       </h3>
-    </div>
+    </Link>
   );
 };
 

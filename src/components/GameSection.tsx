@@ -27,7 +27,8 @@ const GameSection = ({ title, games }: GameSectionProps) => {
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
         {games.map((game, index) => (
           <GameCard 
-            key={game.id} 
+            key={game.id}
+            id={game.id}
             title={game.title} 
             image={game.image} 
             badge={game.badge}
