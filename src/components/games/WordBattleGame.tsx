@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Play, Copy, Check } from "lucide-react";
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import CorrectAnswerAnimation from "./shared/CorrectAnswerAnimation";
@@ -60,7 +60,6 @@ type GamePhase = "waiting" | "playing" | "ranking";
 
 interface WordBattleGameProps {
   roomCode?: string;
-  onBack?: () => void;
 }
 
 /* ─────────────────────────────── */
@@ -73,8 +72,10 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
 
   const { playSound, preloadSounds } = useGameSounds();
 
-  const { players, playerCount, isConnected, updateScore, broadcastCorrectAnswer, correctAnswerEvents } =
-    useMultiplayerGame("word-battle", roomCode);
+  const { players, playerCount, isConnected, updateScore, broadcastCorrectAnswer } = useMultiplayerGame(
+    "word-battle",
+    roomCode,
+  );
 
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -86,6 +87,9 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
   const [round, setRound] = useState(1);
   const totalRounds = 5;
+
+  /** 🔒 Solo un acierto + sin chat luego */
+  const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
 
   const [showAnimation, setShowAnimation] = useState(false);
   const [animationWord, setAnimationWord] = useState("");
@@ -108,6 +112,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     const random = data[Math.floor(Math.random() * data.length)];
     setCurrentCard(random);
     setUsedAnswers(new Set());
+    setHasAnsweredCorrectly(false); // 🔁 reset por ronda
   }, []);
 
   useEffect(() => {
@@ -144,10 +149,11 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     setStreak(0);
     setTimeLeft(30);
     setRound(1);
+    setHasAnsweredCorrectly(false);
     fetchRandomCard();
   };
 
-  /* ───────── Answer handling ───────── */
+  /* ───────── Answer logic ───────── */
 
   const checkAnswer = (answer: string) => {
     if (!currentCard) return false;
@@ -172,6 +178,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       },
     ]);
 
+    if (isCorrect && hasAnsweredCorrectly) return;
+
     if (isCorrect) {
       playSound("correct", 0.6);
 
@@ -183,6 +191,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       setScore((s) => s + points);
       setCorrectAnswers((c) => c + 1);
       setStreak((s) => s + 1);
+      setHasAnsweredCorrectly(true); // 🔒 bloquea chat y score
 
       await updateScore(score + points, correctAnswers + 1, streak + 1);
       await broadcastCorrectAnswer(message, points);
@@ -197,9 +206,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     }
   };
 
-  /* ─────────────────────────────── */
-  /* Ranking */
-  /* ─────────────────────────────── */
+  /* ───────── Ranking ───────── */
 
   if (gamePhase === "ranking") {
     return (
@@ -218,9 +225,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     );
   }
 
-  /* ─────────────────────────────── */
-  /* Render */
-  /* ─────────────────────────────── */
+  /* ───────── Render ───────── */
 
   return (
     <>
@@ -276,10 +281,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
               transition={{ type: "spring", stiffness: 120 }}
               className="mx-auto w-72 md:w-80 aspect-[3/5] bg-white rounded-2xl border-4 border-neutral-200 shadow-xl overflow-hidden flex flex-col"
             >
-              {/* Top black bar */}
               <div className="h-14 bg-black" />
 
-              {/* Content */}
               <div className="flex-1 px-6 py-8 flex flex-col justify-center text-center">
                 <span className="text-xs uppercase tracking-wide text-muted-foreground mb-4">
                   {currentCard.category}
@@ -292,13 +295,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
                     <span className="text-3xl font-black text-white">{currentCard.letter}</span>
                   </div>
                 </div>
-
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {usedAnswers.size} / {currentCard.correct_answers.length} respuestas
-                </p>
               </div>
 
-              {/* Bottom black bar */}
               <div className="h-16 bg-black" />
             </motion.div>
           )}
@@ -308,7 +306,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       <ParticipationChat
         messages={chatMessages}
         onSendMessage={handleSendMessage}
-        disabled={gamePhase !== "playing"}
+        disabled={gamePhase !== "playing" || hasAnsweredCorrectly}
         currentUsername={username}
       />
     </>
