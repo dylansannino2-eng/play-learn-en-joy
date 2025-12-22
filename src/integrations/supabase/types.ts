@@ -149,6 +149,45 @@ export type Database = {
         }
         Relationships: []
       }
+      word_battle_cards: {
+        Row: {
+          category: string
+          correct_answers: string[]
+          created_at: string
+          difficulty: string | null
+          id: string
+          is_active: boolean
+          letter: string | null
+          prompt: string
+          times_played: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          correct_answers?: string[]
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          is_active?: boolean
+          letter?: string | null
+          prompt: string
+          times_played?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          correct_answers?: string[]
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          is_active?: boolean
+          letter?: string | null
+          prompt?: string
+          times_played?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
