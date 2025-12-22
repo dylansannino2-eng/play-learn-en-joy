@@ -119,27 +119,24 @@ export default function WordBattleGame() {
     fetchRandomCard();
   };
 
-  const nextRound = () => {
+  const nextRound = useCallback(() => {
     if (round >= totalRounds) {
       toast.success(`¡Juego terminado! Puntuación final: ${score}`);
       setGamePhase('waiting');
+      setRound(1);
+      setScore(0);
+      setCorrectAnswers(0);
+      setStreak(0);
       return;
     }
     
     setRound((r) => r + 1);
     setTimeLeft(30);
     setUsedAnswers(new Set());
+    setChatMessages([]); // Clear chat between rounds
     setGamePhase('playing');
     fetchRandomCard();
-    
-    setChatMessages((prev) => [...prev, {
-      id: `round-${round + 1}`,
-      username: 'Sistema',
-      message: `Ronda ${round + 1} de ${totalRounds}`,
-      type: 'system',
-      timestamp: new Date()
-    }]);
-  };
+  }, [round, totalRounds, score, fetchRandomCard]);
 
   const checkAnswer = (answer: string): boolean => {
     if (!currentCard) return false;
@@ -224,20 +221,29 @@ export default function WordBattleGame() {
 
   // Show ranking between rounds
   if (gamePhase === 'ranking') {
+    const isLastRound = round >= totalRounds;
     return (
       <>
         <RoundRanking
           players={players}
           roundNumber={round}
           totalRounds={totalRounds}
-          onContinue={nextRound}
+          countdownSeconds={5}
+          onCountdownComplete={nextRound}
+          isLastRound={isLastRound}
         />
-        <ParticipationChat
-          messages={chatMessages}
-          onSendMessage={handleSendMessage}
-          disabled={true}
-          currentUsername={username}
-        />
+        <div className="w-80 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+          <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border">
+            <h3 className="font-semibold text-foreground">Resumen de la ronda</h3>
+          </div>
+          <div className="flex-1 p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-muted-foreground mb-2">Tus aciertos esta ronda</p>
+            <span className="text-4xl font-black text-primary">{correctAnswers}</span>
+            <p className="text-sm text-muted-foreground mt-4">
+              {isLastRound ? 'Puntuación final' : 'Prepárate para la siguiente ronda'}
+            </p>
+          </div>
+        </div>
       </>
     );
   }
