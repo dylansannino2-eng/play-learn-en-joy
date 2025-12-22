@@ -1,9 +1,8 @@
-import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
-import GameLobby from "@/components/games/shared/GameLobby";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Game {
@@ -15,26 +14,15 @@ interface Game {
   uses_chat: boolean;
 }
 
-type GameView = 'lobby' | 'playing';
-
 const GamePage = () => {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [gameView, setGameView] = useState<GameView>('lobby');
-  const [roomCode, setRoomCode] = useState<string | undefined>(undefined);
 
-  // Check for room code in URL
-  useEffect(() => {
-    const roomFromUrl = searchParams.get('room');
-    if (roomFromUrl) {
-      setRoomCode(roomFromUrl);
-      setGameView('playing');
-    }
-  }, [searchParams]);
+  // Get room code from URL
+  const roomCode = searchParams.get('room') || undefined;
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -59,39 +47,12 @@ const GamePage = () => {
     fetchGame();
   }, [slug]);
 
-  const handleStartGame = (code?: string) => {
-    setRoomCode(code);
-    setGameView('playing');
-    
-    // Update URL with room code if provided
-    if (code) {
-      navigate(`/game/${slug}?room=${code}`, { replace: true });
-    }
-  };
-
-  const handleBackToLobby = () => {
-    setGameView('lobby');
-    setRoomCode(undefined);
-    navigate(`/game/${slug}`, { replace: true });
-  };
-
   const renderGameComponent = () => {
     if (!game?.slug) return null;
 
-    // Show lobby first for games with chat
-    if (game.uses_chat && gameView === 'lobby') {
-      return (
-        <GameLobby
-          gameSlug={game.slug}
-          gameTitle={game.title}
-          onStartGame={handleStartGame}
-        />
-      );
-    }
-
     switch (game.slug) {
       case 'word-battle':
-        return <WordBattleGame roomCode={roomCode} onBack={handleBackToLobby} />;
+        return <WordBattleGame roomCode={roomCode} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center">
