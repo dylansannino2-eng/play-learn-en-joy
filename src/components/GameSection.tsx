@@ -2,10 +2,11 @@ import { ChevronRight } from "lucide-react";
 import GameCard from "./GameCard";
 
 interface Game {
-  id: number;
+  id: string | number;
+  slug?: string;
   title: string;
   image: string;
-  badge?: "new" | "hot" | "top" | "updated";
+  badge?: "new" | "hot" | "top" | "updated" | null;
 }
 
 interface GameSectionProps {
@@ -28,7 +29,8 @@ const GameSection = ({ title, games }: GameSectionProps) => {
         {games.map((game, index) => (
           <GameCard 
             key={game.id}
-            id={game.id}
+            id={String(game.id)}
+            slug={'slug' in game ? game.slug : undefined}
             title={game.title} 
             image={game.image} 
             badge={game.badge}
