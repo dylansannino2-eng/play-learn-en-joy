@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Check, X, Trophy, Clock, Zap } from 'lucide-react';
+import { Trophy, Clock, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
+import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
+import RoundRanking from './shared/RoundRanking';
 
 interface WordBattleCard {
   id: string;
@@ -13,24 +16,40 @@ interface WordBattleCard {
   difficulty: string;
 }
 
-interface ChatMessage {
-  id: string;
-  user: string;
-  message: string;
-  isCorrect?: boolean;
-  time: string;
+type GamePhase = 'waiting' | 'playing' | 'ranking';
+
+interface PlayerScore {
+  rank: number;
+  username: string;
+  points: number;
+  correctAnswers: number;
+  streak: number;
+  isCurrentUser: boolean;
 }
 
 export default function WordBattleGame() {
   const { user } = useAuth();
+  const username = user?.email?.split('@')[0] || 'Jugador';
+  
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
-  const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [score, setScore] = useState(0);
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [streak, setStreak] = useState(0);
   const [usedAnswers, setUsedAnswers] = useState<Set<string>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
   const [isLoading, setIsLoading] = useState(true);
+  const [round, setRound] = useState(1);
+  const [totalRounds] = useState(5);
+  
+  // Animation state
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [animationWord, setAnimationWord] = useState('');
+  const [animationPoints, setAnimationPoints] = useState(0);
+
+  // Mock players for ranking (in real app, this would come from Supabase Realtime)
+  const [players, setPlayers] = useState<PlayerScore[]>([]);
 
   const fetchRandomCard = useCallback(async () => {
     const { data, error } = await supabase
@@ -54,13 +73,12 @@ export default function WordBattleGame() {
   }, [fetchRandomCard]);
 
   useEffect(() => {
-    if (!isPlaying || timeLeft <= 0) return;
+    if (gamePhase !== 'playing' || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          setIsPlaying(false);
-          toast.info(`¡Tiempo! Tu puntuación: ${score} puntos`);
+          endRound();
           return 0;
         }
         return prev - 1;
@@ -68,20 +86,59 @@ export default function WordBattleGame() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isPlaying, score, timeLeft]);
+  }, [gamePhase, timeLeft]);
+
+  const endRound = () => {
+    setGamePhase('ranking');
+    
+    // Generate ranking with current user
+    const mockPlayers: PlayerScore[] = [
+      { rank: 1, username, points: score, correctAnswers, streak, isCurrentUser: true },
+      { rank: 2, username: 'Player2', points: Math.floor(score * 0.8), correctAnswers: Math.floor(correctAnswers * 0.7), streak: 2, isCurrentUser: false },
+      { rank: 3, username: 'Player3', points: Math.floor(score * 0.6), correctAnswers: Math.floor(correctAnswers * 0.5), streak: 1, isCurrentUser: false },
+    ].sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, rank: i + 1 }));
+    
+    setPlayers(mockPlayers);
+  };
 
   const startGame = () => {
-    setIsPlaying(true);
-    setTimeLeft(60);
+    setGamePhase('playing');
+    setTimeLeft(30);
     setScore(0);
+    setCorrectAnswers(0);
+    setStreak(0);
     setUsedAnswers(new Set());
-    setChatMessages([]);
+    setChatMessages([{
+      id: 'start',
+      username: 'Sistema',
+      message: '¡La ronda ha comenzado!',
+      type: 'system',
+      timestamp: new Date()
+    }]);
+    setRound(1);
     fetchRandomCard();
   };
 
-  const nextCard = () => {
-    fetchRandomCard();
+  const nextRound = () => {
+    if (round >= totalRounds) {
+      toast.success(`¡Juego terminado! Puntuación final: ${score}`);
+      setGamePhase('waiting');
+      return;
+    }
+    
+    setRound((r) => r + 1);
+    setTimeLeft(30);
     setUsedAnswers(new Set());
+    setGamePhase('playing');
+    fetchRandomCard();
+    
+    setChatMessages((prev) => [...prev, {
+      id: `round-${round + 1}`,
+      username: 'Sistema',
+      message: `Ronda ${round + 1} de ${totalRounds}`,
+      type: 'system',
+      timestamp: new Date()
+    }]);
   };
 
   const checkAnswer = (answer: string): boolean => {
@@ -95,29 +152,56 @@ export default function WordBattleGame() {
     return isCorrect && !usedAnswers.has(normalizedAnswer);
   };
 
-  const handleSendMessage = () => {
-    if (!message.trim() || !currentCard) return;
+  const handleSendMessage = (message: string) => {
+    if (!currentCard || gamePhase !== 'playing') return;
 
-    const answer = message.trim();
-    const isCorrect = checkAnswer(answer);
-    const userName = user?.email?.split('@')[0] || 'Jugador';
+    const isCorrect = checkAnswer(message);
+    const now = new Date();
 
-    const newMessage: ChatMessage = {
+    // Add user's message (only visible to them)
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      user: userName,
-      message: answer,
-      isCorrect,
-      time: 'ahora',
+      username,
+      message,
+      type: 'message',
+      timestamp: now,
+      isCurrentUser: true
     };
-
-    setChatMessages((prev) => [newMessage, ...prev]);
-    setMessage('');
+    setChatMessages((prev) => [...prev, userMessage]);
 
     if (isCorrect) {
-      const normalizedAnswer = answer.toLowerCase().trim();
+      const normalizedAnswer = message.toLowerCase().trim();
       setUsedAnswers((prev) => new Set(prev).add(normalizedAnswer));
-      setScore((prev) => prev + 10);
-      toast.success(`+10 puntos! "${answer}" es correcto`);
+      
+      // Calculate points based on time and streak
+      const basePoints = 10;
+      const timeBonus = Math.floor(timeLeft / 5);
+      const streakBonus = streak * 2;
+      const pointsEarned = basePoints + timeBonus + streakBonus;
+      
+      setScore((prev) => prev + pointsEarned);
+      setCorrectAnswers((prev) => prev + 1);
+      setStreak((prev) => prev + 1);
+
+      // Show animation
+      setAnimationWord(message.toUpperCase());
+      setAnimationPoints(pointsEarned);
+      setShowAnimation(true);
+
+      // Add "ha acertado" message for others to see
+      setTimeout(() => {
+        const correctMessage: ChatMessage = {
+          id: `correct-${Date.now()}`,
+          username,
+          message: '',
+          type: 'correct',
+          timestamp: new Date()
+        };
+        setChatMessages((prev) => [...prev, correctMessage]);
+      }, 100);
+    } else {
+      // Reset streak on wrong answer
+      setStreak(0);
     }
   };
 
@@ -138,8 +222,36 @@ export default function WordBattleGame() {
     );
   }
 
+  // Show ranking between rounds
+  if (gamePhase === 'ranking') {
+    return (
+      <>
+        <RoundRanking
+          players={players}
+          roundNumber={round}
+          totalRounds={totalRounds}
+          onContinue={nextRound}
+        />
+        <ParticipationChat
+          messages={chatMessages}
+          onSendMessage={handleSendMessage}
+          disabled={true}
+          currentUsername={username}
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="flex gap-4 flex-1 min-h-0">
+    <>
+      {/* Correct answer animation */}
+      <CorrectAnswerAnimation
+        word={animationWord}
+        points={animationPoints}
+        isVisible={showAnimation}
+        onComplete={() => setShowAnimation(false)}
+      />
+
       {/* Game Area */}
       <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex flex-col">
         {/* Header Stats */}
@@ -153,18 +265,28 @@ export default function WordBattleGame() {
               <Clock className={`${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} size={20} />
               <span className={`font-bold text-lg ${timeLeft <= 10 ? 'text-destructive' : ''}`}>{timeLeft}s</span>
             </div>
+            {streak > 1 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 rounded-full">
+                <span className="text-sm font-bold text-orange-400">🔥 x{streak}</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Zap className={getDifficultyColor(currentCard?.difficulty || 'medium')} size={18} />
-            <span className={`text-sm font-medium ${getDifficultyColor(currentCard?.difficulty || 'medium')}`}>
-              {currentCard?.difficulty === 'easy' ? 'Fácil' : currentCard?.difficulty === 'hard' ? 'Difícil' : 'Medio'}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Ronda {round}/{totalRounds}
             </span>
+            <div className="flex items-center gap-2">
+              <Zap className={getDifficultyColor(currentCard?.difficulty || 'medium')} size={18} />
+              <span className={`text-sm font-medium ${getDifficultyColor(currentCard?.difficulty || 'medium')}`}>
+                {currentCard?.difficulty === 'easy' ? 'Fácil' : currentCard?.difficulty === 'hard' ? 'Difícil' : 'Medio'}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Card Display */}
         <div className="flex-1 flex flex-col items-center justify-center p-8">
-          {currentCard && (
+          {currentCard && gamePhase === 'playing' && (
             <div className="w-full max-w-lg">
               <div className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl p-8 border border-primary/30 shadow-lg">
                 <div className="text-center mb-4">
@@ -189,85 +311,30 @@ export default function WordBattleGame() {
             </div>
           )}
 
-          {!isPlaying && (
-            <div className="mt-8 flex gap-4">
+          {gamePhase === 'waiting' && (
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-foreground mb-4">Word Battle</h2>
+              <p className="text-muted-foreground mb-8">
+                ¡Adivina palabras en inglés antes de que se acabe el tiempo!
+              </p>
               <button
                 onClick={startGame}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-lg hover:bg-primary/90 transition-colors"
+                className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-lg hover:bg-primary/90 transition-colors animate-pulse"
               >
-                {score > 0 ? 'Jugar de Nuevo' : '▶ Comenzar'}
+                ▶ Comenzar Juego
               </button>
             </div>
-          )}
-
-          {isPlaying && (
-            <button
-              onClick={nextCard}
-              className="mt-6 px-6 py-2 bg-secondary text-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors"
-            >
-              Siguiente Carta →
-            </button>
           )}
         </div>
       </div>
 
       {/* Chat */}
-      <div className="w-80 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
-        <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border shrink-0">
-          <h3 className="font-semibold text-foreground">Chat de participación</h3>
-          <p className="text-xs text-muted-foreground mt-1">Escribe tus respuestas aquí</p>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 p-3 space-y-2 overflow-y-auto scrollbar-hide">
-          {chatMessages.length === 0 ? (
-            <div className="text-center text-muted-foreground text-sm py-8">
-              {isPlaying ? 'Escribe una palabra para comenzar' : 'Presiona "Comenzar" para jugar'}
-            </div>
-          ) : (
-            chatMessages.map((chat) => (
-              <div key={chat.id} className="flex gap-2 items-start">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 ${
-                  chat.isCorrect ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'
-                }`}>
-                  {chat.isCorrect ? <Check size={14} /> : <X size={14} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium text-foreground">{chat.user}</span>
-                    <span className="text-xs text-muted-foreground">{chat.time}</span>
-                  </div>
-                  <p className={`text-sm ${chat.isCorrect ? 'text-green-400' : 'text-muted-foreground line-through'}`}>
-                    {chat.message}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Input */}
-        <div className="p-3 border-t border-border shrink-0">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && isPlaying && handleSendMessage()}
-              placeholder={isPlaying ? 'Escribe una palabra...' : 'Inicia el juego primero'}
-              disabled={!isPlaying}
-              className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!isPlaying || !message.trim()}
-              className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <ParticipationChat
+        messages={chatMessages}
+        onSendMessage={handleSendMessage}
+        disabled={gamePhase !== 'playing'}
+        currentUsername={username}
+      />
+    </>
   );
 }

@@ -27,6 +27,7 @@ export type Database = {
           sort_order: number
           title: string
           updated_at: string
+          uses_chat: boolean
         }
         Insert: {
           badge?: string | null
@@ -40,6 +41,7 @@ export type Database = {
           sort_order?: number
           title: string
           updated_at?: string
+          uses_chat?: boolean
         }
         Update: {
           badge?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           sort_order?: number
           title?: string
           updated_at?: string
+          uses_chat?: boolean
         }
         Relationships: []
       }
