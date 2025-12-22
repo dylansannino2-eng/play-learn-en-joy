@@ -88,6 +88,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   const [round, setRound] = useState(1);
   const totalRounds = 5;
 
+  /** 🔒 Solo un acierto + sin chat luego */
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
 
   const [showAnimation, setShowAnimation] = useState(false);
@@ -97,6 +98,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   useEffect(() => {
     preloadSounds();
   }, [preloadSounds]);
+
+  /* ───────── Fetch card ───────── */
 
   const fetchRandomCard = useCallback(async () => {
     const { data, error } = await supabase.from("word_battle_cards").select("*").eq("is_active", true);
@@ -109,12 +112,14 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     const random = data[Math.floor(Math.random() * data.length)];
     setCurrentCard(random);
     setUsedAnswers(new Set());
-    setHasAnsweredCorrectly(false);
+    setHasAnsweredCorrectly(false); // 🔁 reset por ronda
   }, []);
 
   useEffect(() => {
     fetchRandomCard();
   }, [fetchRandomCard]);
+
+  /* ───────── Timer ───────── */
 
   useEffect(() => {
     if (gamePhase !== "playing" || timeLeft <= 0) return;
@@ -134,6 +139,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     return () => clearInterval(timer);
   }, [gamePhase, timeLeft, playSound]);
 
+  /* ───────── Start game ───────── */
+
   const startGame = () => {
     playSound("gameStart", 0.6);
     setGamePhase("playing");
@@ -145,6 +152,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     setHasAnsweredCorrectly(false);
     fetchRandomCard();
   };
+
+  /* ───────── Answer logic ───────── */
 
   const checkAnswer = (answer: string) => {
     if (!currentCard) return false;
@@ -182,23 +191,10 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       setScore((s) => s + points);
       setCorrectAnswers((c) => c + 1);
       setStreak((s) => s + 1);
-      setHasAnsweredCorrectly(true);
+      setHasAnsweredCorrectly(true); // 🔒 bloquea chat y score
 
       await updateScore(score + points, correctAnswers + 1, streak + 1);
       await broadcastCorrectAnswer(message, points);
-
-      /* ✅ MENSAJE DE SISTEMA AL CHAT */
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `system-${Date.now()}`,
-          username: "Sistema",
-          message: `${username} ha acertado`,
-          type: "system",
-          timestamp: new Date(),
-          isCurrentUser: false,
-        },
-      ]);
 
       setAnimationWord(message.toUpperCase());
       setAnimationPoints(points);
@@ -209,6 +205,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       await updateScore(score, correctAnswers, 0);
     }
   };
+
+  /* ───────── Ranking ───────── */
 
   if (gamePhase === "ranking") {
     return (
@@ -226,6 +224,8 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       />
     );
   }
+
+  /* ───────── Render ───────── */
 
   return (
     <>
@@ -268,9 +268,37 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
           </div>
         </div>
 
+        {/* Game area */}
         <div className="flex-1 flex items-center justify-center p-8">
           {gamePhase === "waiting" && (
             <GameLobbyInline isConnected={isConnected} playerCount={playerCount} onStartGame={startGame} />
+          )}
+
+          {currentCard && gamePhase === "playing" && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 120 }}
+              className="mx-auto w-72 md:w-80 aspect-[3/5] bg-white rounded-2xl border-4 border-neutral-200 shadow-xl overflow-hidden flex flex-col"
+            >
+              <div className="h-14 bg-black" />
+
+              <div className="flex-1 px-6 py-8 flex flex-col justify-center text-center">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground mb-4">
+                  {currentCard.category}
+                </span>
+
+                <h2 className="text-xl md:text-2xl font-extrabold text-black leading-snug">{currentCard.prompt}</h2>
+
+                <div className="mt-6 flex justify-center">
+                  <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center">
+                    <span className="text-3xl font-black text-white">{currentCard.letter}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-16 bg-black" />
+            </motion.div>
           )}
         </div>
       </div>
