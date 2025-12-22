@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Trophy, Clock, Zap } from 'lucide-react';
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
+import { useGameSounds } from '@/hooks/useGameSounds';
+import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 
 interface WordBattleCard {
   id: string;
@@ -18,19 +19,18 @@ interface WordBattleCard {
 
 type GamePhase = 'waiting' | 'playing' | 'ranking';
 
-interface PlayerScore {
-  rank: number;
-  username: string;
-  points: number;
-  correctAnswers: number;
-  streak: number;
-  isCurrentUser: boolean;
-}
-
 export default function WordBattleGame() {
-  const { user } = useAuth();
-  const username = user?.email?.split('@')[0] || 'Jugador';
-  
+  const { playSound, preloadSounds } = useGameSounds();
+  const {
+    players,
+    playerCount,
+    isConnected,
+    username,
+    updateScore,
+    broadcastCorrectAnswer,
+    correctAnswerEvents,
+  } = useMultiplayerGame('word-battle');
+
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [score, setScore] = useState(0);
@@ -42,14 +42,36 @@ export default function WordBattleGame() {
   const [isLoading, setIsLoading] = useState(true);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
-  
+
   // Animation state
   const [showAnimation, setShowAnimation] = useState(false);
   const [animationWord, setAnimationWord] = useState('');
   const [animationPoints, setAnimationPoints] = useState(0);
 
-  // Mock players for ranking (in real app, this would come from Supabase Realtime)
-  const [players, setPlayers] = useState<PlayerScore[]>([]);
+  // Preload sounds on mount
+  useEffect(() => {
+    preloadSounds();
+  }, [preloadSounds]);
+
+  // Add correct answer events from other players to chat
+  useEffect(() => {
+    correctAnswerEvents.forEach((event) => {
+      if (event.username !== username) {
+        const newMessage: ChatMessage = {
+          id: `correct-${Date.now()}-${event.username}`,
+          username: event.username,
+          message: '',
+          type: 'correct',
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => {
+          // Avoid duplicates
+          if (prev.some((m) => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      }
+    });
+  }, [correctAnswerEvents, username]);
 
   const fetchRandomCard = useCallback(async () => {
     const { data, error } = await supabase
@@ -72,12 +94,17 @@ export default function WordBattleGame() {
     fetchRandomCard();
   }, [fetchRandomCard]);
 
+  // Timer with sound effects
   useEffect(() => {
     if (gamePhase !== 'playing' || timeLeft <= 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
+        if (prev <= 6 && prev > 1) {
+          playSound('tick', 0.3);
+        }
         if (prev <= 1) {
+          playSound('roundEnd', 0.6);
           endRound();
           return 0;
         }
@@ -86,42 +113,16 @@ export default function WordBattleGame() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, timeLeft]);
+  }, [gamePhase, timeLeft, playSound]);
 
-  const endRound = () => {
+  const endRound = useCallback(() => {
     setGamePhase('ranking');
-    
-    // Generate ranking with current user
-    const mockPlayers: PlayerScore[] = [
-      { rank: 1, username, points: score, correctAnswers, streak, isCurrentUser: true },
-      { rank: 2, username: 'Player2', points: Math.floor(score * 0.8), correctAnswers: Math.floor(correctAnswers * 0.7), streak: 2, isCurrentUser: false },
-      { rank: 3, username: 'Player3', points: Math.floor(score * 0.6), correctAnswers: Math.floor(correctAnswers * 0.5), streak: 1, isCurrentUser: false },
-    ].sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, rank: i + 1 }));
-    
-    setPlayers(mockPlayers);
-  };
-
-  const startGame = () => {
-    setGamePhase('playing');
-    setTimeLeft(30);
-    setScore(0);
-    setCorrectAnswers(0);
-    setStreak(0);
-    setUsedAnswers(new Set());
-    setChatMessages([{
-      id: 'start',
-      username: 'Sistema',
-      message: '¡La ronda ha comenzado!',
-      type: 'system',
-      timestamp: new Date()
-    }]);
-    setRound(1);
-    fetchRandomCard();
-  };
+  }, []);
 
   const nextRound = useCallback(() => {
     if (round >= totalRounds) {
       toast.success(`¡Juego terminado! Puntuación final: ${score}`);
+      playSound('roundEnd', 0.7);
       setGamePhase('waiting');
       setRound(1);
       setScore(0);
@@ -129,27 +130,49 @@ export default function WordBattleGame() {
       setStreak(0);
       return;
     }
-    
+
     setRound((r) => r + 1);
     setTimeLeft(30);
     setUsedAnswers(new Set());
-    setChatMessages([]); // Clear chat between rounds
+    setChatMessages([]);
     setGamePhase('playing');
+    playSound('gameStart', 0.5);
     fetchRandomCard();
-  }, [round, totalRounds, score, fetchRandomCard]);
+  }, [round, totalRounds, score, fetchRandomCard, playSound]);
+
+  const startGame = () => {
+    playSound('gameStart', 0.6);
+    setGamePhase('playing');
+    setTimeLeft(30);
+    setScore(0);
+    setCorrectAnswers(0);
+    setStreak(0);
+    setUsedAnswers(new Set());
+    setChatMessages([
+      {
+        id: 'start',
+        username: 'Sistema',
+        message: '¡La ronda ha comenzado!',
+        type: 'system',
+        timestamp: new Date(),
+      },
+    ]);
+    setRound(1);
+    fetchRandomCard();
+  };
 
   const checkAnswer = (answer: string): boolean => {
     if (!currentCard) return false;
-    
+
     const normalizedAnswer = answer.toLowerCase().trim();
     const isCorrect = currentCard.correct_answers.some(
       (correct) => correct.toLowerCase() === normalizedAnswer
     );
-    
+
     return isCorrect && !usedAnswers.has(normalizedAnswer);
   };
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string) => {
     if (!currentCard || gamePhase !== 'playing') return;
 
     const isCorrect = checkAnswer(message);
@@ -162,52 +185,70 @@ export default function WordBattleGame() {
       message,
       type: 'message',
       timestamp: now,
-      isCurrentUser: true
+      isCurrentUser: true,
     };
     setChatMessages((prev) => [...prev, userMessage]);
 
     if (isCorrect) {
+      playSound('correct', 0.6);
+
       const normalizedAnswer = message.toLowerCase().trim();
       setUsedAnswers((prev) => new Set(prev).add(normalizedAnswer));
-      
+
       // Calculate points based on time and streak
       const basePoints = 10;
       const timeBonus = Math.floor(timeLeft / 5);
       const streakBonus = streak * 2;
       const pointsEarned = basePoints + timeBonus + streakBonus;
-      
-      setScore((prev) => prev + pointsEarned);
-      setCorrectAnswers((prev) => prev + 1);
-      setStreak((prev) => prev + 1);
+
+      const newScore = score + pointsEarned;
+      const newCorrectAnswers = correctAnswers + 1;
+      const newStreak = streak + 1;
+
+      setScore(newScore);
+      setCorrectAnswers(newCorrectAnswers);
+      setStreak(newStreak);
+
+      // Update multiplayer score
+      await updateScore(newScore, newCorrectAnswers, newStreak);
+
+      // Broadcast to other players
+      await broadcastCorrectAnswer(message, pointsEarned);
 
       // Show animation
       setAnimationWord(message.toUpperCase());
       setAnimationPoints(pointsEarned);
       setShowAnimation(true);
 
-      // Add "ha acertado" message for others to see
+      // Add "ha acertado" message for self
       setTimeout(() => {
         const correctMessage: ChatMessage = {
           id: `correct-${Date.now()}`,
           username,
           message: '',
           type: 'correct',
-          timestamp: new Date()
+          timestamp: new Date(),
         };
         setChatMessages((prev) => [...prev, correctMessage]);
       }, 100);
     } else {
+      playSound('wrong', 0.4);
       // Reset streak on wrong answer
       setStreak(0);
+      await updateScore(score, correctAnswers, 0);
     }
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return 'text-green-400';
-      case 'medium': return 'text-yellow-400';
-      case 'hard': return 'text-red-400';
-      default: return 'text-muted-foreground';
+      case 'easy':
+        return 'text-green-400';
+      case 'medium':
+        return 'text-yellow-400';
+      case 'hard':
+        return 'text-red-400';
+      default:
+        return 'text-muted-foreground';
     }
   };
 
@@ -222,10 +263,14 @@ export default function WordBattleGame() {
   // Show ranking between rounds
   if (gamePhase === 'ranking') {
     const isLastRound = round >= totalRounds;
+    const rankingPlayers = players.length > 0 ? players : [
+      { rank: 1, username, points: score, correctAnswers, streak, isCurrentUser: true }
+    ];
+    
     return (
       <>
         <RoundRanking
-          players={players}
+          players={rankingPlayers}
           roundNumber={round}
           totalRounds={totalRounds}
           countdownSeconds={5}
@@ -268,8 +313,13 @@ export default function WordBattleGame() {
               <span className="font-bold text-lg">{score}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className={`${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} size={20} />
-              <span className={`font-bold text-lg ${timeLeft <= 10 ? 'text-destructive' : ''}`}>{timeLeft}s</span>
+              <Clock
+                className={`${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}
+                size={20}
+              />
+              <span className={`font-bold text-lg ${timeLeft <= 10 ? 'text-destructive' : ''}`}>
+                {timeLeft}s
+              </span>
             </div>
             {streak > 1 && (
               <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 rounded-full">
@@ -278,13 +328,30 @@ export default function WordBattleGame() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Ronda {round}/{totalRounds}
-            </span>
+            {/* Player count and connection status */}
+            <div className="flex items-center gap-2 px-2 py-1 bg-secondary rounded-full">
+              {isConnected ? (
+                <Wifi className="w-4 h-4 text-green-400" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-destructive" />
+              )}
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{playerCount}</span>
+            </div>
+            <span className="text-sm text-muted-foreground">Ronda {round}/{totalRounds}</span>
             <div className="flex items-center gap-2">
-              <Zap className={getDifficultyColor(currentCard?.difficulty || 'medium')} size={18} />
-              <span className={`text-sm font-medium ${getDifficultyColor(currentCard?.difficulty || 'medium')}`}>
-                {currentCard?.difficulty === 'easy' ? 'Fácil' : currentCard?.difficulty === 'hard' ? 'Difícil' : 'Medio'}
+              <Zap
+                className={getDifficultyColor(currentCard?.difficulty || 'medium')}
+                size={18}
+              />
+              <span
+                className={`text-sm font-medium ${getDifficultyColor(currentCard?.difficulty || 'medium')}`}
+              >
+                {currentCard?.difficulty === 'easy'
+                  ? 'Fácil'
+                  : currentCard?.difficulty === 'hard'
+                  ? 'Difícil'
+                  : 'Medio'}
               </span>
             </div>
           </div>
@@ -320,9 +387,24 @@ export default function WordBattleGame() {
           {gamePhase === 'waiting' && (
             <div className="text-center">
               <h2 className="text-3xl font-bold text-foreground mb-4">Word Battle</h2>
-              <p className="text-muted-foreground mb-8">
+              <p className="text-muted-foreground mb-4">
                 ¡Adivina palabras en inglés antes de que se acabe el tiempo!
               </p>
+              <div className="flex items-center justify-center gap-2 mb-8 text-sm">
+                {isConnected ? (
+                  <span className="flex items-center gap-1 text-green-400">
+                    <Wifi size={16} /> Conectado
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <WifiOff size={16} /> Conectando...
+                  </span>
+                )}
+                <span className="text-muted-foreground">•</span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Users size={16} /> {playerCount} jugador{playerCount !== 1 ? 'es' : ''}
+                </span>
+              </div>
               <button
                 onClick={startGame}
                 className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-lg hover:bg-primary/90 transition-colors animate-pulse"
