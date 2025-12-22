@@ -1,13 +1,12 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Check, Users } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { subscribeGameEvent } from "@/lib/gameEvents";
+import { useState, useRef, useEffect } from 'react';
+import { Send, Check, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ChatMessage {
   id: string;
   username: string;
   message: string;
-  type: "message" | "correct" | "system";
+  type: 'message' | 'correct' | 'system';
   timestamp: Date;
   isCurrentUser?: boolean;
 }
@@ -15,7 +14,6 @@ export interface ChatMessage {
 interface ParticipationChatProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
-  onAddMessage?: (message: ChatMessage) => void; // 👈 NUEVO (opcional)
   disabled?: boolean;
   placeholder?: string;
   currentUsername?: string;
@@ -24,47 +22,27 @@ interface ParticipationChatProps {
 export default function ParticipationChat({
   messages,
   onSendMessage,
-  onAddMessage,
   disabled = false,
-  placeholder = "Escribe tu respuesta...",
-  currentUsername,
+  placeholder = 'Escribe tu respuesta...',
+  currentUsername
 }: ParticipationChatProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 🔥 NUEVO: escuchar aciertos globales
   useEffect(() => {
-    if (!onAddMessage) return;
-
-    const unsubscribe = subscribeGameEvent((event) => {
-      if (event.type === "PLAYER_CORRECT") {
-        onAddMessage({
-          id: crypto.randomUUID(),
-          username: event.username,
-          message: "",
-          type: "correct",
-          timestamp: new Date(),
-        });
-      }
-    });
-
-    return unsubscribe;
-  }, [onAddMessage]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
       onSendMessage(input.trim());
-      setInput("");
+      setInput('');
     }
   };
 
   const renderMessage = (msg: ChatMessage) => {
-    if (msg.type === "correct") {
+    if (msg.type === 'correct') {
       return (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -81,17 +59,28 @@ export default function ParticipationChat({
       );
     }
 
-    if (msg.type === "system") {
+    if (msg.type === 'system') {
       return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-2">
-          <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{msg.message}</span>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-2"
+        >
+          <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
+            {msg.message}
+          </span>
         </motion.div>
       );
     }
 
+    // Regular message - only show to the user who sent it
     if (msg.isCurrentUser) {
       return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 items-start">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex gap-2 items-start"
+        >
           <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
             {msg.username.charAt(0).toUpperCase()}
           </div>
@@ -99,10 +88,7 @@ export default function ParticipationChat({
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-medium text-primary">{msg.username}</span>
               <span className="text-xs text-muted-foreground">
-                {msg.timestamp.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
             <p className="text-sm text-muted-foreground">{msg.message}</p>
@@ -111,6 +97,7 @@ export default function ParticipationChat({
       );
     }
 
+    // Other users' messages - don't show the actual message content
     return null;
   };
 
@@ -130,10 +117,14 @@ export default function ParticipationChat({
         <AnimatePresence>
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
-              {disabled ? "Esperando a que inicie la ronda..." : "Sé el primero en responder"}
+              {disabled ? 'Esperando a que inicie la ronda...' : 'Sé el primero en responder'}
             </div>
           ) : (
-            messages.map((msg) => <div key={msg.id}>{renderMessage(msg)}</div>)
+            messages.map((msg) => (
+              <div key={msg.id}>
+                {renderMessage(msg)}
+              </div>
+            ))
           )}
         </AnimatePresence>
         <div ref={messagesEndRef} />
@@ -146,7 +137,7 @@ export default function ParticipationChat({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={disabled ? "Esperando..." : placeholder}
+            placeholder={disabled ? 'Esperando...' : placeholder}
             disabled={disabled}
             className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
           />
