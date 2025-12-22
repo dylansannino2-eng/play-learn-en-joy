@@ -160,102 +160,34 @@ function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInl
   }
 
   return (
-    <div className="w-full max-w-4xl">
-      <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-foreground mb-2">Word Battle</h2>
-        <p className="text-muted-foreground mb-4">
-          ¡Adivina palabras en inglés antes de que se acabe el tiempo!
-        </p>
-        <div className="flex items-center justify-center gap-2 text-sm">
-          {isConnected ? (
-            <span className="flex items-center gap-1 text-green-400">
-              <Wifi size={16} /> Conectado
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <WifiOff size={16} /> Conectando...
-            </span>
-          )}
-          <span className="text-muted-foreground">•</span>
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Users size={16} /> {playerCount} jugador{playerCount !== 1 ? 'es' : ''}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Play Card */}
-        <motion.div
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl p-5 border border-primary/30"
-        >
-          <h3 className="text-lg font-bold text-foreground text-center mb-4">
-            Jugar
-          </h3>
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="w-full max-w-sm"
+    >
+      <div className="bg-primary rounded-2xl p-8 border-4 border-foreground/20 shadow-xl">
+        <h2 className="text-3xl font-black text-primary-foreground text-center mb-6">
+          Play
+        </h2>
+        
+        <div className="space-y-4">
           <button
             onClick={onStartGame}
-            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-amber-100 hover:bg-amber-200 text-foreground font-bold text-lg rounded-xl transition-colors border-2 border-foreground/20"
           >
-            <Play size={20} />
-            Juego Rápido
+            Play
           </button>
-        </motion.div>
-
-        {/* Create Room Card */}
-        <motion.div
-          custom={1}
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className="bg-gradient-to-br from-accent/20 to-accent/10 rounded-2xl p-5 border border-accent/30"
-        >
-          <h3 className="text-lg font-bold text-foreground text-center mb-4">
-            Crear Sala
-          </h3>
+          
           <button
             onClick={handleCreateRoom}
             disabled={isCreating}
-            className="w-full py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3 bg-amber-100 hover:bg-amber-200 text-foreground font-bold text-lg rounded-xl transition-colors border-2 border-foreground/20 disabled:opacity-50"
           >
-            <Plus size={20} />
-            {isCreating ? 'Creando...' : 'Nueva Sala'}
+            {isCreating ? 'Creating...' : 'Create room'}
           </button>
-        </motion.div>
-
-        {/* Join Room Card */}
-        <motion.div
-          custom={2}
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className="bg-gradient-to-br from-secondary to-secondary/80 rounded-2xl p-5 border border-border"
-        >
-          <h3 className="text-lg font-bold text-foreground text-center mb-4">
-            Unirse a Sala
-          </h3>
-          <div className="space-y-2">
-            <Input
-              placeholder="Código"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 4))}
-              maxLength={4}
-              className="text-center text-lg font-bold tracking-widest bg-background border-border"
-            />
-            <button
-              onClick={handleJoinRoom}
-              disabled={isJoining || joinCode.length !== 4}
-              className="w-full py-3 bg-foreground hover:bg-foreground/90 text-background font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Users size={20} />
-              {isJoining ? 'Buscando...' : 'Unirse'}
-            </button>
-          </div>
-        </motion.div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
