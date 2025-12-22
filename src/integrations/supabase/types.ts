@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_rooms: {
+        Row: {
+          code: string
+          created_at: string
+          current_round: number
+          game_slug: string
+          host_id: string | null
+          host_name: string
+          id: string
+          max_players: number
+          settings: Json | null
+          status: string
+          total_rounds: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_round?: number
+          game_slug: string
+          host_id?: string | null
+          host_name: string
+          id?: string
+          max_players?: number
+          settings?: Json | null
+          status?: string
+          total_rounds?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_round?: number
+          game_slug?: string
+          host_id?: string | null
+          host_name?: string
+          id?: string
+          max_players?: number
+          settings?: Json | null
+          status?: string
+          total_rounds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       games: {
         Row: {
           badge: string | null
@@ -199,6 +244,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_room_code: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
