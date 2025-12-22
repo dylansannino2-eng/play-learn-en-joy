@@ -88,7 +88,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   const [round, setRound] = useState(1);
   const totalRounds = 5;
 
-  /** 🔒 NUEVO: solo un acierto por ronda */
+  /** 🔒 Solo un acierto + sin chat luego */
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
 
   const [showAnimation, setShowAnimation] = useState(false);
@@ -178,11 +178,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       },
     ]);
 
-    /** 🔒 ya acertó en esta ronda */
-    if (isCorrect && hasAnsweredCorrectly) {
-      playSound("correct", 0.3); // feedback suave
-      return;
-    }
+    if (isCorrect && hasAnsweredCorrectly) return;
 
     if (isCorrect) {
       playSound("correct", 0.6);
@@ -195,7 +191,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       setScore((s) => s + points);
       setCorrectAnswers((c) => c + 1);
       setStreak((s) => s + 1);
-      setHasAnsweredCorrectly(true); // 🔒 bloqueo
+      setHasAnsweredCorrectly(true); // 🔒 bloquea chat y score
 
       await updateScore(score + points, correctAnswers + 1, streak + 1);
       await broadcastCorrectAnswer(message, points);
@@ -299,10 +295,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
                     <span className="text-3xl font-black text-white">{currentCard.letter}</span>
                   </div>
                 </div>
-
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {usedAnswers.size} / {currentCard.correct_answers.length} respuestas
-                </p>
               </div>
 
               <div className="h-16 bg-black" />
@@ -314,7 +306,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       <ParticipationChat
         messages={chatMessages}
         onSendMessage={handleSendMessage}
-        disabled={gamePhase !== "playing"}
+        disabled={gamePhase !== "playing" || hasAnsweredCorrectly}
         currentUsername={username}
       />
     </>
