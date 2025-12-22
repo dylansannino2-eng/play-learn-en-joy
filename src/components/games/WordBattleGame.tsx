@@ -88,7 +88,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   const [round, setRound] = useState(1);
   const totalRounds = 5;
 
-  /** 🔒 solo un acierto + sin chat */
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
 
   const [showAnimation, setShowAnimation] = useState(false);
@@ -98,8 +97,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
   useEffect(() => {
     preloadSounds();
   }, [preloadSounds]);
-
-  /* ───────── Fetch card ───────── */
 
   const fetchRandomCard = useCallback(async () => {
     const { data, error } = await supabase.from("word_battle_cards").select("*").eq("is_active", true);
@@ -119,8 +116,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     fetchRandomCard();
   }, [fetchRandomCard]);
 
-  /* ───────── Timer ───────── */
-
   useEffect(() => {
     if (gamePhase !== "playing" || timeLeft <= 0) return;
 
@@ -139,8 +134,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     return () => clearInterval(timer);
   }, [gamePhase, timeLeft, playSound]);
 
-  /* ───────── Start game ───────── */
-
   const startGame = () => {
     playSound("gameStart", 0.6);
     setGamePhase("playing");
@@ -152,8 +145,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     setHasAnsweredCorrectly(false);
     fetchRandomCard();
   };
-
-  /* ───────── Answer logic ───────── */
 
   const checkAnswer = (answer: string) => {
     if (!currentCard) return false;
@@ -183,6 +174,9 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     if (isCorrect) {
       playSound("correct", 0.6);
 
+      const normalized = message.toLowerCase().trim();
+      setUsedAnswers((s) => new Set(s).add(normalized));
+
       const points = 10 + Math.floor(timeLeft / 5) + streak * 2;
 
       setScore((s) => s + points);
@@ -193,7 +187,7 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       await updateScore(score + points, correctAnswers + 1, streak + 1);
       await broadcastCorrectAnswer(message, points);
 
-      /** 🟢 MENSAJE DE SISTEMA */
+      /* ✅ MENSAJE DE SISTEMA AL CHAT */
       setChatMessages((prev) => [
         ...prev,
         {
@@ -216,8 +210,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
     }
   };
 
-  /* ───────── Ranking ───────── */
-
   if (gamePhase === "ranking") {
     return (
       <RoundRanking
@@ -234,8 +226,6 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
       />
     );
   }
-
-  /* ───────── Render ───────── */
 
   return (
     <>
@@ -258,6 +248,11 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
               <Clock className={timeLeft <= 10 ? "text-destructive animate-pulse" : ""} />
               <span>{timeLeft}s</span>
             </div>
+            {streak > 1 && (
+              <span className="px-2 py-1 bg-orange-500/20 rounded-full text-orange-400 text-sm font-bold">
+                🔥 x{streak}
+              </span>
+            )}
           </div>
 
           <div className="flex gap-4 items-center text-sm">
@@ -273,20 +268,9 @@ export default function WordBattleGame({ roomCode }: WordBattleGameProps) {
           </div>
         </div>
 
-        {/* Game area */}
         <div className="flex-1 flex items-center justify-center p-8">
           {gamePhase === "waiting" && (
             <GameLobbyInline isConnected={isConnected} playerCount={playerCount} onStartGame={startGame} />
-          )}
-
-          {currentCard && gamePhase === "playing" && (
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="mx-auto w-72 md:w-80 aspect-[3/5] bg-white rounded-2xl border-4 border-neutral-200 shadow-xl"
-            >
-              {/* carta */}
-            </motion.div>
           )}
         </div>
       </div>
