@@ -3,7 +3,7 @@ import GameCard from "./GameCard";
 
 interface Game {
   id: string | number;
-  slug?: string;
+  slug?: string | null;
   title: string;
   image: string;
   badge?: "new" | "hot" | "top" | "updated" | null;
@@ -30,7 +30,7 @@ const GameSection = ({ title, games }: GameSectionProps) => {
           <GameCard 
             key={game.id}
             id={String(game.id)}
-            slug={'slug' in game ? game.slug : undefined}
+            slug={game.slug || undefined}
             title={game.title} 
             image={game.image} 
             badge={game.badge}
