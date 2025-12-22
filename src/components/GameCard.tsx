@@ -6,72 +6,74 @@ interface GameCardProps {
   id: string;
   slug?: string;
   title: string;
-  image: string;
+  image?: string;
   badge?: "new" | "hot" | "top" | "updated" | null;
   delay?: number;
 }
 
 const badgeConfig = {
-  new: {
-    label: "New",
-    icon: Sparkles,
-    className: "bg-badge-new text-foreground",
-  },
-  hot: {
-    label: "Hot",
-    icon: Flame,
-    className: "bg-badge-hot text-foreground",
-  },
-  top: {
-    label: "Top",
-    icon: Star,
-    className: "bg-badge-top text-accent-foreground",
-  },
-  updated: {
-    label: "Updated",
-    icon: RefreshCw,
-    className: "bg-badge-updated text-accent-foreground",
-  },
+  new: { label: "New", icon: Sparkles, className: "bg-badge-new" },
+  hot: { label: "Hot", icon: Flame, className: "bg-badge-hot" },
+  top: { label: "Top", icon: Star, className: "bg-badge-top" },
+  updated: { label: "Updated", icon: RefreshCw, className: "bg-badge-updated" },
 };
 
-const GameCard = ({ id, slug, title, image, badge, delay = 0 }: GameCardProps) => {
+const GameCard = ({ id, slug, title, badge, delay = 0 }: GameCardProps) => {
   const BadgeIcon = badge ? badgeConfig[badge].icon : null;
   const gameUrl = slug ? `/game/${slug}` : `/game/${id}`;
-  
+
   return (
-    <Link 
+    <Link
       to={gameUrl}
-      className="group relative flex-shrink-0 w-52 cursor-pointer animate-slide-in block"
+      className="group relative w-56 flex-shrink-0 animate-slide-in block"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="relative overflow-hidden rounded-2xl aspect-[4/3] bg-card">
-        <img 
-          src={image} 
-          alt={title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        
+      <div
+        className="
+          relative h-72 rounded-2xl bg-[#fafafa]
+          border-2 border-muted
+          shadow-md
+          p-4
+          flex flex-col justify-between
+          transition-all duration-300
+          group-hover:shadow-xl
+          group-hover:-translate-y-1
+        "
+      >
+        {/* Badge */}
         {badge && (
-          <div className={cn(
-            "absolute top-2 left-2 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-lg",
-            badgeConfig[badge].className
-          )}>
+          <div
+            className={cn(
+              "absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1",
+              badgeConfig[badge].className,
+            )}
+          >
             {BadgeIcon && <BadgeIcon size={12} />}
             {badgeConfig[badge].label}
           </div>
         )}
-        
-        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <button className="w-full py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-sm transition-colors">
-            Jugar Ahora
-          </button>
+
+        {/* Texto */}
+        <div className="flex-1 flex items-center justify-center text-center px-2">
+          <h3 className="font-bold text-base text-foreground leading-snug">{title}</h3>
         </div>
+
+        {/* Emojis */}
+        <div className="flex justify-center gap-4 text-3xl">👍 😔</div>
+
+        {/* CTA */}
+        <button
+          className="
+            mt-3 w-full py-2 rounded-lg
+            bg-primary text-primary-foreground
+            font-bold text-sm
+            opacity-0 group-hover:opacity-100
+            transition-opacity
+          "
+        >
+          Jugar ahora
+        </button>
       </div>
-      
-      <h3 className="mt-2 font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
-        {title}
-      </h3>
     </Link>
   );
 };
