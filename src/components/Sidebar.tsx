@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Home, Gamepad2, Users, Trophy, Flame, Sparkles, BookOpen, GraduationCap, Brain, MessageCircle, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -5,50 +6,64 @@ interface SidebarItemProps {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
+  expanded?: boolean;
 }
 
-const SidebarItem = ({ icon, label, active }: SidebarItemProps) => (
+const SidebarItem = ({ icon, label, active, expanded }: SidebarItemProps) => (
   <button
     className={cn(
-      "w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 group relative",
+      "h-12 flex items-center rounded-xl transition-all duration-200 gap-3",
+      expanded ? "w-full px-3" : "w-12 justify-center",
       active 
         ? "bg-primary text-primary-foreground" 
         : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
     )}
-    title={label}
+    title={!expanded ? label : undefined}
   >
-    {icon}
-    <span className="absolute left-14 bg-card px-3 py-1.5 rounded-lg text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
+    <span className="flex-shrink-0">{icon}</span>
+    <span className={cn(
+      "text-sm font-semibold whitespace-nowrap transition-all duration-200 overflow-hidden",
+      expanded ? "opacity-100 w-auto" : "opacity-0 w-0"
+    )}>
       {label}
     </span>
   </button>
 );
 
 const Sidebar = () => {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <aside className="fixed left-0 top-0 h-full w-16 bg-sidebar flex flex-col items-center py-4 gap-2 z-40 border-r border-sidebar-border">
-      <div className="mb-4">
+    <aside 
+      className={cn(
+        "fixed left-0 top-0 h-full bg-sidebar flex flex-col py-4 gap-2 z-40 border-r border-sidebar-border transition-all duration-300 ease-in-out",
+        expanded ? "w-52 px-3" : "w-16 items-center"
+      )}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
+      <div className={cn("mb-4", expanded && "px-1")}>
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
           <BookOpen className="w-5 h-5 text-foreground" />
         </div>
       </div>
       
       <nav className="flex flex-col gap-1 flex-1">
-        <SidebarItem icon={<Home size={22} />} label="Inicio" active />
-        <SidebarItem icon={<Sparkles size={22} />} label="Nuevos" />
-        <SidebarItem icon={<Flame size={22} />} label="Populares" />
-        <SidebarItem icon={<Trophy size={22} />} label="Ranking" />
+        <SidebarItem icon={<Home size={22} />} label="Inicio" active expanded={expanded} />
+        <SidebarItem icon={<Sparkles size={22} />} label="Nuevos" expanded={expanded} />
+        <SidebarItem icon={<Flame size={22} />} label="Populares" expanded={expanded} />
+        <SidebarItem icon={<Trophy size={22} />} label="Ranking" expanded={expanded} />
         
-        <div className="w-8 h-px bg-sidebar-border my-2" />
+        <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
         
-        <SidebarItem icon={<GraduationCap size={22} />} label="Vocabulario" />
-        <SidebarItem icon={<MessageCircle size={22} />} label="Gramática" />
-        <SidebarItem icon={<Brain size={22} />} label="Pronunciación" />
-        <SidebarItem icon={<Users size={22} />} label="Multijugador" />
-        <SidebarItem icon={<Gamepad2 size={22} />} label="Arcade" />
+        <SidebarItem icon={<GraduationCap size={22} />} label="Vocabulario" expanded={expanded} />
+        <SidebarItem icon={<MessageCircle size={22} />} label="Gramática" expanded={expanded} />
+        <SidebarItem icon={<Brain size={22} />} label="Pronunciación" expanded={expanded} />
+        <SidebarItem icon={<Users size={22} />} label="Multijugador" expanded={expanded} />
+        <SidebarItem icon={<Gamepad2 size={22} />} label="Arcade" expanded={expanded} />
       </nav>
       
-      <SidebarItem icon={<Settings size={22} />} label="Configuración" />
+      <SidebarItem icon={<Settings size={22} />} label="Configuración" expanded={expanded} />
     </aside>
   );
 };
