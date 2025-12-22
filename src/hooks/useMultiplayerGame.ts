@@ -24,7 +24,7 @@ interface CorrectAnswerEvent {
   answer: string;
 }
 
-export function useMultiplayerGame(gameSlug: string) {
+export function useMultiplayerGame(gameSlug: string, roomCode?: string) {
   const { user } = useAuth();
   const username = user?.email?.split('@')[0] || `Player_${Math.random().toString(36).slice(2, 6)}`;
   const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
@@ -36,7 +36,8 @@ export function useMultiplayerGame(gameSlug: string) {
 
   // Initialize realtime connection
   useEffect(() => {
-    const channelName = `game:${gameSlug}`;
+    // Use room code if provided, otherwise use public channel
+    const channelName = roomCode ? `game:${gameSlug}:${roomCode}` : `game:${gameSlug}:public`;
     
     const channel = supabase.channel(channelName, {
       config: {
@@ -110,7 +111,7 @@ export function useMultiplayerGame(gameSlug: string) {
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [gameSlug, oderId, username]);
+  }, [gameSlug, roomCode, oderId, username]);
 
   // Update presence with new score
   const updateScore = useCallback(async (points: number, correctAnswers: number, streak: number) => {
