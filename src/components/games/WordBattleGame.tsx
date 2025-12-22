@@ -19,7 +19,12 @@ interface WordBattleCard {
 
 type GamePhase = 'waiting' | 'playing' | 'ranking';
 
-export default function WordBattleGame() {
+interface WordBattleGameProps {
+  roomCode?: string;
+  onBack?: () => void;
+}
+
+export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
   const {
     players,
@@ -29,7 +34,7 @@ export default function WordBattleGame() {
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
-  } = useMultiplayerGame('word-battle');
+  } = useMultiplayerGame('word-battle', roomCode);
 
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
