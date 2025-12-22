@@ -1,14 +1,32 @@
-import { Search, Bell, Heart, User } from "lucide-react";
+import { Search, Bell, Heart, User, LogOut, Settings } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
+  const navigate = useNavigate();
+  const { user, isAdmin, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <header className="fixed top-0 left-16 right-0 h-16 bg-background/95 backdrop-blur-sm border-b border-border z-30 flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-extrabold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        <Link to="/" className="text-xl font-extrabold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           EnglishPlay
-        </h1>
+        </Link>
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-badge-new/20 text-badge-new">
           BETA
         </span>
@@ -34,10 +52,46 @@ const Header = () => {
             3
           </span>
         </Button>
-        <Button className="ml-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-5">
-          <User size={18} className="mr-2" />
-          Iniciar sesión
-        </Button>
+        
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="ml-2 gap-2 rounded-xl px-3">
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden md:inline text-sm font-medium">
+                  {user.email?.split('@')[0]}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Panel Admin
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button 
+            onClick={() => navigate('/auth')}
+            className="ml-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-5"
+          >
+            <User size={18} className="mr-2" />
+            Iniciar sesión
+          </Button>
+        )}
       </div>
     </header>
   );
