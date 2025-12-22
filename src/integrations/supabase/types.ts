@@ -10,112 +10,94 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
-      connection_codes: {
+      games: {
         Row: {
-          code: string
-          connected_at: string | null
-          content_type: string | null
-          content_url: string | null
+          badge: string | null
+          category: string
           created_at: string
-          expires_at: string
+          description: string | null
           id: string
-          is_connected: boolean
-          tv_session_id: string
+          image: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_at: string
         }
         Insert: {
-          code: string
-          connected_at?: string | null
-          content_type?: string | null
-          content_url?: string | null
+          badge?: string | null
+          category: string
           created_at?: string
-          expires_at?: string
+          description?: string | null
           id?: string
-          is_connected?: boolean
-          tv_session_id: string
+          image: string
+          is_active?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
         }
         Update: {
-          code?: string
-          connected_at?: string | null
-          content_type?: string | null
-          content_url?: string | null
+          badge?: string | null
+          category?: string
           created_at?: string
-          expires_at?: string
+          description?: string | null
           id?: string
-          is_connected?: boolean
-          tv_session_id?: string
+          image?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
       subtitle_configs: {
         Row: {
-          created_at: string
-          end_time: number
-          id: string
-          name: string
+          created_at: string | null
+          end_time: number | null
+          id: string | null
+          name: string | null
           repeat_count: number | null
-          repeat_enabled: boolean
+          repeat_enabled: boolean | null
           repeat_end_time: number | null
           repeat_start_time: number | null
-          start_time: number
-          subtitles: Json
+          start_time: number | null
+          subtitles: Json | null
           translations: Json | null
-          updated_at: string
-          video_id: string
+          updated_at: string | null
+          video_id: string | null
         }
         Insert: {
-          created_at?: string
-          end_time?: number
-          id?: string
-          name?: string
+          created_at?: string | null
+          end_time?: number | null
+          id?: string | null
+          name?: string | null
           repeat_count?: number | null
-          repeat_enabled?: boolean
+          repeat_enabled?: boolean | null
           repeat_end_time?: number | null
           repeat_start_time?: number | null
-          start_time?: number
-          subtitles?: Json
+          start_time?: number | null
+          subtitles?: Json | null
           translations?: Json | null
-          updated_at?: string
-          video_id: string
+          updated_at?: string | null
+          video_id?: string | null
         }
         Update: {
-          created_at?: string
-          end_time?: number
-          id?: string
-          name?: string
+          created_at?: string | null
+          end_time?: number | null
+          id?: string | null
+          name?: string | null
           repeat_count?: number | null
-          repeat_enabled?: boolean
+          repeat_enabled?: boolean | null
           repeat_end_time?: number | null
           repeat_start_time?: number | null
-          start_time?: number
-          subtitles?: Json
+          start_time?: number | null
+          subtitles?: Json | null
           translations?: Json | null
-          updated_at?: string
-          video_id?: string
-        }
-        Relationships: []
-      }
-      timer: {
-        Row: {
-          created_at: string
-          id: number
-          time: number | null
-          userID: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          time?: number | null
-          userID?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          time?: number | null
-          userID?: string | null
+          updated_at?: string | null
+          video_id?: string | null
         }
         Relationships: []
       }
