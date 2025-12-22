@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Star, Trophy, Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface PlayerScore {
   rank: number;
@@ -14,15 +15,34 @@ interface RoundRankingProps {
   players: PlayerScore[];
   roundNumber: number;
   totalRounds: number;
-  onContinue?: () => void;
+  countdownSeconds?: number;
+  onCountdownComplete?: () => void;
+  isLastRound?: boolean;
 }
 
 export default function RoundRanking({ 
   players, 
   roundNumber, 
   totalRounds,
-  onContinue 
+  countdownSeconds = 5,
+  onCountdownComplete,
+  isLastRound = false
 }: RoundRankingProps) {
+  const [countdown, setCountdown] = useState(countdownSeconds);
+
+  useEffect(() => {
+    if (countdown <= 0) {
+      onCountdownComplete?.();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [countdown, onCountdownComplete]);
+
   const getRankColor = (rank: number) => {
     switch (rank) {
       case 1: return 'text-yellow-400';
@@ -43,19 +63,21 @@ export default function RoundRanking({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4">
+    <div className="flex-1 flex flex-col items-center justify-center p-4 bg-card rounded-xl border border-border">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
         <h2 className="text-2xl font-bold text-foreground">
-          Ronda {roundNumber} de {totalRounds}
+          {isLastRound ? '¡Juego Terminado!' : `Ronda ${roundNumber} de ${totalRounds}`}
         </h2>
-        <p className="text-muted-foreground">Ranking actual</p>
+        <p className="text-muted-foreground">
+          {isLastRound ? 'Ranking final' : 'Ranking de la ronda'}
+        </p>
       </motion.div>
 
-      <div className="w-full max-w-md space-y-2">
+      <div className="w-full max-w-md space-y-2 mb-6">
         {players.map((player, index) => (
           <motion.div
             key={player.username}
@@ -99,15 +121,34 @@ export default function RoundRanking({
         ))}
       </div>
 
-      {onContinue && (
+      {/* Countdown */}
+      {!isLastRound && (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="text-center"
+        >
+          <p className="text-muted-foreground mb-2">Siguiente ronda en</p>
+          <motion.div
+            key={countdown}
+            initial={{ scale: 1.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto"
+          >
+            <span className="text-3xl font-black text-primary-foreground">{countdown}</span>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {isLastRound && (
         <motion.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          onClick={onContinue}
-          className="mt-8 px-8 py-3 bg-primary text-primary-foreground rounded-full font-bold text-lg hover:bg-primary/90 transition-colors"
+          onClick={onCountdownComplete}
+          className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-bold text-lg hover:bg-primary/90 transition-colors"
         >
-          Siguiente Ronda →
+          Jugar de Nuevo
         </motion.button>
       )}
     </div>
