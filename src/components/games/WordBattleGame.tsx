@@ -1,12 +1,263 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from 'lucide-react';
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Play, Plus, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
+import { useAuth } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/input';
+
+interface GameLobbyInlineProps {
+  isConnected: boolean;
+  playerCount: number;
+  onStartGame: () => void;
+}
+
+function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInlineProps) {
+  const { user } = useAuth();
+  const username = user?.email?.split('@')[0] || 'Jugador';
+  
+  const [joinCode, setJoinCode] = useState('');
+  const [createdRoomCode, setCreatedRoomCode] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showRoomCreated, setShowRoomCreated] = useState(false);
+
+  const generateCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const handleCreateRoom = async () => {
+    setIsCreating(true);
+    const code = generateCode();
+    
+    const { error } = await supabase
+      .from('game_rooms')
+      .insert({
+        code,
+        game_slug: 'word-battle',
+        host_id: user?.id || null,
+        host_name: username,
+        status: 'waiting',
+      });
+
+    if (error) {
+      toast.error('Error al crear la sala');
+    } else {
+      setCreatedRoomCode(code);
+      setShowRoomCreated(true);
+    }
+    setIsCreating(false);
+  };
+
+  const handleJoinRoom = async () => {
+    if (joinCode.length !== 4) {
+      toast.error('El código debe tener 4 caracteres');
+      return;
+    }
+    setIsJoining(true);
+    
+    const { data, error } = await supabase
+      .from('game_rooms')
+      .select('*')
+      .eq('code', joinCode.toUpperCase())
+      .eq('game_slug', 'word-battle')
+      .maybeSingle();
+
+    if (error || !data) {
+      toast.error('Sala no encontrada');
+    } else if (data.status !== 'waiting') {
+      toast.error('La partida ya comenzó');
+    } else {
+      window.location.href = `/game/word-battle?room=${joinCode.toUpperCase()}`;
+    }
+    setIsJoining(false);
+  };
+
+  const copyRoomLink = () => {
+    const link = `${window.location.origin}/game/word-battle?room=${createdRoomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    toast.success('Enlace copiado');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1 }
+    })
+  };
+
+  if (showRoomCreated) {
+    return (
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-md"
+      >
+        <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl p-6 border border-primary/30">
+          <h3 className="text-xl font-bold text-foreground text-center mb-2">
+            ¡Sala Creada!
+          </h3>
+          <p className="text-muted-foreground text-center text-sm mb-4">
+            Comparte el código con tus amigos
+          </p>
+
+          <div className="flex justify-center gap-2 mb-4">
+            {createdRoomCode.split('').map((char, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0, rotate: -10 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
+              >
+                <span className="text-2xl font-black text-primary-foreground">{char}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <button
+              onClick={copyRoomLink}
+              className="w-full py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              {copied ? <Check size={18} /> : <Copy size={18} />}
+              {copied ? 'Copiado' : 'Copiar Enlace'}
+            </button>
+            <button
+              onClick={() => {
+                window.location.href = `/game/word-battle?room=${createdRoomCode}`;
+              }}
+              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <Play size={18} />
+              Iniciar Partida
+            </button>
+            <button
+              onClick={() => setShowRoomCreated(false)}
+              className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-4xl">
+      <div className="text-center mb-6">
+        <h2 className="text-3xl font-bold text-foreground mb-2">Word Battle</h2>
+        <p className="text-muted-foreground mb-4">
+          ¡Adivina palabras en inglés antes de que se acabe el tiempo!
+        </p>
+        <div className="flex items-center justify-center gap-2 text-sm">
+          {isConnected ? (
+            <span className="flex items-center gap-1 text-green-400">
+              <Wifi size={16} /> Conectado
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <WifiOff size={16} /> Conectando...
+            </span>
+          )}
+          <span className="text-muted-foreground">•</span>
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Users size={16} /> {playerCount} jugador{playerCount !== 1 ? 'es' : ''}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Play Card */}
+        <motion.div
+          custom={0}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
+          className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl p-5 border border-primary/30"
+        >
+          <h3 className="text-lg font-bold text-foreground text-center mb-4">
+            Jugar
+          </h3>
+          <button
+            onClick={onStartGame}
+            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <Play size={20} />
+            Juego Rápido
+          </button>
+        </motion.div>
+
+        {/* Create Room Card */}
+        <motion.div
+          custom={1}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
+          className="bg-gradient-to-br from-accent/20 to-accent/10 rounded-2xl p-5 border border-accent/30"
+        >
+          <h3 className="text-lg font-bold text-foreground text-center mb-4">
+            Crear Sala
+          </h3>
+          <button
+            onClick={handleCreateRoom}
+            disabled={isCreating}
+            className="w-full py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Plus size={20} />
+            {isCreating ? 'Creando...' : 'Nueva Sala'}
+          </button>
+        </motion.div>
+
+        {/* Join Room Card */}
+        <motion.div
+          custom={2}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
+          className="bg-gradient-to-br from-secondary to-secondary/80 rounded-2xl p-5 border border-border"
+        >
+          <h3 className="text-lg font-bold text-foreground text-center mb-4">
+            Unirse a Sala
+          </h3>
+          <div className="space-y-2">
+            <Input
+              placeholder="Código"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 4))}
+              maxLength={4}
+              className="text-center text-lg font-bold tracking-widest bg-background border-border"
+            />
+            <button
+              onClick={handleJoinRoom}
+              disabled={isJoining || joinCode.length !== 4}
+              className="w-full py-3 bg-foreground hover:bg-foreground/90 text-background font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Users size={20} />
+              {isJoining ? 'Buscando...' : 'Unirse'}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
 
 interface WordBattleCard {
   id: string;
@@ -390,33 +641,11 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
           )}
 
           {gamePhase === 'waiting' && (
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-foreground mb-4">Word Battle</h2>
-              <p className="text-muted-foreground mb-4">
-                ¡Adivina palabras en inglés antes de que se acabe el tiempo!
-              </p>
-              <div className="flex items-center justify-center gap-2 mb-8 text-sm">
-                {isConnected ? (
-                  <span className="flex items-center gap-1 text-green-400">
-                    <Wifi size={16} /> Conectado
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <WifiOff size={16} /> Conectando...
-                  </span>
-                )}
-                <span className="text-muted-foreground">•</span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Users size={16} /> {playerCount} jugador{playerCount !== 1 ? 'es' : ''}
-                </span>
-              </div>
-              <button
-                onClick={startGame}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-lg hover:bg-primary/90 transition-colors animate-pulse"
-              >
-                ▶ Comenzar Juego
-              </button>
-            </div>
+            <GameLobbyInline
+              isConnected={isConnected}
+              playerCount={playerCount}
+              onStartGame={startGame}
+            />
           )}
         </div>
       </div>
