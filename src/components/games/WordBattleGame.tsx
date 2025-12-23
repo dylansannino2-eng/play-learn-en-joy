@@ -163,17 +163,17 @@ function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInl
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="w-full max-w-sm"
+      className="w-full max-w-md"
     >
-      <div className="bg-primary rounded-2xl p-8 border-4 border-foreground/20 shadow-xl">
-        <h2 className="text-3xl font-black text-primary-foreground text-center mb-6">
+      <div className="bg-card rounded-2xl p-6 border border-border">
+        <h2 className="text-2xl font-bold text-foreground text-center mb-6">
           Play
         </h2>
         
-        <div className="space-y-4">
+        <div className="space-y-3">
           <button
             onClick={onStartGame}
-            className="w-full py-3 bg-amber-100 hover:bg-amber-200 text-foreground font-bold text-lg rounded-xl transition-colors border-2 border-foreground/20"
+            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors"
           >
             Play
           </button>
@@ -181,9 +181,9 @@ function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInl
           <button
             onClick={handleCreateRoom}
             disabled={isCreating}
-            className="w-full py-3 bg-amber-100 hover:bg-amber-200 text-foreground font-bold text-lg rounded-xl transition-colors border-2 border-foreground/20 disabled:opacity-50"
+            className="w-full py-3 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors disabled:opacity-50"
           >
-            {isCreating ? 'Creating...' : 'Create room'}
+            {isCreating ? 'Creando...' : 'Create room'}
           </button>
         </div>
       </div>
