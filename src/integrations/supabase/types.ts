@@ -179,6 +179,39 @@ export type Database = {
         }
         Relationships: []
       }
+      translator_phrases: {
+        Row: {
+          category: string | null
+          created_at: string
+          difficulty: string
+          english_translation: string
+          id: string
+          is_active: boolean
+          spanish_text: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          difficulty?: string
+          english_translation: string
+          id?: string
+          is_active?: boolean
+          spanish_text: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          difficulty?: string
+          english_translation?: string
+          id?: string
+          is_active?: boolean
+          spanish_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

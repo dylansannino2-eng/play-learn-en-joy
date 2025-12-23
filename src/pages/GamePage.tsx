@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
+import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Game {
@@ -53,6 +54,8 @@ const GamePage = () => {
     switch (game.slug) {
       case 'word-battle':
         return <WordBattleGame roomCode={roomCode} />;
+      case 'the-translator':
+        return <TheTranslatorGame roomCode={roomCode} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center">
