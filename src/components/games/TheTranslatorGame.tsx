@@ -9,16 +9,33 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 import { useAuth } from '@/contexts/AuthContext';
 
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+interface DifficultyOption {
+  value: Difficulty;
+  label: string;
+  levels: string;
+  color: string;
+  bgColor: string;
+}
+
+const difficultyOptions: DifficultyOption[] = [
+  { value: 'easy', label: 'Easy', levels: 'A1, A2', color: 'text-green-400', bgColor: 'bg-green-500/20 border-green-500/50 hover:bg-green-500/30' },
+  { value: 'medium', label: 'Medium', levels: 'B1, B2', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20 border-yellow-500/50 hover:bg-yellow-500/30' },
+  { value: 'hard', label: 'Hard', levels: 'C1, C2', color: 'text-red-400', bgColor: 'bg-red-500/20 border-red-500/50 hover:bg-red-500/30' },
+];
+
 interface GameLobbyInlineProps {
   isConnected: boolean;
   playerCount: number;
-  onStartGame: () => void;
+  onStartGame: (difficulty: Difficulty) => void;
 }
 
 function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInlineProps) {
   const { user } = useAuth();
   const username = user?.email?.split('@')[0] || 'Jugador';
   
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
   const [createdRoomCode, setCreatedRoomCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -129,13 +146,36 @@ function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInl
       className="w-full max-w-md"
     >
       <div className="bg-card rounded-2xl p-6 border border-border">
-        <h2 className="text-2xl font-bold text-foreground text-center mb-6">
+        <h2 className="text-2xl font-bold text-foreground text-center mb-4">
           Play
         </h2>
         
+        {/* Difficulty Selection */}
+        <div className="mb-6">
+          <p className="text-sm text-muted-foreground text-center mb-3">Select difficulty</p>
+          <div className="flex gap-2">
+            {difficultyOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setSelectedDifficulty(option.value)}
+                className={`flex-1 py-3 px-2 rounded-xl border transition-all ${
+                  selectedDifficulty === option.value
+                    ? `${option.bgColor} border-2`
+                    : 'bg-secondary/50 border-border hover:bg-secondary'
+                }`}
+              >
+                <span className={`block font-bold ${selectedDifficulty === option.value ? option.color : 'text-foreground'}`}>
+                  {option.label}
+                </span>
+                <span className="block text-xs text-muted-foreground">{option.levels}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        
         <div className="space-y-3">
           <button
-            onClick={onStartGame}
+            onClick={() => onStartGame(selectedDifficulty)}
             className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors"
           >
             Play
@@ -192,6 +232,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [isLoading, setIsLoading] = useState(true);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
+  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
 
   // Preload sounds on mount
   useEffect(() => {
@@ -217,14 +258,28 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     });
   }, [correctAnswerEvents, username]);
 
-  const fetchRandomPhrase = useCallback(async () => {
+  const fetchRandomPhrase = useCallback(async (difficulty: Difficulty) => {
     const { data, error } = await supabase
       .from('translator_phrases')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('difficulty', difficulty);
 
     if (error || !data || data.length === 0) {
-      toast.error('No hay frases disponibles');
+      // Fallback: fetch any phrase if no phrases for this difficulty
+      const { data: fallbackData } = await supabase
+        .from('translator_phrases')
+        .select('*')
+        .eq('is_active', true);
+      
+      if (!fallbackData || fallbackData.length === 0) {
+        toast.error('No hay frases disponibles');
+        return;
+      }
+      const randomPhrase = fallbackData[Math.floor(Math.random() * fallbackData.length)] as TranslatorPhrase;
+      setCurrentPhrase(randomPhrase);
+      setHasAnsweredCorrectly(false);
+      setIsLoading(false);
       return;
     }
 
@@ -235,8 +290,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   }, []);
 
   useEffect(() => {
-    fetchRandomPhrase();
-  }, [fetchRandomPhrase]);
+    fetchRandomPhrase(currentDifficulty);
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -288,10 +343,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     setChatMessages([]);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
-    fetchRandomPhrase();
-  }, [round, totalRounds, score, fetchRandomPhrase, playSound]);
+    fetchRandomPhrase(currentDifficulty);
+  }, [round, totalRounds, score, currentDifficulty, fetchRandomPhrase, playSound]);
 
-  const startGame = () => {
+  const startGame = (difficulty: Difficulty) => {
+    setCurrentDifficulty(difficulty);
     playSound('gameStart', 0.6);
     setGamePhase('playing');
     setTimeLeft(30);
@@ -309,7 +365,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       },
     ]);
     setRound(1);
-    fetchRandomPhrase();
+    fetchRandomPhrase(difficulty);
   };
 
   const normalizeText = (text: string): string => {
