@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Play, Users, Plus, Copy, Check, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Users, Plus, Copy, Check, ArrowLeft, Globe, Lock, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface GameLobbyProps {
   gameSlug: string;
@@ -13,7 +14,14 @@ interface GameLobbyProps {
   onBack?: () => void;
 }
 
+interface RoomPlayer {
+  oderId: string;
+  username: string;
+  joinedAt: string;
+}
+
 type LobbyView = 'main' | 'join' | 'create';
+type RoomType = 'public' | 'private';
 
 export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: GameLobbyProps) {
   const { user } = useAuth();
@@ -25,6 +33,57 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [playerName, setPlayerName] = useState(username);
+  const [roomType, setRoomType] = useState<RoomType>('private');
+  const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
+
+  // Track players joining the room via Supabase Realtime
+  useEffect(() => {
+    if (view !== 'create' || !createdRoomCode) return;
+
+    const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
+    const channelName = `game:${gameSlug}:${createdRoomCode}`;
+    
+    const channel: RealtimeChannel = supabase.channel(channelName, {
+      config: {
+        presence: {
+          key: oderId,
+        },
+      },
+    });
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const players: RoomPlayer[] = [];
+      
+      Object.entries(state).forEach(([oderId, presences]) => {
+        const presence = presences[0] as any;
+        if (presence) {
+          players.push({
+            oderId,
+            username: presence.username,
+            joinedAt: presence.joinedAt,
+          });
+        }
+      });
+      
+      // Sort by join time
+      players.sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
+      setRoomPlayers(players);
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          username: playerName,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [view, createdRoomCode, gameSlug, user?.id, playerName]);
 
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -48,6 +107,7 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
         host_id: user?.id || null,
         host_name: playerName,
         status: 'waiting',
+        settings: { isPublic: roomType === 'public' },
       });
 
     if (error) {
@@ -133,9 +193,36 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
             variants={cardVariants}
             className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-6 border-4 border-primary/50 shadow-xl"
           >
-            <h3 className="text-2xl font-black text-primary-foreground text-center mb-6">
+            <h3 className="text-2xl font-black text-primary-foreground text-center mb-4">
               Jugar
             </h3>
+            
+            {/* Room Type Toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setRoomType('public')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all ${
+                  roomType === 'public'
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30'
+                }`}
+              >
+                <Globe size={16} />
+                Pública
+              </button>
+              <button
+                onClick={() => setRoomType('private')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all ${
+                  roomType === 'private'
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30'
+                }`}
+              >
+                <Lock size={16} />
+                Privada
+              </button>
+            </div>
+            
             <div className="space-y-3">
               <button
                 onClick={handleQuickPlay}
@@ -236,15 +323,24 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
           animate={{ scale: 1, opacity: 1 }}
           className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-8 border-4 border-primary/50 shadow-xl max-w-md w-full"
         >
-          <h3 className="text-2xl font-black text-primary-foreground text-center mb-2">
-            ¡Sala Creada!
-          </h3>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {roomType === 'public' ? (
+              <Globe size={24} className="text-primary-foreground" />
+            ) : (
+              <Lock size={24} className="text-primary-foreground" />
+            )}
+            <h3 className="text-2xl font-black text-primary-foreground text-center">
+              ¡Sala {roomType === 'public' ? 'Pública' : 'Privada'} Creada!
+            </h3>
+          </div>
           <p className="text-primary-foreground/80 text-center mb-6">
-            Comparte el código con tus amigos
+            {roomType === 'public' 
+              ? 'Cualquiera puede unirse con el código' 
+              : 'Comparte el código con tus amigos'}
           </p>
 
           {/* Room Code Display */}
-          <div className="flex justify-center gap-2 mb-6">
+          <div className="flex justify-center gap-2 mb-4">
             {createdRoomCode.split('').map((char, i) => (
               <motion.div
                 key={i}
@@ -256,6 +352,48 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
                 <span className="text-3xl font-black text-primary">{char}</span>
               </motion.div>
             ))}
+          </div>
+
+          {/* Players List */}
+          <div className="bg-primary-foreground/10 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={18} className="text-primary-foreground" />
+              <span className="text-primary-foreground font-semibold">
+                Jugadores ({roomPlayers.length})
+              </span>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              <AnimatePresence mode="popLayout">
+                {roomPlayers.length === 0 ? (
+                  <p className="text-primary-foreground/60 text-sm text-center py-2">
+                    Esperando jugadores...
+                  </p>
+                ) : (
+                  roomPlayers.map((player, index) => (
+                    <motion.div
+                      key={player.oderId}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center gap-2 bg-primary-foreground/20 rounded-lg px-3 py-2"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-primary-foreground/30 flex items-center justify-center">
+                        <User size={16} className="text-primary-foreground" />
+                      </div>
+                      <span className="text-primary-foreground font-medium flex-1">
+                        {player.username}
+                      </span>
+                      {index === 0 && (
+                        <span className="text-xs bg-primary-foreground text-primary px-2 py-0.5 rounded-full font-bold">
+                          Host
+                        </span>
+                      )}
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           <div className="space-y-3">
