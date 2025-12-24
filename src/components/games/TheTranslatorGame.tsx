@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
+import JoinRoomFromLink from './shared/JoinRoomFromLink';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 import { useAuth } from '@/contexts/AuthContext';
@@ -202,7 +203,7 @@ interface TranslatorPhrase {
   category: string | null;
 }
 
-type GamePhase = 'waiting' | 'playing' | 'reveal' | 'ranking';
+type GamePhase = 'joining' | 'waiting' | 'playing' | 'reveal' | 'ranking';
 
 interface TheTranslatorGameProps {
   roomCode?: string;
@@ -228,7 +229,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [streak, setStreak] = useState(0);
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
-  const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
+  const [gamePhase, setGamePhase] = useState<GamePhase>(roomCode ? 'joining' : 'waiting');
   const [isLoading, setIsLoading] = useState(true);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
@@ -525,6 +526,22 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show join room view when accessed via invitation link
+  if (gamePhase === 'joining' && roomCode) {
+    return (
+      <JoinRoomFromLink
+        roomCode={roomCode}
+        gameSlug="the-translator"
+        gameTitle="The Translator"
+        onJoinGame={() => setGamePhase('waiting')}
+        onCancel={() => {
+          window.history.pushState({}, '', '/game/the-translator');
+          setGamePhase('waiting');
+        }}
+      />
     );
   }
 
