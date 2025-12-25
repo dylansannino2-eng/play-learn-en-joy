@@ -43,6 +43,14 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
     const channelName = `game:${gameSlug}:${createdRoomCode}`;
     
+    // Add host to the list immediately
+    const hostPlayer: RoomPlayer = {
+      oderId,
+      username: playerName,
+      joinedAt: new Date().toISOString(),
+    };
+    setRoomPlayers([hostPlayer]);
+    
     const channel: RealtimeChannel = supabase.channel(channelName, {
       config: {
         presence: {
@@ -314,6 +322,15 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     );
   }
 
+  // Update room type in database
+  const updateRoomType = async (newType: RoomType) => {
+    setRoomType(newType);
+    await supabase
+      .from('game_rooms')
+      .update({ settings: { isPublic: newType === 'public' } })
+      .eq('code', createdRoomCode);
+  };
+
   // Create Room view (after room is created)
   if (view === 'create') {
     return (
@@ -323,21 +340,35 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
           animate={{ scale: 1, opacity: 1 }}
           className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-8 border-4 border-primary/50 shadow-xl max-w-md w-full"
         >
-          <div className="flex items-center justify-center gap-2 mb-2">
-            {roomType === 'public' ? (
-              <Globe size={24} className="text-primary-foreground" />
-            ) : (
-              <Lock size={24} className="text-primary-foreground" />
-            )}
-            <h3 className="text-2xl font-black text-primary-foreground text-center">
-              ¡Sala {roomType === 'public' ? 'Pública' : 'Privada'} Creada!
-            </h3>
+          {/* Room Type Toggle */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => updateRoomType('public')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all ${
+                roomType === 'public'
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30'
+              }`}
+            >
+              <Globe size={16} />
+              Pública
+            </button>
+            <button
+              onClick={() => updateRoomType('private')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all ${
+                roomType === 'private'
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30'
+              }`}
+            >
+              <Lock size={16} />
+              Privada
+            </button>
           </div>
-          <p className="text-primary-foreground/80 text-center mb-6">
-            {roomType === 'public' 
-              ? 'Cualquiera puede unirse con el código' 
-              : 'Comparte el código con tus amigos'}
-          </p>
+
+          <h3 className="text-2xl font-black text-primary-foreground text-center mb-2">
+            Código de Sala
+          </h3>
 
           {/* Room Code Display */}
           <div className="flex justify-center gap-2 mb-4">
