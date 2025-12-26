@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Languages, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import GameLobby from './shared/GameLobby';
@@ -95,6 +96,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [totalRounds] = useState(5);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
   const [usedPhraseIds, setUsedPhraseIds] = useState<Set<string>>(new Set());
+
+  // Animation state
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [animationWord, setAnimationWord] = useState('');
+  const [animationPoints, setAnimationPoints] = useState(0);
 
   // Preload sounds on mount
   useEffect(() => {
@@ -571,6 +577,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       await updateScore(newScore, newCorrectAnswers, newStreak);
       await broadcastCorrectAnswer(message, pointsEarned);
 
+      // Show animation
+      setAnimationWord(message.toUpperCase());
+      setAnimationPoints(pointsEarned);
+      setShowAnimation(true);
+
       // Add correct message
       setTimeout(() => {
         const correctMessage: ChatMessage = {
@@ -746,6 +757,14 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
   return (
     <>
+      {/* Correct answer animation */}
+      <CorrectAnswerAnimation
+        word={animationWord}
+        points={animationPoints}
+        isVisible={showAnimation}
+        onComplete={() => setShowAnimation(false)}
+      />
+
       {/* Game Area */}
       <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex flex-col">
         {/* Header Stats */}
