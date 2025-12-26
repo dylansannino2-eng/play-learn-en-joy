@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Languages, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -226,25 +226,34 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   useEffect(() => {
     if (isHostInRoom) return;
     if (!gameRoomCode) return;
-    if (!gameEvent || gameEvent.type !== 'translator_phrase') return;
+    if (!gameEvent) return;
+    
+    // Handle phrase sync
+    if (gameEvent.type === 'translator_phrase') {
+      const p = gameEvent.payload as any;
+      if (!p?.phraseId) return;
 
-    const p = gameEvent.payload as any;
-    if (!p?.phraseId) return;
+      console.log('Translator synced phrase:', p);
 
-    console.log('Translator synced phrase:', p);
+      if (typeof p.round === 'number') {
+        setRound(p.round);
+      }
 
-    if (typeof p.round === 'number') {
-      setRound(p.round);
+      // Bring player back to play state if needed
+      setGamePhase('playing');
+      setTimeLeft(30);
+      setHasAnsweredCorrectly(false);
+      setChatMessages([]);
+
+      fetchPhraseById(p.phraseId);
     }
-
-    // Bring player back to play state if needed
-    setGamePhase('playing');
-    setTimeLeft(30);
-    setHasAnsweredCorrectly(false);
-    setChatMessages([]);
-
-    fetchPhraseById(p.phraseId);
-  }, [gameEvent, isHostInRoom, gameRoomCode, fetchPhraseById]);
+    
+    // Handle round advance sync (all players answered)
+    if (gameEvent.type === 'round_advance') {
+      playSound('roundEnd', 0.6);
+      setGamePhase('reveal');
+    }
+  }, [gameEvent, isHostInRoom, gameRoomCode, fetchPhraseById, playSound]);
 
   // Timer
   useEffect(() => {
@@ -268,12 +277,22 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   }, [gamePhase, timeLeft, playSound]);
 
   // Check if all players answered correctly - auto advance
+  // Track if we already triggered advance for this round to prevent duplicates
+  const hasAdvancedRef = useRef(false);
+  
+  useEffect(() => {
+    // Reset the flag when round changes
+    hasAdvancedRef.current = false;
+  }, [round]);
+  
   useEffect(() => {
     if (gamePhase !== 'playing') return;
     if (!hasAnsweredCorrectly) return;
+    if (hasAdvancedRef.current) return;
     
     // Solo mode: advance when player answers correctly
     if (playerCount <= 1) {
+      hasAdvancedRef.current = true;
       setTimeout(() => {
         playSound('roundEnd', 0.6);
         setGamePhase('reveal');
@@ -281,16 +300,21 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       return;
     }
     
-    // Multiplayer: check if all players have answered correctly for this round
+    // Multiplayer: only host checks and broadcasts
+    if (!isHostInRoom) return;
+    
     const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
     
     if (allAnswered) {
-      setTimeout(() => {
+      hasAdvancedRef.current = true;
+      setTimeout(async () => {
         playSound('roundEnd', 0.6);
         setGamePhase('reveal');
+        // Broadcast to other players
+        await broadcastGameEvent('round_advance', { round });
       }, 800);
     }
-  }, [gamePhase, players, playerCount, round, hasAnsweredCorrectly, playSound]);
+  }, [gamePhase, players, playerCount, round, hasAnsweredCorrectly, playSound, isHostInRoom, broadcastGameEvent]);
 
   // Auto transition from reveal to ranking
   useEffect(() => {
