@@ -5,11 +5,9 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
-import JoinRoomFromLink from './shared/JoinRoomFromLink';
 import GameLobby from './shared/GameLobby';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
-import { useAuth } from '@/contexts/AuthContext';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -36,7 +34,7 @@ interface TranslatorPhrase {
   category: string | null;
 }
 
-type GamePhase = 'joining' | 'waiting' | 'playing' | 'reveal' | 'ranking';
+type GamePhase = 'waiting' | 'playing' | 'reveal' | 'ranking';
 
 interface TheTranslatorGameProps {
   roomCode?: string;
@@ -45,6 +43,17 @@ interface TheTranslatorGameProps {
 
 export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
+
+  const [displayName, setDisplayName] = useState('');
+  const [activeRoomCode, setActiveRoomCode] = useState<string | undefined>(
+    roomCode ? roomCode.toUpperCase() : undefined
+  );
+
+  // Keep room code in sync with URL param (invitation links)
+  useEffect(() => {
+    setActiveRoomCode(roomCode ? roomCode.toUpperCase() : undefined);
+  }, [roomCode]);
+
   const {
     players,
     playerCount,
@@ -53,7 +62,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
-  } = useMultiplayerGame('the-translator', roomCode);
+  } = useMultiplayerGame('the-translator', activeRoomCode, displayName || undefined);
 
   const [currentPhrase, setCurrentPhrase] = useState<TranslatorPhrase | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -62,7 +71,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [streak, setStreak] = useState(0);
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
-  const [gamePhase, setGamePhase] = useState<GamePhase>(roomCode ? 'joining' : 'waiting');
+  const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
   const [isLoading, setIsLoading] = useState(true);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
@@ -362,28 +371,6 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     );
   }
 
-  // Show join room view when accessed via invitation link
-  if (gamePhase === 'joining' && roomCode) {
-    return (
-      <JoinRoomFromLink
-        roomCode={roomCode}
-        gameSlug="the-translator"
-        gameTitle="The Translator"
-        onJoined={() => {
-          // Player joined waiting room
-        }}
-        onGameStart={(difficulty) => {
-          setCurrentDifficulty(difficulty);
-          startGame(difficulty);
-        }}
-        onCancel={() => {
-          window.history.pushState({}, '', '/game/the-translator');
-          setGamePhase('waiting');
-        }}
-      />
-    );
-  }
-
   // Show reveal phase
   if (gamePhase === 'reveal') {
     return (
@@ -460,20 +447,19 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     );
   }
 
-  // Show lobby when waiting
+  // Lobby / waiting room (single entry point)
   if (gamePhase === 'waiting') {
     return (
       <GameLobby
         gameSlug="the-translator"
         gameTitle="The Translator"
-        onStartGame={(roomCodeFromLobby) => {
-          if (roomCodeFromLobby) {
-            // Navigate to room URL so multiplayer hook reconnects with roomCode
-            window.location.href = `/game/the-translator?room=${roomCodeFromLobby}`;
-          } else {
-            // Quick play - start immediately
-            startGame(currentDifficulty);
-          }
+        initialRoomCode={roomCode}
+        defaultPlayerName={displayName || undefined}
+        onPlayerNameChange={setDisplayName}
+        onStartGame={(code) => {
+          if (code) setActiveRoomCode(code);
+          // Start immediately for host; joiners will start when host broadcasts
+          startGame(currentDifficulty);
         }}
       />
     );

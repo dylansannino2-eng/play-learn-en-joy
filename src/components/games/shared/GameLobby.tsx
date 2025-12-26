@@ -10,7 +10,14 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 interface GameLobbyProps {
   gameSlug: string;
   gameTitle: string;
-  onStartGame: (roomCode?: string) => void;
+  /** If present, pre-fills the join code (invitation link flow) */
+  initialRoomCode?: string;
+  /** Optional default player name */
+  defaultPlayerName?: string;
+  /** Emits whenever the player name changes */
+  onPlayerNameChange?: (name: string) => void;
+  /** Called when the game should actually start (host pressed start or host broadcast received) */
+  onStartGame: (roomCode?: string, payload?: unknown) => void;
   onBack?: () => void;
 }
 
@@ -20,38 +27,63 @@ interface RoomPlayer {
   joinedAt: string;
 }
 
-type LobbyView = 'main' | 'join' | 'create';
+type LobbyView = 'main' | 'create' | 'waiting_room';
 type RoomType = 'public' | 'private';
 
-export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: GameLobbyProps) {
+export default function GameLobby({
+  gameSlug,
+  gameTitle,
+  initialRoomCode,
+  defaultPlayerName,
+  onPlayerNameChange,
+  onStartGame,
+  onBack,
+}: GameLobbyProps) {
   const { user } = useAuth();
   const username = user?.email?.split('@')[0] || 'Jugador';
   
   const [view, setView] = useState<LobbyView>('main');
   const [roomCode, setRoomCode] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState('');
+  const [joinedRoomCode, setJoinedRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [playerName, setPlayerName] = useState(username);
+  const [playerName, setPlayerName] = useState(defaultPlayerName ?? username);
   const [roomType, setRoomType] = useState<RoomType>('private');
   const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Track players joining the room via Supabase Realtime
+  // Prefill invite code (invitation link flow)
   useEffect(() => {
-    if (view !== 'create' || !createdRoomCode) return;
+    if (!initialRoomCode) return;
+    setRoomCode(initialRoomCode.toUpperCase().slice(0, 4));
+  }, [initialRoomCode]);
+
+  // Bubble player name up to parent (so games can reuse it)
+  useEffect(() => {
+    onPlayerNameChange?.(playerName);
+  }, [playerName, onPlayerNameChange]);
+
+  // Track players joining a room via Supabase Realtime (host create view + join waiting room)
+  useEffect(() => {
+    const activeRoomCode =
+      view === 'create' ? createdRoomCode :
+      view === 'waiting_room' ? joinedRoomCode :
+      '';
+
+    if (!activeRoomCode) return;
 
     const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
-    const channelName = `game:${gameSlug}:${createdRoomCode}`;
-    
-    // Add host to the list immediately
-    const hostPlayer: RoomPlayer = {
+    const channelName = `game:${gameSlug}:${activeRoomCode}`;
+
+    // Add self immediately (host or joiner)
+    const selfPlayer: RoomPlayer = {
       oderId,
       username: playerName,
       joinedAt: new Date().toISOString(),
     };
-    setRoomPlayers([hostPlayer]);
-    
+    setRoomPlayers([selfPlayer]);
+
     const channel: RealtimeChannel = supabase.channel(channelName, {
       config: {
         presence: {
@@ -63,22 +95,30 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
       const players: RoomPlayer[] = [];
-      
-      Object.entries(state).forEach(([oderId, presences]) => {
+
+      Object.entries(state).forEach(([presenceId, presences]) => {
         const presence = presences[0] as any;
         if (presence) {
           players.push({
-            oderId,
+            oderId: presenceId,
             username: presence.username,
             joinedAt: presence.joinedAt,
           });
         }
       });
-      
-      // Sort by join time
+
       players.sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
       setRoomPlayers(players);
     });
+
+    // If the user is waiting in a joined room, listen for host start
+    if (view === 'waiting_room') {
+      channel.on('broadcast', { event: 'game_start' }, ({ payload }) => {
+        console.log('[GameLobby] game_start received', payload);
+        toast.success('¡El host ha iniciado la partida!');
+        onStartGame(activeRoomCode, payload);
+      });
+    }
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -95,7 +135,7 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [view, createdRoomCode, gameSlug, user?.id, playerName]);
+  }, [view, createdRoomCode, joinedRoomCode, gameSlug, user?.id, playerName, onStartGame]);
 
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -140,11 +180,13 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     }
 
     setIsLoading(true);
-    
+
+    const code = roomCode.toUpperCase();
+
     const { data, error } = await supabase
       .from('game_rooms')
       .select('*')
-      .eq('code', roomCode.toUpperCase())
+      .eq('code', code)
       .eq('game_slug', gameSlug)
       .maybeSingle();
 
@@ -153,9 +195,10 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     } else if (data.status !== 'waiting') {
       toast.error('La partida ya comenzó');
     } else {
-      onStartGame(roomCode.toUpperCase());
+      setJoinedRoomCode(code);
+      setView('waiting_room');
     }
-    
+
     setIsLoading(false);
   };
 
@@ -164,25 +207,27 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
   };
 
   const handleStartPrivateGame = async () => {
+    const payload = {
+      roomCode: createdRoomCode,
+      startedAt: new Date().toISOString(),
+    };
+
     // Broadcast game start event to all players
     if (channelRef.current) {
       await channelRef.current.send({
         type: 'broadcast',
         event: 'game_start',
-        payload: {
-          roomCode: createdRoomCode,
-          startedAt: new Date().toISOString(),
-        },
+        payload,
       });
     }
-    
+
     // Update room status to playing
     await supabase
       .from('game_rooms')
       .update({ status: 'playing' })
       .eq('code', createdRoomCode);
-    
-    onStartGame(createdRoomCode);
+
+    onStartGame(createdRoomCode, payload);
   };
 
   const copyRoomLink = () => {
@@ -352,6 +397,99 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
       .update({ settings: { isPublic: newType === 'public' } })
       .eq('code', createdRoomCode);
   };
+
+  // Waiting room view (after joining by code/link)
+  if (view === 'waiting_room') {
+    const code = joinedRoomCode || roomCode;
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-gradient-to-br from-accent to-accent/80 rounded-2xl p-8 border-4 border-accent/50 shadow-xl max-w-md w-full"
+        >
+          <h3 className="text-2xl font-black text-accent-foreground text-center mb-2">
+            Sala
+          </h3>
+
+          {/* Room Code Display */}
+          <div className="flex justify-center gap-2 mb-4">
+            {code.split('').map((char, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0, rotate: -10 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="w-14 h-14 bg-accent-foreground rounded-xl flex items-center justify-center"
+              >
+                <span className="text-3xl font-black text-accent">{char}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Players List */}
+          <div className="bg-accent-foreground/10 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={18} className="text-accent-foreground" />
+              <span className="text-accent-foreground font-semibold">
+                Jugadores ({roomPlayers.length})
+              </span>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              <AnimatePresence mode="popLayout">
+                {roomPlayers.length === 0 ? (
+                  <p className="text-accent-foreground/70 text-sm text-center py-2">
+                    Conectando...
+                  </p>
+                ) : (
+                  roomPlayers.map((player, index) => (
+                    <motion.div
+                      key={player.oderId}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center gap-2 bg-accent-foreground/15 rounded-lg px-3 py-2"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-accent-foreground/20 flex items-center justify-center">
+                        <User size={16} className="text-accent-foreground" />
+                      </div>
+                      <span className="text-accent-foreground font-medium flex-1">
+                        {player.username}
+                      </span>
+                      {index === 0 && (
+                        <span className="text-xs bg-accent-foreground text-accent px-2 py-0.5 rounded-full font-bold">
+                          Host
+                        </span>
+                      )}
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="w-full py-3 bg-accent-foreground/15 text-accent-foreground font-semibold rounded-xl flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-accent-foreground border-t-transparent rounded-full animate-spin" />
+              Esperando al host...
+            </div>
+            <button
+              onClick={() => {
+                setJoinedRoomCode('');
+                setRoomPlayers([]);
+                setView('main');
+              }}
+              className="w-full py-2 text-accent-foreground/80 hover:text-accent-foreground text-sm transition-colors"
+            >
+              Salir
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Create Room view (after room is created)
   if (view === 'create') {
