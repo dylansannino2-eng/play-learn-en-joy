@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Game {
   id: string;
@@ -23,53 +23,59 @@ interface Game {
   description: string | null;
   is_active: boolean;
   sort_order: number;
+  // Nuevos campos SEO
+  meta_title: string | null;
+  meta_description: string | null;
 }
 
-type GameFormData = Omit<Game, 'id'>;
+type GameFormData = Omit<Game, "id">;
 
-const categories = ['new', 'popular', 'multiplayer', 'brain', 'ranking'];
-const badges = ['new', 'hot', 'top', 'updated'];
+const categories = ["new", "popular", "multiplayer", "brain", "ranking"];
+const badges = ["new", "hot", "top", "updated"];
 
 const categoryLabels: Record<string, string> = {
-  new: 'Nuevos',
-  popular: 'Populares',
-  multiplayer: 'Multijugador',
-  brain: 'Cerebro',
-  ranking: 'Ranking',
+  new: "Nuevos",
+  popular: "Populares",
+  multiplayer: "Multijugador",
+  brain: "Cerebro",
+  ranking: "Ranking",
 };
 
 const badgeLabels: Record<string, string> = {
-  new: 'Nuevo',
-  hot: 'Hot',
-  top: 'Top',
-  updated: 'Actualizado',
+  new: "Nuevo",
+  hot: "Hot",
+  top: "Top",
+  updated: "Actualizado",
 };
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const { user, isAdmin, isLoading } = useAuth();
-  
+
   const [games, setGames] = useState<Game[]>([]);
   const [isLoadingGames, setIsLoadingGames] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+
   const [formData, setFormData] = useState<GameFormData>({
-    title: '',
-    image: '',
+    title: "",
+    image: "",
     badge: null,
-    category: 'new',
+    category: "new",
     description: null,
     is_active: true,
     sort_order: 0,
+    meta_title: null,
+    meta_description: null,
   });
 
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        navigate('/auth');
+        navigate("/auth");
       } else if (!isAdmin) {
-        toast.error('No tienes permisos de administrador');
-        navigate('/');
+        toast.error("No tienes permisos de administrador");
+        navigate("/");
       }
     }
   }, [user, isAdmin, isLoading, navigate]);
@@ -82,14 +88,10 @@ export default function AdminPage() {
 
   const fetchGames = async () => {
     setIsLoadingGames(true);
-    const { data, error } = await supabase
-      .from('games')
-      .select('*')
-      .order('category')
-      .order('sort_order');
+    const { data, error } = await supabase.from("games").select("*").order("category").order("sort_order");
 
     if (error) {
-      toast.error('Error al cargar juegos');
+      toast.error("Error al cargar juegos");
     } else {
       setGames(data || []);
     }
@@ -98,13 +100,15 @@ export default function AdminPage() {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      image: '',
+      title: "",
+      image: "",
       badge: null,
-      category: 'new',
+      category: "new",
       description: null,
       is_active: true,
       sort_order: 0,
+      meta_title: null,
+      meta_description: null,
     });
     setEditingGame(null);
   };
@@ -120,6 +124,8 @@ export default function AdminPage() {
         description: game.description,
         is_active: game.is_active,
         sort_order: game.sort_order,
+        meta_title: game.meta_title,
+        meta_description: game.meta_description,
       });
     } else {
       resetForm();
@@ -129,34 +135,29 @@ export default function AdminPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title || !formData.image) {
-      toast.error('Título e imagen son requeridos');
+      toast.error("Título e imagen son requeridos");
       return;
     }
 
     if (editingGame) {
-      const { error } = await supabase
-        .from('games')
-        .update(formData)
-        .eq('id', editingGame.id);
+      const { error } = await supabase.from("games").update(formData).eq("id", editingGame.id);
 
       if (error) {
-        toast.error('Error al actualizar juego');
+        toast.error("Error al actualizar juego");
       } else {
-        toast.success('Juego actualizado');
+        toast.success("Juego actualizado");
         setDialogOpen(false);
         fetchGames();
       }
     } else {
-      const { error } = await supabase
-        .from('games')
-        .insert([formData]);
+      const { error } = await supabase.from("games").insert([formData]);
 
       if (error) {
-        toast.error('Error al crear juego');
+        toast.error("Error al crear juego");
       } else {
-        toast.success('Juego creado');
+        toast.success("Juego creado");
         setDialogOpen(false);
         fetchGames();
       }
@@ -164,29 +165,23 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este juego?')) return;
+    if (!confirm("¿Estás seguro de eliminar este juego?")) return;
 
-    const { error } = await supabase
-      .from('games')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("games").delete().eq("id", id);
 
     if (error) {
-      toast.error('Error al eliminar juego');
+      toast.error("Error al eliminar juego");
     } else {
-      toast.success('Juego eliminado');
+      toast.success("Juego eliminado");
       fetchGames();
     }
   };
 
   const toggleActive = async (game: Game) => {
-    const { error } = await supabase
-      .from('games')
-      .update({ is_active: !game.is_active })
-      .eq('id', game.id);
+    const { error } = await supabase.from("games").update({ is_active: !game.is_active }).eq("id", game.id);
 
     if (error) {
-      toast.error('Error al actualizar estado');
+      toast.error("Error al actualizar estado");
     } else {
       fetchGames();
     }
@@ -205,7 +200,7 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-3">
@@ -222,11 +217,12 @@ export default function AdminPage() {
                 Agregar Juego
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingGame ? 'Editar Juego' : 'Nuevo Juego'}</DialogTitle>
+                <DialogTitle>{editingGame ? "Editar Juego" : "Nuevo Juego"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* --- Datos Principales --- */}
                 <div className="space-y-2">
                   <Label htmlFor="title">Título *</Label>
                   <Input
@@ -268,8 +264,8 @@ export default function AdminPage() {
                   <div className="space-y-2">
                     <Label>Badge</Label>
                     <Select
-                      value={formData.badge || 'none'}
-                      onValueChange={(value) => setFormData({ ...formData, badge: value === 'none' ? null : value })}
+                      value={formData.badge || "none"}
+                      onValueChange={(value) => setFormData({ ...formData, badge: value === "none" ? null : value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -286,10 +282,10 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Descripción</Label>
+                  <Label htmlFor="description">Descripción (Interna/Visible en tarjeta)</Label>
                   <Input
                     id="description"
-                    value={formData.description || ''}
+                    value={formData.description || ""}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
                   />
                 </div>
@@ -313,13 +309,37 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* --- Sección SEO --- */}
+                <div className="border-t pt-4 mt-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Configuración SEO
+                  </h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="meta_title">Meta Título (Pestaña del navegador)</Label>
+                    <Input
+                      id="meta_title"
+                      value={formData.meta_title || ""}
+                      onChange={(e) => setFormData({ ...formData, meta_title: e.target.value || null })}
+                      placeholder="Ej: Candy Crush - Juega Gratis Online"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="meta_description">Meta Descripción (Buscadores)</Label>
+                    <Input
+                      id="meta_description"
+                      value={formData.meta_description || ""}
+                      onChange={(e) => setFormData({ ...formData, meta_description: e.target.value || null })}
+                      placeholder="Ej: Disfruta de los mejores juegos de puzzle..."
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">
-                    {editingGame ? 'Guardar Cambios' : 'Crear Juego'}
-                  </Button>
+                  <Button type="submit">{editingGame ? "Guardar Cambios" : "Crear Juego"}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -336,9 +356,7 @@ export default function AdminPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : games.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay juegos. ¡Agrega el primero!
-              </div>
+              <div className="text-center py-8 text-muted-foreground">No hay juegos. ¡Agrega el primero!</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -357,42 +375,30 @@ export default function AdminPage() {
                     {games.map((game) => (
                       <TableRow key={game.id}>
                         <TableCell>
-                          <img
-                            src={game.image}
-                            alt={game.title}
-                            className="w-16 h-12 object-cover rounded"
-                          />
+                          <img src={game.image} alt={game.title} className="w-16 h-12 object-cover rounded" />
                         </TableCell>
-                        <TableCell className="font-medium">{game.title}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                            <span>{game.title}</span>
+                            {game.meta_title && <span className="text-xs text-muted-foreground mt-1">SEO: OK</span>}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{categoryLabels[game.category]}</Badge>
                         </TableCell>
                         <TableCell>
-                          {game.badge && (
-                            <Badge variant="outline">{badgeLabels[game.badge]}</Badge>
-                          )}
+                          {game.badge && <Badge variant="outline">{badgeLabels[game.badge]}</Badge>}
                         </TableCell>
                         <TableCell>{game.sort_order}</TableCell>
                         <TableCell>
-                          <Switch
-                            checked={game.is_active}
-                            onCheckedChange={() => toggleActive(game)}
-                          />
+                          <Switch checked={game.is_active} onCheckedChange={() => toggleActive(game)} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDialog(game)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(game)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(game.id)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(game.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
