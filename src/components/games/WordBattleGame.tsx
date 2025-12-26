@@ -137,6 +137,23 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     return () => clearInterval(timer);
   }, [gamePhase, timeLeft, playSound]);
 
+  // Check if all players answered correctly - auto advance
+  useEffect(() => {
+    if (gamePhase !== 'playing') return;
+    if (playerCount <= 1) return; // Only in multiplayer
+    
+    // Check if all players have at least one correct answer this round
+    const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
+    
+    if (allAnswered && correctAnswers >= round) {
+      // Small delay so the last player sees the animation
+      setTimeout(() => {
+        playSound('roundEnd', 0.6);
+        endRound();
+      }, 800);
+    }
+  }, [gamePhase, players, playerCount, round, correctAnswers, playSound]);
+
   const endRound = useCallback(() => {
     setGamePhase('ranking');
   }, []);
