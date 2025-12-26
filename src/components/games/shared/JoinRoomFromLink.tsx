@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Play, ArrowLeft, User, Loader2 } from 'lucide-react';
+import { Users, ArrowLeft, User, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+type Difficulty = 'easy' | 'medium' | 'hard';
+
 interface JoinRoomFromLinkProps {
   roomCode: string;
   gameSlug: string;
   gameTitle: string;
-  onJoinGame: () => void;
+  onJoined: (playerName: string) => void;
+  onGameStart: (difficulty: Difficulty) => void;
   onCancel: () => void;
 }
 
@@ -33,7 +36,8 @@ export default function JoinRoomFromLink({
   roomCode, 
   gameSlug, 
   gameTitle,
-  onJoinGame, 
+  onJoined,
+  onGameStart,
   onCancel 
 }: JoinRoomFromLinkProps) {
   const { user } = useAuth();
@@ -113,8 +117,13 @@ export default function JoinRoomFromLink({
     // Listen for game start broadcast from host
     channel.on('broadcast', { event: 'game_start' }, ({ payload }) => {
       console.log('Game start received:', payload);
+      const maybeDifficulty = (payload as any)?.difficulty as Difficulty | undefined;
+      const difficulty: Difficulty = (maybeDifficulty === 'easy' || maybeDifficulty === 'medium' || maybeDifficulty === 'hard')
+        ? maybeDifficulty
+        : 'medium';
+
       toast.success('¡El host ha iniciado la partida!');
-      onJoinGame();
+      onGameStart(difficulty);
     });
 
     channel.subscribe(async (status) => {
@@ -129,7 +138,7 @@ export default function JoinRoomFromLink({
     return () => {
       channel.unsubscribe();
     };
-  }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName, onJoinGame]);
+  }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName, onGameStart]);
 
   const handleJoin = async () => {
     if (!playerName.trim()) {
@@ -139,16 +148,13 @@ export default function JoinRoomFromLink({
 
     setIsJoining(true);
     setHasJoined(true);
-    
+    onJoined(playerName.trim());
+
     // Wait a moment for presence to sync
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     toast.success(`Te has unido a la sala de ${roomData?.host_name}`);
     setIsJoining(false);
-  };
-
-  const handleStartPlaying = () => {
-    onJoinGame();
   };
 
   if (isLoading) {
