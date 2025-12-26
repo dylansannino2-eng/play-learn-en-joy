@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface CorrectAnswerAnimationProps {
   word: string;
@@ -14,6 +15,29 @@ export default function CorrectAnswerAnimation({
   isVisible, 
   onComplete 
 }: CorrectAnswerAnimationProps) {
+  const hasCalledComplete = useRef(false);
+
+  // Reset the flag when animation becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      hasCalledComplete.current = false;
+    }
+  }, [isVisible]);
+
+  // Use a timer to call onComplete once after the animation displays
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const timer = setTimeout(() => {
+      if (!hasCalledComplete.current) {
+        hasCalledComplete.current = true;
+        onComplete?.();
+      }
+    }, 2000); // Show animation for 2 seconds
+
+    return () => clearTimeout(timer);
+  }, [isVisible, onComplete]);
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -26,9 +50,6 @@ export default function CorrectAnswerAnimation({
             stiffness: 300, 
             damping: 20,
             duration: 0.5 
-          }}
-          onAnimationComplete={() => {
-            setTimeout(() => onComplete?.(), 1500);
           }}
           className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
         >
@@ -94,10 +115,10 @@ export default function CorrectAnswerAnimation({
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-2xl md:text-3xl font-black text-gray-800 uppercase tracking-wide"
+                className="text-2xl md:text-3xl font-black text-gray-800 uppercase tracking-wide max-w-[250px] truncate"
                 style={{ textShadow: '2px 2px 0 rgba(255,255,255,0.5)' }}
               >
-                {word}
+                {word.length > 15 ? '¡CORRECTO!' : word}
               </motion.span>
               <motion.span 
                 initial={{ y: 20, opacity: 0 }}
@@ -108,7 +129,7 @@ export default function CorrectAnswerAnimation({
                   textShadow: '3px 3px 0 #8B7355, -1px -1px 0 #8B7355, 1px -1px 0 #8B7355, -1px 1px 0 #8B7355'
                 }}
               >
-                {points}
+                +{points}
               </motion.span>
             </div>
           </div>
