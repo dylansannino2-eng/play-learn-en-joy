@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Play, Copy, Check, Users, Wifi, WifiOff } from "lucide-react";
+import { Play, Copy, Check, Users, Wifi, WifiOff, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -52,10 +52,11 @@ export default function GameLobby({
   const [copied, setCopied] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [playerName, setPlayerName] = useState(`Jugador_${Math.random().toString(36).slice(2, 6)}`);
+  const [isEditingName, setIsEditingName] = useState(false);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const oderId = useRef(`player_${Math.random().toString(36).slice(2, 10)}`);
-  const username = useRef(`Jugador_${Math.random().toString(36).slice(2, 6)}`);
 
   /* ---------------- Realtime channel for lobby ---------------- */
 
@@ -99,7 +100,7 @@ export default function GameLobby({
       if (status === "SUBSCRIBED") {
         setIsConnected(true);
         await channel.track({
-          username: username.current,
+          username: playerName,
           isHost,
           joinedAt: new Date().toISOString(),
         });
@@ -112,7 +113,18 @@ export default function GameLobby({
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [roomCode, gameSlug, isHost, onStartGame]);
+  }, [roomCode, gameSlug, isHost, onStartGame, playerName]);
+
+  // Update presence when name changes
+  useEffect(() => {
+    if (channelRef.current && isConnected) {
+      channelRef.current.track({
+        username: playerName,
+        isHost,
+        joinedAt: new Date().toISOString(),
+      });
+    }
+  }, [playerName, isHost, isConnected]);
 
   /* ---------------- utils ---------------- */
 
@@ -177,9 +189,34 @@ export default function GameLobby({
           className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl"
         >
           <h1 className="text-3xl font-black text-center text-white mb-2">Play</h1>
-          <p className="text-center text-white/60 mb-8">Select difficulty</p>
+          <p className="text-center text-white/60 mb-6">Select difficulty</p>
 
-          {/* Difficulty */}
+          {/* Player name */}
+          <div className="mb-6">
+            <label className="text-white/60 text-sm mb-2 block">Tu nombre</label>
+            <div className="relative">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                  onBlur={() => setIsEditingName(false)}
+                  onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
+                  autoFocus
+                  maxLength={20}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+                />
+              ) : (
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-left flex items-center justify-between hover:bg-white/15 transition"
+                >
+                  <span>{playerName}</span>
+                  <Pencil size={16} className="text-white/60" />
+                </button>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-3 mb-8">
             {[
               { id: "easy", label: "Easy", sub: "A1, A2" },
@@ -237,7 +274,33 @@ export default function GameLobby({
           className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
         >
           <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
-          <p className="text-center text-white/70 mb-6">Comparte el código con tus amigos</p>
+          <p className="text-center text-white/70 mb-4">Comparte el código con tus amigos</p>
+
+          {/* Edit name */}
+          <div className="mb-4">
+            <div className="relative">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                  onBlur={() => setIsEditingName(false)}
+                  onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
+                  autoFocus
+                  maxLength={20}
+                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+                />
+              ) : (
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
+                >
+                  <span>{playerName}</span>
+                  <Pencil size={14} className="text-white/60" />
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Code */}
           <div className="flex justify-center gap-3 mb-6">
@@ -330,9 +393,33 @@ export default function GameLobby({
         className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
       >
         <h2 className="text-3xl font-black text-white text-center mb-2">Sala {roomCode}</h2>
-        <p className="text-center text-white/70 mb-6">Esperando al host...</p>
+        <p className="text-center text-white/70 mb-4">Esperando al host...</p>
 
-        {/* Players list */}
+        {/* Edit name */}
+        <div className="mb-4">
+          <div className="relative">
+            {isEditingName ? (
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                onBlur={() => setIsEditingName(false)}
+                onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
+                autoFocus
+                maxLength={20}
+                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+              />
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
+              >
+                <span>{playerName}</span>
+                <Pencil size={14} className="text-white/60" />
+              </button>
+            )}
+          </div>
+        </div>
         <div className="bg-white/5 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Users size={18} className="text-white/70" />
