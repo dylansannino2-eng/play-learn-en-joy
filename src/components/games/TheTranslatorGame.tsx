@@ -313,10 +313,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   ]);
 
   const handleLobbyStart = useCallback(
-    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown }) => {
+    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
       if (normalizedRoom) setActiveRoomCode(normalizedRoom);
 
+      setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
       setCurrentDifficulty(payload.difficulty);
 

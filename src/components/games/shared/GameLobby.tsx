@@ -26,6 +26,7 @@ interface GameLobbyStartParams {
   roomCode?: string;
   isHost: boolean;
   startPayload?: unknown;
+  playerName: string;
 }
 
 interface GameLobbyProps {
@@ -93,6 +94,7 @@ export default function GameLobby({
         roomCode: p.roomCode as string,
         isHost: false,
         startPayload: p.startPayload,
+        playerName,
       });
     });
 
@@ -146,7 +148,7 @@ export default function GameLobby({
   /* ---------------- handlers ---------------- */
 
   const handleQuickPlay = () => {
-    onStartGame({ difficulty, isHost: true });
+    onStartGame({ difficulty, isHost: true, playerName });
   };
 
   const handleCreateRoom = () => {
@@ -173,7 +175,7 @@ export default function GameLobby({
     }
 
     // Host also starts
-    onStartGame({ difficulty, roomCode, isHost: true, startPayload });
+    onStartGame({ difficulty, roomCode, isHost: true, startPayload, playerName });
   };
 
   /* =========================

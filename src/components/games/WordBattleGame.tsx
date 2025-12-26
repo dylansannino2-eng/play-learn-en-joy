@@ -30,6 +30,19 @@ interface WordBattleGameProps {
 
 export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
+
+  const [displayName, setDisplayName] = useState('');
+  const [activeRoomCode, setActiveRoomCode] = useState<string | undefined>(
+    roomCode ? roomCode.toUpperCase() : undefined
+  );
+  const [isHostInRoom, setIsHostInRoom] = useState(false);
+  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
+
+  // Keep room code in sync with URL param (invitation links)
+  useEffect(() => {
+    setActiveRoomCode(roomCode ? roomCode.toUpperCase() : undefined);
+  }, [roomCode]);
+
   const {
     players,
     playerCount,
@@ -38,7 +51,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
-  } = useMultiplayerGame('word-battle', roomCode);
+  } = useMultiplayerGame('word-battle', activeRoomCode, displayName || undefined);
 
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -48,7 +61,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const [usedAnswers, setUsedAnswers] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(30);
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
 
@@ -99,9 +112,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchRandomCard();
-  }, [fetchRandomCard]);
+  // Removed auto-fetch on mount - now starts from lobby
 
   // Timer with sound effects
   useEffect(() => {
@@ -149,26 +160,36 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     fetchRandomCard();
   }, [round, totalRounds, score, fetchRandomCard, playSound]);
 
-  const startGame = () => {
-    playSound('gameStart', 0.6);
-    setGamePhase('playing');
-    setTimeLeft(30);
-    setScore(0);
-    setCorrectAnswers(0);
-    setStreak(0);
-    setUsedAnswers(new Set());
-    setChatMessages([
-      {
-        id: 'start',
-        username: 'Sistema',
-        message: '¡La ronda ha comenzado!',
-        type: 'system',
-        timestamp: new Date(),
-      },
-    ]);
-    setRound(1);
-    fetchRandomCard();
-  };
+  const handleLobbyStart = useCallback(
+    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
+      const normalizedRoom = payload.roomCode?.toUpperCase();
+      if (normalizedRoom) setActiveRoomCode(normalizedRoom);
+
+      setDisplayName(payload.playerName);
+      setIsHostInRoom(payload.isHost);
+      setCurrentDifficulty(payload.difficulty);
+
+      playSound('gameStart', 0.6);
+      setGamePhase('playing');
+      setTimeLeft(30);
+      setScore(0);
+      setCorrectAnswers(0);
+      setStreak(0);
+      setUsedAnswers(new Set());
+      setChatMessages([
+        {
+          id: 'start',
+          username: 'Sistema',
+          message: '¡La ronda ha comenzado!',
+          type: 'system',
+          timestamp: new Date(),
+        },
+      ]);
+      setRound(1);
+      await fetchRandomCard();
+    },
+    [playSound, fetchRandomCard]
+  );
 
   const checkAnswer = (answer: string): boolean => {
     if (!currentCard) return false;
@@ -397,9 +418,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
             <GameLobby
               gameSlug="word-battle"
               initialRoomCode={roomCode}
-              onStartGame={(payload) => {
-                startGame();
-              }}
+              onStartGame={handleLobbyStart}
             />
           )}
         </div>
