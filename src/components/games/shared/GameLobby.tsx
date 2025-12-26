@@ -1,14 +1,26 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Play, Copy } from "lucide-react";
+
+/* =======================
+    TYPES
+======================= */
 
 type View = "play" | "room_created";
 type Difficulty = "easy" | "medium" | "hard";
 
-export default function GameLobby() {
+interface GameLobbyProps {
+  onStartGame: (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean }) => void;
+}
+
+/* =======================
+    COMPONENT
+======================= */
+
+export default function GameLobby({ onStartGame }: GameLobbyProps) {
   const [view, setView] = useState<View>("play");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [roomCode, setRoomCode] = useState("");
+  const [roomCode, setRoomCode] = useState<string | null>(null);
 
   /* ---------------- utils ---------------- */
 
@@ -21,15 +33,27 @@ export default function GameLobby() {
 
   /* ---------------- handlers ---------------- */
 
+  const handleQuickPlay = () => {
+    onStartGame({
+      difficulty,
+      isHost: true,
+    });
+  };
+
   const handleCreateRoom = () => {
     const code = generateRoomCode();
     setRoomCode(code);
     setView("room_created");
   };
 
-  const handleStartGame = () => {
-    console.log("START GAME", { difficulty, roomCode });
-    // acá después conectamos el juego real
+  const handleStartRoomGame = () => {
+    if (!roomCode) return;
+
+    onStartGame({
+      difficulty,
+      roomCode,
+      isHost: true,
+    });
   };
 
   /* =========================
@@ -42,9 +66,11 @@ export default function GameLobby() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md rounded-3xl p-8
+          className="
+            w-full max-w-md rounded-3xl p-8
             bg-gradient-to-br from-[#1c1f2e] to-[#141625]
-            border border-white/10 shadow-2xl"
+            border border-white/10 shadow-2xl
+          "
         >
           <h1 className="text-3xl font-black text-center text-white mb-2">Play</h1>
           <p className="text-center text-white/60 mb-8">Select difficulty</p>
@@ -79,10 +105,12 @@ export default function GameLobby() {
 
           {/* Play */}
           <button
-            onClick={handleStartGame}
-            className="w-full mb-3 py-4 rounded-2xl
+            onClick={handleQuickPlay}
+            className="
+              w-full mb-3 py-4 rounded-2xl
               bg-purple-600 hover:bg-purple-700
-              text-white font-bold transition"
+              text-white font-bold transition
+            "
           >
             Play
           </button>
@@ -90,9 +118,11 @@ export default function GameLobby() {
           {/* Create room */}
           <button
             onClick={handleCreateRoom}
-            className="w-full py-4 rounded-2xl
+            className="
+              w-full py-4 rounded-2xl
               bg-white/5 hover:bg-white/10
-              text-white font-semibold transition"
+              text-white font-semibold transition
+            "
           >
             Create room
           </button>
@@ -110,20 +140,24 @@ export default function GameLobby() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md rounded-3xl p-8
+        className="
+          w-full max-w-md rounded-3xl p-8
           bg-gradient-to-br from-[#3a2a78] to-[#1b163a]
-          border border-white/10 shadow-2xl"
+          border border-white/10 shadow-2xl
+        "
       >
         <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
         <p className="text-center text-white/70 mb-6">Comparte el código con tus amigos</p>
 
         {/* Code */}
         <div className="flex justify-center gap-3 mb-6">
-          {roomCode.split("").map((c, i) => (
+          {roomCode?.split("").map((c, i) => (
             <div
               key={i}
-              className="w-14 h-14 rounded-2xl
-                bg-purple-500 flex items-center justify-center"
+              className="
+                w-14 h-14 rounded-2xl
+                bg-purple-500 flex items-center justify-center
+              "
             >
               <span className="text-2xl font-black text-white">{c}</span>
             </div>
@@ -132,27 +166,38 @@ export default function GameLobby() {
 
         {/* Copy */}
         <button
-          onClick={() => navigator.clipboard.writeText(roomCode)}
-          className="w-full mb-3 py-4 rounded-2xl
+          onClick={() => roomCode && navigator.clipboard.writeText(roomCode)}
+          className="
+            w-full mb-3 py-4 rounded-2xl
             bg-[#24283b] hover:bg-[#2c3150]
-            text-white font-semibold flex items-center justify-center gap-2 transition"
+            text-white font-semibold
+            flex items-center justify-center gap-2
+            transition
+          "
         >
           <Copy size={18} /> Copiar Enlace
         </button>
 
         {/* Start */}
         <button
-          onClick={handleStartGame}
-          className="w-full mb-4 py-4 rounded-2xl
+          onClick={handleStartRoomGame}
+          className="
+            w-full mb-4 py-4 rounded-2xl
             bg-purple-600 hover:bg-purple-700
-            text-white font-bold flex items-center justify-center gap-2 transition"
+            text-white font-bold
+            flex items-center justify-center gap-2
+            transition
+          "
         >
           <Play size={18} /> Iniciar Partida
         </button>
 
         {/* Cancel */}
         <button
-          onClick={() => setView("play")}
+          onClick={() => {
+            setRoomCode(null);
+            setView("play");
+          }}
           className="w-full text-center text-white/60 hover:text-white transition"
         >
           Cancelar
