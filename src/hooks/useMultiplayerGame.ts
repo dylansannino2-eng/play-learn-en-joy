@@ -64,7 +64,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
       const updatedPlayers = new Map<string, Player>();
 
       Object.entries(state).forEach(([oderId, presences]) => {
-        const presence = presences[0] as any;
+        const presence = (presences as any[])[(presences as any[]).length - 1] as any;
         if (presence) {
           updatedPlayers.set(oderId, {
             odId: oderId,
@@ -203,7 +203,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
         },
       });
     }
-  }, []);
+  }, [username]);
 
   // Get sorted player list
   const getSortedPlayers = useCallback(() => {

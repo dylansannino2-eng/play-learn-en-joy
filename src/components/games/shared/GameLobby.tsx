@@ -74,7 +74,7 @@ export default function GameLobby({
       const state = channel.presenceState();
       const updatedPlayers: Player[] = [];
       Object.entries(state).forEach(([id, presences]) => {
-        const p = presences[0] as any;
+        const p = (presences as any[])[(presences as any[]).length - 1] as any;
         if (p) {
           updatedPlayers.push({
             odId: id,
