@@ -47,6 +47,11 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
 
   // Initialize realtime connection
   useEffect(() => {
+    // Clear previous chat messages when channel changes
+    setChatMessages([]);
+    setCorrectAnswerEvents([]);
+    setGameEvent(null);
+
     // Use room code if provided, otherwise use public channel
     const channelName = roomCode ? `game:${gameSlug}:${roomCode}` : `game:${gameSlug}:public`;
 
