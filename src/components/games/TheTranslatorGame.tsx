@@ -45,15 +45,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
-  const [activeRoomCode, setActiveRoomCode] = useState<string | undefined>(
-    roomCode ? roomCode.toUpperCase() : undefined
-  );
+  // Don't connect to game channel until game starts (displayName is set)
+  const [gameRoomCode, setGameRoomCode] = useState<string | undefined>(undefined);
   const [isHostInRoom, setIsHostInRoom] = useState(false);
-
-  // Keep room code in sync with URL param (invitation links)
-  useEffect(() => {
-    setActiveRoomCode(roomCode ? roomCode.toUpperCase() : undefined);
-  }, [roomCode]);
 
   const {
     players,
@@ -69,7 +63,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     chatMessages: remoteChatMessages,
     broadcastChatMessage,
     clearChatMessages,
-  } = useMultiplayerGame('the-translator', activeRoomCode, displayName || undefined);
+  } = useMultiplayerGame('the-translator', gameRoomCode, displayName || undefined);
 
   const [currentPhrase, setCurrentPhrase] = useState<TranslatorPhrase | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -212,7 +206,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   // Joiners: receive phrase sync from host during the match
   useEffect(() => {
     if (isHostInRoom) return;
-    if (!activeRoomCode) return;
+    if (!gameRoomCode) return;
     if (!gameEvent || gameEvent.type !== 'translator_phrase') return;
 
     const p = gameEvent.payload as any;
@@ -231,7 +225,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     setChatMessages([]);
 
     fetchPhraseById(p.phraseId);
-  }, [gameEvent, isHostInRoom, activeRoomCode, fetchPhraseById]);
+  }, [gameEvent, isHostInRoom, gameRoomCode, fetchPhraseById]);
 
   // Timer
   useEffect(() => {
@@ -288,7 +282,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     playSound('gameStart', 0.5);
 
     // Host selects and broadcasts; joiners will receive via game_event
-    if (activeRoomCode && isHostInRoom) {
+    if (gameRoomCode && isHostInRoom) {
       const phraseId = await pickRandomPhraseId(currentDifficulty);
       if (!phraseId) return;
 
@@ -303,7 +297,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     totalRounds,
     score,
     playSound,
-    activeRoomCode,
+    gameRoomCode,
     isHostInRoom,
     pickRandomPhraseId,
     currentDifficulty,
@@ -315,7 +309,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const handleLobbyStart = useCallback(
     async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
-      if (normalizedRoom) setActiveRoomCode(normalizedRoom);
+      if (normalizedRoom) setGameRoomCode(normalizedRoom);
 
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
@@ -405,7 +399,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     setChatMessages((prev) => [...prev, userMessage]);
 
     // Broadcast message to other players (only if not correct, correct ones are hidden)
-    if (!isCorrect && activeRoomCode) {
+    if (!isCorrect && gameRoomCode) {
       await broadcastChatMessage(message);
     }
 
