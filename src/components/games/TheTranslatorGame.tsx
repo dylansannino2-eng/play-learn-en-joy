@@ -267,6 +267,24 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     return () => clearInterval(timer);
   }, [gamePhase, timeLeft, playSound]);
 
+  // Check if all players answered correctly - auto advance
+  useEffect(() => {
+    if (gamePhase !== 'playing') return;
+    if (playerCount <= 1) return; // Only in multiplayer
+    
+    // Check if all players have answered correctly for this round
+    // Each player should have correctAnswers >= current round number
+    const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
+    
+    if (allAnswered && hasAnsweredCorrectly) {
+      // Small delay so the last player sees the animation
+      setTimeout(() => {
+        playSound('roundEnd', 0.6);
+        setGamePhase('reveal');
+      }, 800);
+    }
+  }, [gamePhase, players, playerCount, round, hasAnsweredCorrectly, playSound]);
+
   // Auto transition from reveal to ranking
   useEffect(() => {
     if (gamePhase !== 'reveal') return;
