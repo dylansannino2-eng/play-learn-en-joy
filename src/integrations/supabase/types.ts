@@ -185,6 +185,7 @@ export type Database = {
           created_at: string
           difficulty: string
           english_translation: string
+          gif: string | null
           id: string
           is_active: boolean
           spanish_text: string
@@ -195,6 +196,7 @@ export type Database = {
           created_at?: string
           difficulty?: string
           english_translation: string
+          gif?: string | null
           id?: string
           is_active?: boolean
           spanish_text: string
@@ -205,6 +207,7 @@ export type Database = {
           created_at?: string
           difficulty?: string
           english_translation?: string
+          gif?: string | null
           id?: string
           is_active?: boolean
           spanish_text?: string

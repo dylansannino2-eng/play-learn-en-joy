@@ -32,6 +32,7 @@ interface TranslatorPhrase {
   english_translation: string;
   difficulty: string;
   category: string | null;
+  gif: string | null;
 }
 
 type GamePhase = 'waiting' | 'playing' | 'reveal' | 'ranking';
@@ -663,6 +664,21 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
                     {getDifficultyLabel(currentPhrase.difficulty)}
                   </span>
                 </div>
+
+                {/* GIF Display */}
+                {currentPhrase.gif && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6"
+                  >
+                    <img
+                      src={currentPhrase.gif}
+                      alt="Phrase illustration"
+                      className="w-full max-w-xs mx-auto rounded-xl shadow-lg border border-border"
+                    />
+                  </motion.div>
+                )}
                 
                 <p className="text-sm text-muted-foreground mb-2">Traduce al inglés:</p>
                 <h2 className="text-3xl font-bold text-foreground">
