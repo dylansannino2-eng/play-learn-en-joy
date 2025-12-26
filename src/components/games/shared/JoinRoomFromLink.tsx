@@ -76,7 +76,7 @@ export default function JoinRoomFromLink({
     fetchRoom();
   }, [roomCode, gameSlug]);
 
-  // Connect to room presence when joined
+  // Connect to room presence when joined and listen for game start
   useEffect(() => {
     if (!hasJoined || !roomData) return;
 
@@ -110,6 +110,13 @@ export default function JoinRoomFromLink({
       setRoomPlayers(players);
     });
 
+    // Listen for game start broadcast from host
+    channel.on('broadcast', { event: 'game_start' }, ({ payload }) => {
+      console.log('Game start received:', payload);
+      toast.success('¡El host ha iniciado la partida!');
+      onJoinGame();
+    });
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await channel.track({
@@ -122,7 +129,7 @@ export default function JoinRoomFromLink({
     return () => {
       channel.unsubscribe();
     };
-  }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName]);
+  }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName, onJoinGame]);
 
   const handleJoin = async () => {
     if (!playerName.trim()) {
@@ -261,23 +268,20 @@ export default function JoinRoomFromLink({
           </div>
 
           <div className="space-y-3">
-            <button
-              onClick={handleStartPlaying}
-              className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <Play size={20} />
-              Jugar
-            </button>
+            <div className="w-full py-3 bg-secondary/50 text-muted-foreground font-medium rounded-xl flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+              Esperando al host...
+            </div>
             <button
               onClick={onCancel}
               className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
-              Cancelar
+              Salir de la sala
             </button>
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Esperando a que el host inicie la partida...
+            El juego comenzará automáticamente cuando el host presione "Iniciar Partida"
           </p>
         </motion.div>
       </div>
