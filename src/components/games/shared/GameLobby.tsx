@@ -11,23 +11,40 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 type View = "menu" | "room_created" | "waiting_room";
 type Difficulty = "easy" | "medium" | "hard";
 
+type StartPayloadBuilder = (args: { difficulty: Difficulty; roomCode: string }) =>
+  | Promise<unknown>
+  | unknown;
+
 interface Player {
   odId: string;
   username: string;
   isHost: boolean;
 }
 
+interface GameLobbyStartParams {
+  difficulty: Difficulty;
+  roomCode?: string;
+  isHost: boolean;
+  startPayload?: unknown;
+}
+
 interface GameLobbyProps {
   gameSlug: string;
   initialRoomCode?: string;
-  onStartGame: (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean }) => void;
+  onStartGame: (payload: GameLobbyStartParams) => void;
+  buildStartPayload?: StartPayloadBuilder;
 }
 
 /* =======================
     COMPONENT
 ======================= */
 
-export default function GameLobby({ gameSlug, initialRoomCode, onStartGame }: GameLobbyProps) {
+export default function GameLobby({
+  gameSlug,
+  initialRoomCode,
+  onStartGame,
+  buildStartPayload,
+}: GameLobbyProps) {
   const [view, setView] = useState<View>(initialRoomCode ? "waiting_room" : "menu");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [roomCode, setRoomCode] = useState<string | null>(initialRoomCode?.toUpperCase() || null);
@@ -69,8 +86,13 @@ export default function GameLobby({ gameSlug, initialRoomCode, onStartGame }: Ga
 
     // Listen for game_start broadcast
     channel.on("broadcast", { event: "game_start" }, ({ payload }) => {
-      const p = payload as { difficulty: Difficulty; roomCode: string };
-      onStartGame({ difficulty: p.difficulty, roomCode: p.roomCode, isHost: false });
+      const p = payload as any;
+      onStartGame({
+        difficulty: p.difficulty as Difficulty,
+        roomCode: p.roomCode as string,
+        isHost: false,
+        startPayload: p.startPayload,
+      });
     });
 
     channel.subscribe(async (status) => {
@@ -125,17 +147,21 @@ export default function GameLobby({ gameSlug, initialRoomCode, onStartGame }: Ga
   const handleStartRoomGame = async () => {
     if (!roomCode) return;
 
+    const startPayload = buildStartPayload
+      ? await buildStartPayload({ difficulty, roomCode })
+      : undefined;
+
     // Broadcast game_start to all players
     if (channelRef.current) {
       await channelRef.current.send({
         type: "broadcast",
         event: "game_start",
-        payload: { difficulty, roomCode },
+        payload: { difficulty, roomCode, startPayload },
       });
     }
 
     // Host also starts
-    onStartGame({ difficulty, roomCode, isHost: true });
+    onStartGame({ difficulty, roomCode, isHost: true, startPayload });
   };
 
   /* =========================

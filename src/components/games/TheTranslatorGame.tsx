@@ -48,6 +48,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [activeRoomCode, setActiveRoomCode] = useState<string | undefined>(
     roomCode ? roomCode.toUpperCase() : undefined
   );
+  const [isHostInRoom, setIsHostInRoom] = useState(false);
 
   // Keep room code in sync with URL param (invitation links)
   useEffect(() => {
@@ -62,6 +63,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
+    gameEvent,
+    broadcastGameEvent,
   } = useMultiplayerGame('the-translator', activeRoomCode, displayName || undefined);
 
   const [currentPhrase, setCurrentPhrase] = useState<TranslatorPhrase | null>(null);
@@ -72,7 +75,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
@@ -101,7 +104,56 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     });
   }, [correctAnswerEvents, username]);
 
+  const pickRandomPhraseId = useCallback(async (difficulty: Difficulty): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from('translator_phrases')
+      .select('id')
+      .eq('is_active', true)
+      .eq('difficulty', difficulty);
+
+    let pool = data as { id: string }[] | null;
+
+    if (error || !pool || pool.length === 0) {
+      const { data: fallbackData } = await supabase
+        .from('translator_phrases')
+        .select('id')
+        .eq('is_active', true);
+
+      pool = (fallbackData as { id: string }[] | null) ?? null;
+    }
+
+    if (!pool || pool.length === 0) {
+      toast.error('No hay frases disponibles');
+      return null;
+    }
+
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }, []);
+
+  const fetchPhraseById = useCallback(async (phraseId: string) => {
+    setIsLoading(true);
+
+    const { data, error } = await supabase
+      .from('translator_phrases')
+      .select('*')
+      .eq('id', phraseId)
+      .single();
+
+    if (error || !data) {
+      console.error('Error loading phrase:', error);
+      toast.error('No se pudo cargar la frase');
+      setIsLoading(false);
+      return;
+    }
+
+    setCurrentPhrase(data as TranslatorPhrase);
+    setHasAnsweredCorrectly(false);
+    setIsLoading(false);
+  }, []);
+
   const fetchRandomPhrase = useCallback(async (difficulty: Difficulty) => {
+    setIsLoading(true);
+
     const { data, error } = await supabase
       .from('translator_phrases')
       .select('*')
@@ -114,9 +166,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         .from('translator_phrases')
         .select('*')
         .eq('is_active', true);
-      
+
       if (!fallbackData || fallbackData.length === 0) {
         toast.error('No hay frases disponibles');
+        setIsLoading(false);
         return;
       }
       const randomPhrase = fallbackData[Math.floor(Math.random() * fallbackData.length)] as TranslatorPhrase;
@@ -132,9 +185,29 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     setIsLoading(false);
   }, []);
 
+  // Joiners: receive phrase sync from host during the match
   useEffect(() => {
-    fetchRandomPhrase(currentDifficulty);
-  }, []);
+    if (isHostInRoom) return;
+    if (!activeRoomCode) return;
+    if (!gameEvent || gameEvent.type !== 'translator_phrase') return;
+
+    const p = gameEvent.payload as any;
+    if (!p?.phraseId) return;
+
+    console.log('Translator synced phrase:', p);
+
+    if (typeof p.round === 'number') {
+      setRound(p.round);
+    }
+
+    // Bring player back to play state if needed
+    setGamePhase('playing');
+    setTimeLeft(30);
+    setHasAnsweredCorrectly(false);
+    setChatMessages([]);
+
+    fetchPhraseById(p.phraseId);
+  }, [gameEvent, isHostInRoom, activeRoomCode, fetchPhraseById]);
 
   // Timer
   useEffect(() => {
@@ -160,7 +233,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   // Auto transition from reveal to ranking
   useEffect(() => {
     if (gamePhase !== 'reveal') return;
-    
+
     const timer = setTimeout(() => {
       setGamePhase('ranking');
     }, 4000);
@@ -168,7 +241,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     return () => clearTimeout(timer);
   }, [gamePhase]);
 
-  const nextRound = useCallback(() => {
+  const nextRound = useCallback(async () => {
     if (round >= totalRounds) {
       toast.success(`¡Juego terminado! Puntuación final: ${score}`);
       playSound('roundEnd', 0.7);
@@ -177,39 +250,81 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
+      setIsHostInRoom(false);
       return;
     }
 
-    setRound((r) => r + 1);
+    const nextRoundNumber = round + 1;
+
+    setRound(nextRoundNumber);
     setTimeLeft(30);
     setHasAnsweredCorrectly(false);
     setChatMessages([]);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
-    fetchRandomPhrase(currentDifficulty);
-  }, [round, totalRounds, score, currentDifficulty, fetchRandomPhrase, playSound]);
 
-  const startGame = (difficulty: Difficulty) => {
-    setCurrentDifficulty(difficulty);
-    playSound('gameStart', 0.6);
-    setGamePhase('playing');
-    setTimeLeft(30);
-    setScore(0);
-    setCorrectAnswers(0);
-    setStreak(0);
-    setHasAnsweredCorrectly(false);
-    setChatMessages([
-      {
-        id: 'start',
-        username: 'Sistema',
-        message: '¡La ronda ha comenzado! Traduce la frase al inglés.',
-        type: 'system',
-        timestamp: new Date(),
-      },
-    ]);
-    setRound(1);
-    fetchRandomPhrase(difficulty);
-  };
+    // Host selects and broadcasts; joiners will receive via game_event
+    if (activeRoomCode && isHostInRoom) {
+      const phraseId = await pickRandomPhraseId(currentDifficulty);
+      if (!phraseId) return;
+
+      await fetchPhraseById(phraseId);
+      await broadcastGameEvent('translator_phrase', { phraseId, round: nextRoundNumber });
+      return;
+    }
+
+    await fetchRandomPhrase(currentDifficulty);
+  }, [
+    round,
+    totalRounds,
+    score,
+    playSound,
+    activeRoomCode,
+    isHostInRoom,
+    pickRandomPhraseId,
+    currentDifficulty,
+    fetchPhraseById,
+    broadcastGameEvent,
+    fetchRandomPhrase,
+  ]);
+
+  const handleLobbyStart = useCallback(
+    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown }) => {
+      const normalizedRoom = payload.roomCode?.toUpperCase();
+      if (normalizedRoom) setActiveRoomCode(normalizedRoom);
+
+      setIsHostInRoom(payload.isHost);
+      setCurrentDifficulty(payload.difficulty);
+
+      playSound('gameStart', 0.6);
+      setGamePhase('playing');
+      setTimeLeft(30);
+      setScore(0);
+      setCorrectAnswers(0);
+      setStreak(0);
+      setHasAnsweredCorrectly(false);
+      setChatMessages([
+        {
+          id: 'start',
+          username: 'Sistema',
+          message: '¡La ronda ha comenzado! Traduce la frase al inglés.',
+          type: 'system',
+          timestamp: new Date(),
+        },
+      ]);
+      setRound(1);
+
+      const phraseId = (payload.startPayload as any)?.phraseId as string | undefined;
+      if (phraseId) {
+        await fetchPhraseById(phraseId);
+        return;
+      }
+
+      // Fallback (solo play or if start payload wasn't provided)
+      await fetchRandomPhrase(payload.difficulty);
+    },
+    [playSound, fetchPhraseById, fetchRandomPhrase]
+  );
 
   const normalizeText = (text: string): string => {
     return text
@@ -453,10 +568,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       <GameLobby
         gameSlug="the-translator"
         initialRoomCode={roomCode}
-        onStartGame={(payload) => {
-          if (payload.roomCode) setActiveRoomCode(payload.roomCode);
-          startGame(payload.difficulty);
+        buildStartPayload={async ({ difficulty }) => {
+          const phraseId = await pickRandomPhraseId(difficulty);
+          return { phraseId };
         }}
+        onStartGame={handleLobbyStart}
       />
     );
   }
