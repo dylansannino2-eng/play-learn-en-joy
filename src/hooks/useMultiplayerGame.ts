@@ -24,10 +24,14 @@ interface CorrectAnswerEvent {
   answer: string;
 }
 
-export function useMultiplayerGame(gameSlug: string, roomCode?: string) {
+export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayName?: string) {
   const { user } = useAuth();
-  const username = user?.email?.split('@')[0] || `Player_${Math.random().toString(36).slice(2, 6)}`;
-  const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
+
+  const anonNameRef = useRef<string>(`Player_${Math.random().toString(36).slice(2, 6)}`);
+  const anonIdRef = useRef<string>(`anon_${Math.random().toString(36).slice(2, 10)}`);
+
+  const username = displayName?.trim() || user?.email?.split('@')[0] || anonNameRef.current;
+  const oderId = user?.id || anonIdRef.current;
   
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
@@ -58,9 +62,9 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string) {
           updatedPlayers.set(oderId, {
             odId: oderId,
             odname: presence.username,
-            odints: presence.points || 0,
-            odrrectAnswers: presence.correctAnswers || 0,
-            odreak: presence.streak || 0,
+            odints: presence.odints ?? presence.points ?? 0,
+            odrrectAnswers: presence.odrrectAnswers ?? presence.correctAnswers ?? 0,
+            odreak: presence.odreak ?? presence.streak ?? 0,
             odline: true,
           });
         }
@@ -141,6 +145,17 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string) {
     }
   }, [username]);
 
+  // Generic broadcast helper (e.g. game_start)
+  const broadcastEvent = useCallback(async (event: string, payload: unknown) => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event,
+        payload,
+      });
+    }
+  }, []);
+
   // Get sorted player list
   const getSortedPlayers = useCallback(() => {
     return Array.from(players.values())
@@ -164,6 +179,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string) {
     username,
     updateScore,
     broadcastCorrectAnswer,
+    broadcastEvent,
     correctAnswerEvents,
   };
 }
