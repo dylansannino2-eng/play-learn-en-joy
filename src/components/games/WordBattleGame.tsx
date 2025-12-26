@@ -1,195 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Play, Plus, Copy, Check } from 'lucide-react';
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
+import GameLobby from './shared/GameLobby';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
-import { useAuth } from '@/contexts/AuthContext';
-import { Input } from '@/components/ui/input';
 
-interface GameLobbyInlineProps {
-  isConnected: boolean;
-  playerCount: number;
-  onStartGame: () => void;
-}
-
-function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInlineProps) {
-  const { user } = useAuth();
-  const username = user?.email?.split('@')[0] || 'Jugador';
-  
-  const [joinCode, setJoinCode] = useState('');
-  const [createdRoomCode, setCreatedRoomCode] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showRoomCreated, setShowRoomCreated] = useState(false);
-
-  const generateCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
-  const handleCreateRoom = async () => {
-    setIsCreating(true);
-    const code = generateCode();
-    
-    const { error } = await supabase
-      .from('game_rooms')
-      .insert({
-        code,
-        game_slug: 'word-battle',
-        host_id: user?.id || null,
-        host_name: username,
-        status: 'waiting',
-      });
-
-    if (error) {
-      toast.error('Error al crear la sala');
-    } else {
-      setCreatedRoomCode(code);
-      setShowRoomCreated(true);
-    }
-    setIsCreating(false);
-  };
-
-  const handleJoinRoom = async () => {
-    if (joinCode.length !== 4) {
-      toast.error('El código debe tener 4 caracteres');
-      return;
-    }
-    setIsJoining(true);
-    
-    const { data, error } = await supabase
-      .from('game_rooms')
-      .select('*')
-      .eq('code', joinCode.toUpperCase())
-      .eq('game_slug', 'word-battle')
-      .maybeSingle();
-
-    if (error || !data) {
-      toast.error('Sala no encontrada');
-    } else if (data.status !== 'waiting') {
-      toast.error('La partida ya comenzó');
-    } else {
-      window.location.href = `/game/word-battle?room=${joinCode.toUpperCase()}`;
-    }
-    setIsJoining(false);
-  };
-
-  const copyRoomLink = () => {
-    const link = `${window.location.origin}/game/word-battle?room=${createdRoomCode}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    toast.success('Enlace copiado');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.1 }
-    })
-  };
-
-  if (showRoomCreated) {
-    return (
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-md"
-      >
-        <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl p-6 border border-primary/30">
-          <h3 className="text-xl font-bold text-foreground text-center mb-2">
-            ¡Sala Creada!
-          </h3>
-          <p className="text-muted-foreground text-center text-sm mb-4">
-            Comparte el código con tus amigos
-          </p>
-
-          <div className="flex justify-center gap-2 mb-4">
-            {createdRoomCode.split('').map((char, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0, rotate: -10 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-              >
-                <span className="text-2xl font-black text-primary-foreground">{char}</span>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={copyRoomLink}
-              className="w-full py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-              {copied ? 'Copiado' : 'Copiar Enlace'}
-            </button>
-            <button
-              onClick={() => {
-                window.location.href = `/game/word-battle?room=${createdRoomCode}`;
-              }}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <Play size={18} />
-              Iniciar Partida
-            </button>
-            <button
-              onClick={() => setShowRoomCreated(false)}
-              className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      className="w-full max-w-md"
-    >
-      <div className="bg-card rounded-2xl p-6 border border-border">
-        <h2 className="text-2xl font-bold text-foreground text-center mb-6">
-          Play
-        </h2>
-        
-        <div className="space-y-3">
-          <button
-            onClick={onStartGame}
-            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors"
-          >
-            Play
-          </button>
-          
-          <button
-            onClick={handleCreateRoom}
-            disabled={isCreating}
-            className="w-full py-3 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors disabled:opacity-50"
-          >
-            {isCreating ? 'Creando...' : 'Create room'}
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface WordBattleCard {
   id: string;
@@ -573,10 +394,12 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
           )}
 
           {gamePhase === 'waiting' && (
-            <GameLobbyInline
-              isConnected={isConnected}
-              playerCount={playerCount}
-              onStartGame={startGame}
+            <GameLobby
+              gameSlug="word-battle"
+              initialRoomCode={roomCode}
+              onStartGame={(payload) => {
+                startGame();
+              }}
             />
           )}
         </div>
