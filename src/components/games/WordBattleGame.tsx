@@ -74,6 +74,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   }, []);
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
+  const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
 

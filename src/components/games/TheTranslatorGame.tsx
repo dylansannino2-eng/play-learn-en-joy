@@ -90,6 +90,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   }, []);
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
+  const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
