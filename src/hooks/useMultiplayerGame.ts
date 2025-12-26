@@ -24,6 +24,11 @@ interface CorrectAnswerEvent {
   answer: string;
 }
 
+export interface GameEvent<TPayload = unknown> {
+  type: string;
+  payload: TPayload;
+}
+
 export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayName?: string) {
   const { user } = useAuth();
 
@@ -32,17 +37,18 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
 
   const username = displayName?.trim() || user?.email?.split('@')[0] || anonNameRef.current;
   const oderId = user?.id || anonIdRef.current;
-  
+
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [correctAnswerEvents, setCorrectAnswerEvents] = useState<CorrectAnswerEvent[]>([]);
+  const [gameEvent, setGameEvent] = useState<GameEvent | null>(null);
 
   // Initialize realtime connection
   useEffect(() => {
     // Use room code if provided, otherwise use public channel
     const channelName = roomCode ? `game:${gameSlug}:${roomCode}` : `game:${gameSlug}:public`;
-    
+
     const channel = supabase.channel(channelName, {
       config: {
         presence: {
@@ -55,7 +61,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
       const updatedPlayers = new Map<string, Player>();
-      
+
       Object.entries(state).forEach(([oderId, presences]) => {
         const presence = presences[0] as any;
         if (presence) {
@@ -69,7 +75,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
           });
         }
       });
-      
+
       setPlayers(updatedPlayers);
     });
 
@@ -87,17 +93,23 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
     channel.on('broadcast', { event: 'correct_answer' }, ({ payload }) => {
       const event = payload as CorrectAnswerEvent;
       setCorrectAnswerEvents((prev) => [...prev, event]);
-      
+
       // Auto-clear after 3 seconds
       setTimeout(() => {
         setCorrectAnswerEvents((prev) => prev.filter((e) => e !== event));
       }, 3000);
     });
 
+    // Generic in-game events (for syncing cards/rounds/etc)
+    channel.on('broadcast', { event: 'game_event' }, ({ payload }) => {
+      console.log('Game event received:', payload);
+      setGameEvent(payload as GameEvent);
+    });
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         setIsConnected(true);
-        
+
         // Track initial presence
         await channel.track({
           username,
@@ -118,32 +130,38 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
   }, [gameSlug, roomCode, oderId, username]);
 
   // Update presence with new score
-  const updateScore = useCallback(async (points: number, correctAnswers: number, streak: number) => {
-    if (channelRef.current) {
-      await channelRef.current.track({
-        username,
-        odints: points,
-        odrrectAnswers: correctAnswers,
-        odreak: streak,
-        joinedAt: new Date().toISOString(),
-      });
-    }
-  }, [username]);
+  const updateScore = useCallback(
+    async (points: number, correctAnswers: number, streak: number) => {
+      if (channelRef.current) {
+        await channelRef.current.track({
+          username,
+          odints: points,
+          odrrectAnswers: correctAnswers,
+          odreak: streak,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+    },
+    [username]
+  );
 
   // Broadcast correct answer event
-  const broadcastCorrectAnswer = useCallback(async (answer: string, points: number) => {
-    if (channelRef.current) {
-      await channelRef.current.send({
-        type: 'broadcast',
-        event: 'correct_answer',
-        payload: {
-          username,
-          answer,
-          odints: points,
-        },
-      });
-    }
-  }, [username]);
+  const broadcastCorrectAnswer = useCallback(
+    async (answer: string, points: number) => {
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'correct_answer',
+          payload: {
+            username,
+            answer,
+            odints: points,
+          },
+        });
+      }
+    },
+    [username]
+  );
 
   // Generic broadcast helper (e.g. game_start)
   const broadcastEvent = useCallback(async (event: string, payload: unknown) => {
@@ -152,6 +170,16 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
         type: 'broadcast',
         event,
         payload,
+      });
+    }
+  }, []);
+
+  const broadcastGameEvent = useCallback(async (type: string, payload: unknown) => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'game_event',
+        payload: { type, payload },
       });
     }
   }, []);
@@ -180,6 +208,8 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
     updateScore,
     broadcastCorrectAnswer,
     broadcastEvent,
+    gameEvent,
+    broadcastGameEvent,
     correctAnswerEvents,
   };
 }
