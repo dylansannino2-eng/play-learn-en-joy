@@ -1,10 +1,13 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Share2, Star, ThumbsUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
 import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface Game {
   id: string;
@@ -13,17 +16,18 @@ interface Game {
   slug: string | null;
   description: string | null;
   uses_chat: boolean;
+  category?: string; // Agregado para usar en breadcrumbs
 }
 
 const GamePage = () => {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
-  
+
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Get room code from URL
-  const roomCode = searchParams.get('room') || undefined;
+  const roomCode = searchParams.get("room") || undefined;
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -33,10 +37,10 @@ const GamePage = () => {
       }
 
       const { data, error } = await supabase
-        .from('games')
-        .select('id, title, image, slug, description, uses_chat')
-        .eq('slug', slug)
-        .eq('is_active', true)
+        .from("games")
+        .select("id, title, image, slug, description, uses_chat, category")
+        .eq("slug", slug)
+        .eq("is_active", true)
         .maybeSingle();
 
       if (!error && data) {
@@ -52,13 +56,13 @@ const GamePage = () => {
     if (!game?.slug) return null;
 
     switch (game.slug) {
-      case 'word-battle':
+      case "word-battle":
         return <WordBattleGame roomCode={roomCode} />;
-      case 'the-translator':
+      case "the-translator":
         return <TheTranslatorGame roomCode={roomCode} />;
       default:
         return (
-          <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center">
+          <div className="w-full aspect-video bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-foreground mb-2">{game.title}</h2>
               <p className="text-muted-foreground">Este juego estará disponible pronto</p>
@@ -89,23 +93,123 @@ const GamePage = () => {
     );
   }
 
+  // Datos simulados para replicar el diseño (ya que no están en la DB todavía)
+  const mockTags = [
+    ".io",
+    "Sandbox",
+    "Móviles",
+    "Parkour",
+    "Minecraft",
+    "Saltar",
+    "Disparos",
+    "Construcción",
+    "Multijugador",
+  ];
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-hidden">
-        {/* Back button */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          <ArrowLeft size={20} />
-          <span>{game.title}</span>
-        </Link>
+      {/* Cambiado: overflow-y-auto para permitir scroll en toda la página */}
+      <main className="flex-1 ml-16 flex flex-col h-screen overflow-y-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+          {/* Back button */}
+          <div className="mb-4">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <ArrowLeft size={20} />
+              <span>Volver al catálogo</span>
+            </Link>
+          </div>
 
-        {/* Main content */}
-        <div className="flex gap-4 flex-1 mt-4 min-h-0">
-          {renderGameComponent()}
+          {/* Game Container */}
+          <div className="w-full mb-8">{renderGameComponent()}</div>
+
+          {/* New Description Section (Estilo Screenshot) */}
+          <div className="w-full space-y-6 pb-12">
+            {/* Breadcrumbs */}
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Link to="/" className="hover:text-primary transition-colors">
+                Juegos
+              </Link>
+              <span>»</span>
+              <span className="capitalize text-primary">{game.category || "General"}</span>
+              <span>»</span>
+              <span className="text-foreground font-medium">{game.title}</span>
+            </div>
+
+            {/* Title & Share Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <h1 className="text-4xl font-extrabold tracking-tight">{game.title}</h1>
+              <Button variant="secondary" className="gap-2 w-fit rounded-full bg-secondary/50 hover:bg-secondary">
+                <Share2 size={16} />
+                Compartir
+              </Button>
+            </div>
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+              <div className="space-y-4">
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-muted-foreground">Desarrollador:</span>
+                  <span className="text-primary font-medium cursor-pointer hover:underline">Admin</span>
+                </div>
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-muted-foreground">Clasificación:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-foreground text-lg">8,5</span>
+                    <div className="flex text-yellow-500">
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" />
+                      <Star size={14} fill="currentColor" className="opacity-50" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">(1.296.181 votos)</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-muted-foreground">Publicado en:</span>
+                  <span className="text-foreground">marzo de 2024</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-muted-foreground">Tecnología:</span>
+                  <span className="font-medium text-foreground">React / HTML5</span>
+                </div>
+                <div className="grid grid-cols-[120px_1fr] items-start">
+                  <span className="text-muted-foreground mt-1">Plataformas:</span>
+                  <span className="text-foreground">Browser (desktop, mobile, tablet)</span>
+                </div>
+                <div className="grid grid-cols-[120px_1fr] items-center">
+                  <span className="text-muted-foreground">Descripción:</span>
+                  <span className="text-muted-foreground line-clamp-2 hover:line-clamp-none transition-all cursor-pointer">
+                    {game.description || "Sin descripción disponible."}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tags Section */}
+            <div className="pt-4">
+              <div className="flex flex-wrap gap-2">
+                {mockTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="px-3 py-1.5 text-sm font-normal bg-secondary/30 hover:bg-secondary/60 cursor-pointer transition-colors flex items-center justify-between gap-2 min-w-[80px]"
+                  >
+                    <span>{tag}</span>
+                    <span className="text-xs text-primary/70">{Math.floor(Math.random() * 200)}</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
