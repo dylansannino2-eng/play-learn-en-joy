@@ -141,9 +141,8 @@ export default function AdminPage() {
 
     const { error } = await query;
 
-    if (error) {
-      toast.error("Error al guardar juego");
-    } else {
+    if (error) toast.error("Error al guardar juego");
+    else {
       toast.success(editingGame ? "Juego actualizado" : "Juego creado");
       setDialogOpen(false);
       fetchGames();
@@ -151,20 +150,14 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este juego?")) return;
-
+    if (!confirm("¿Eliminar juego?")) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
-
     if (error) toast.error("Error al eliminar");
-    else {
-      toast.success("Juego eliminado");
-      fetchGames();
-    }
+    else fetchGames();
   };
 
   const toggleActive = async (game: Game) => {
     await supabase.from("games").update({ is_active: !game.is_active }).eq("id", game.id);
-
     fetchGames();
   };
 
@@ -177,12 +170,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        {/* HEADER */}
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft />
             </Button>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
@@ -195,8 +189,7 @@ export default function AdminPage() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Juego
+                <Plus className="mr-2 h-4 w-4" /> Agregar Juego
               </Button>
             </DialogTrigger>
 
@@ -206,62 +199,74 @@ export default function AdminPage() {
               </DialogHeader>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>Título *</Label>
-                  <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
-                </div>
-
-                <div>
-                  <Label>Imagen *</Label>
-                  <Input value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} />
-                </div>
-
-                <div>
-                  <Label>Meta Title (SEO)</Label>
-                  <Input
-                    value={formData.meta_title || ""}
-                    onChange={(e) => setFormData({ ...formData, meta_title: e.target.value || null })}
-                  />
-                </div>
-
-                <div>
-                  <Label>Meta Description (SEO)</Label>
-                  <Input
-                    value={formData.meta_description || ""}
-                    onChange={(e) => setFormData({ ...formData, meta_description: e.target.value || null })}
-                  />
-                </div>
+                <Input
+                  placeholder="Título"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+                <Input
+                  placeholder="URL Imagen"
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                />
+                <Input
+                  placeholder="Descripción"
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+                <Input
+                  placeholder="Meta Title (SEO)"
+                  value={formData.meta_title || ""}
+                  onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                />
+                <Input
+                  placeholder="Meta Description (SEO)"
+                  value={formData.meta_description || ""}
+                  onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                />
 
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">{editingGame ? "Guardar Cambios" : "Crear Juego"}</Button>
+                  <Button type="submit">Guardar</Button>
                 </div>
               </form>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* TABLA */}
         <Card>
           <CardHeader>
             <CardTitle>Juegos ({games.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Activo</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {games.map((game) => (
                   <TableRow key={game.id}>
                     <TableCell>{game.title}</TableCell>
                     <TableCell>
+                      <Badge>{categoryLabels[game.category]}</Badge>
+                    </TableCell>
+                    <TableCell>
                       <Switch checked={game.is_active} onCheckedChange={() => toggleActive(game)} />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="flex gap-2 justify-end">
                       <Button size="icon" variant="ghost" onClick={() => handleOpenDialog(game)}>
-                        <Pencil className="h-4 w-4" />
+                        <Pencil size={16} />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => handleDelete(game.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 size={16} className="text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
