@@ -73,32 +73,31 @@ export default function ParticipationChat({
       );
     }
 
-    // Regular message - only show to the user who sent it
-    if (msg.isCurrentUser) {
-      return (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex gap-2 items-start"
-        >
-          <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-            {msg.username.charAt(0).toUpperCase()}
+    // Regular message - show to all users
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex gap-2 items-start"
+      >
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+          msg.isCurrentUser ? 'bg-primary/20 text-primary' : 'bg-secondary text-secondary-foreground'
+        }`}>
+          {msg.username.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className={`text-sm font-medium ${msg.isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+              {msg.username}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-medium text-primary">{msg.username}</span>
-              <span className="text-xs text-muted-foreground">
-                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground">{msg.message}</p>
-          </div>
-        </motion.div>
-      );
-    }
-
-    // Other users' messages - don't show the actual message content
-    return null;
+          <p className="text-sm text-muted-foreground">{msg.message}</p>
+        </div>
+      </motion.div>
+    );
   };
 
   return (
