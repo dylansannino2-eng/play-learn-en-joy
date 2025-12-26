@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Users, Plus, Copy, Check, ArrowLeft, Globe, Lock, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,6 +35,7 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
   const [playerName, setPlayerName] = useState(username);
   const [roomType, setRoomType] = useState<RoomType>('private');
   const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Track players joining the room via Supabase Realtime
   useEffect(() => {
@@ -88,8 +89,11 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
       }
     });
 
+    channelRef.current = channel;
+
     return () => {
       channel.unsubscribe();
+      channelRef.current = null;
     };
   }, [view, createdRoomCode, gameSlug, user?.id, playerName]);
 
@@ -159,7 +163,25 @@ export default function GameLobby({ gameSlug, gameTitle, onStartGame, onBack }: 
     onStartGame(); // No room code = public game
   };
 
-  const handleStartPrivateGame = () => {
+  const handleStartPrivateGame = async () => {
+    // Broadcast game start event to all players
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'game_start',
+        payload: {
+          roomCode: createdRoomCode,
+          startedAt: new Date().toISOString(),
+        },
+      });
+    }
+    
+    // Update room status to playing
+    await supabase
+      .from('game_rooms')
+      .update({ status: 'playing' })
+      .eq('code', createdRoomCode);
+    
     onStartGame(createdRoomCode);
   };
 
