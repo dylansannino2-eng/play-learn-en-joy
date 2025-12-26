@@ -32,16 +32,10 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
-  const [activeRoomCode, setActiveRoomCode] = useState<string | undefined>(
-    roomCode ? roomCode.toUpperCase() : undefined
-  );
+  // Don't connect to game channel until game starts (displayName is set)
+  const [gameRoomCode, setGameRoomCode] = useState<string | undefined>(undefined);
   const [isHostInRoom, setIsHostInRoom] = useState(false);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
-
-  // Keep room code in sync with URL param (invitation links)
-  useEffect(() => {
-    setActiveRoomCode(roomCode ? roomCode.toUpperCase() : undefined);
-  }, [roomCode]);
 
   const {
     players,
@@ -51,7 +45,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
-  } = useMultiplayerGame('word-battle', activeRoomCode, displayName || undefined);
+  } = useMultiplayerGame('word-battle', gameRoomCode, displayName || undefined);
 
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -163,7 +157,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const handleLobbyStart = useCallback(
     async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
-      if (normalizedRoom) setActiveRoomCode(normalizedRoom);
+      if (normalizedRoom) setGameRoomCode(normalizedRoom);
 
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
