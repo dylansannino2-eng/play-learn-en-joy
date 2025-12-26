@@ -53,6 +53,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [streak, setStreak] = useState(0);
   const [usedAnswers, setUsedAnswers] = useState<Set<string>>(new Set());
+  const [usedCardIds, setUsedCardIds] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(30);
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +90,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     });
   }, [correctAnswerEvents, username]);
 
-  const fetchRandomCard = useCallback(async () => {
+  const fetchRandomCard = useCallback(async (excludeIds: Set<string>) => {
     const { data, error } = await supabase
       .from('word_battle_cards')
       .select('*')
@@ -100,8 +101,15 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       return;
     }
 
-    const randomCard = data[Math.floor(Math.random() * data.length)] as WordBattleCard;
+    // Filter out already used cards
+    const availableCards = data.filter(card => !excludeIds.has(card.id));
+    
+    // If all cards used, reset and use full pool
+    const finalPool = availableCards.length > 0 ? availableCards : data;
+
+    const randomCard = finalPool[Math.floor(Math.random() * finalPool.length)] as WordBattleCard;
     setCurrentCard(randomCard);
+    setUsedCardIds(prev => new Set(prev).add(randomCard.id));
     setUsedAnswers(new Set());
     setIsLoading(false);
   }, []);
@@ -142,6 +150,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
+      setUsedCardIds(new Set());
       return;
     }
 
@@ -151,8 +160,8 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setChatMessages([]);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
-    fetchRandomCard();
-  }, [round, totalRounds, score, fetchRandomCard, playSound]);
+    fetchRandomCard(usedCardIds);
+  }, [round, totalRounds, score, fetchRandomCard, playSound, usedCardIds]);
 
   const handleLobbyStart = useCallback(
     async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
@@ -162,6 +171,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
       setCurrentDifficulty(payload.difficulty);
+      setUsedCardIds(new Set());
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
@@ -180,7 +190,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
         },
       ]);
       setRound(1);
-      await fetchRandomCard();
+      await fetchRandomCard(new Set());
     },
     [playSound, fetchRandomCard]
   );

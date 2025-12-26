@@ -78,6 +78,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
+  const [usedPhraseIds, setUsedPhraseIds] = useState<Set<string>>(new Set());
 
   // Preload sounds on mount
   useEffect(() => {
@@ -123,7 +124,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     });
   }, [remoteChatMessages, username]);
 
-  const pickRandomPhraseId = useCallback(async (difficulty: Difficulty): Promise<string | null> => {
+  const pickRandomPhraseId = useCallback(async (difficulty: Difficulty, excludeIds: Set<string>): Promise<string | null> => {
     const { data, error } = await supabase
       .from('translator_phrases')
       .select('id')
@@ -146,7 +147,13 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       return null;
     }
 
-    return pool[Math.floor(Math.random() * pool.length)].id;
+    // Filter out already used phrases
+    const availablePool = pool.filter(p => !excludeIds.has(p.id));
+    
+    // If all phrases used, reset and use full pool
+    const finalPool = availablePool.length > 0 ? availablePool : pool;
+
+    return finalPool[Math.floor(Math.random() * finalPool.length)].id;
   }, []);
 
   const fetchPhraseById = useCallback(async (phraseId: string) => {
@@ -170,7 +177,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     setIsLoading(false);
   }, []);
 
-  const fetchRandomPhrase = useCallback(async (difficulty: Difficulty) => {
+  const fetchRandomPhrase = useCallback(async (difficulty: Difficulty, excludeIds: Set<string>) => {
     setIsLoading(true);
 
     const { data, error } = await supabase
@@ -191,15 +198,26 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         setIsLoading(false);
         return;
       }
-      const randomPhrase = fallbackData[Math.floor(Math.random() * fallbackData.length)] as TranslatorPhrase;
+      
+      // Filter out used phrases
+      const availablePool = fallbackData.filter(p => !excludeIds.has(p.id));
+      const finalPool = availablePool.length > 0 ? availablePool : fallbackData;
+      
+      const randomPhrase = finalPool[Math.floor(Math.random() * finalPool.length)] as TranslatorPhrase;
       setCurrentPhrase(randomPhrase);
+      setUsedPhraseIds(prev => new Set(prev).add(randomPhrase.id));
       setHasAnsweredCorrectly(false);
       setIsLoading(false);
       return;
     }
 
-    const randomPhrase = data[Math.floor(Math.random() * data.length)] as TranslatorPhrase;
+    // Filter out used phrases
+    const availablePool = data.filter(p => !excludeIds.has(p.id));
+    const finalPool = availablePool.length > 0 ? availablePool : data;
+
+    const randomPhrase = finalPool[Math.floor(Math.random() * finalPool.length)] as TranslatorPhrase;
     setCurrentPhrase(randomPhrase);
+    setUsedPhraseIds(prev => new Set(prev).add(randomPhrase.id));
     setHasAnsweredCorrectly(false);
     setIsLoading(false);
   }, []);
@@ -270,6 +288,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       setCorrectAnswers(0);
       setStreak(0);
       setIsHostInRoom(false);
+      setUsedPhraseIds(new Set());
       return;
     }
 
@@ -284,15 +303,16 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
     // Host selects and broadcasts; joiners will receive via game_event
     if (gameRoomCode && isHostInRoom) {
-      const phraseId = await pickRandomPhraseId(currentDifficulty);
+      const phraseId = await pickRandomPhraseId(currentDifficulty, usedPhraseIds);
       if (!phraseId) return;
 
+      setUsedPhraseIds(prev => new Set(prev).add(phraseId));
       await fetchPhraseById(phraseId);
       await broadcastGameEvent('translator_phrase', { phraseId, round: nextRoundNumber });
       return;
     }
 
-    await fetchRandomPhrase(currentDifficulty);
+    await fetchRandomPhrase(currentDifficulty, usedPhraseIds);
   }, [
     round,
     totalRounds,
@@ -305,6 +325,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     fetchPhraseById,
     broadcastGameEvent,
     fetchRandomPhrase,
+    usedPhraseIds,
   ]);
 
   const handleLobbyStart = useCallback(
@@ -315,6 +336,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
       setCurrentDifficulty(payload.difficulty);
+      setUsedPhraseIds(new Set());
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
@@ -336,12 +358,13 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
       const phraseId = (payload.startPayload as any)?.phraseId as string | undefined;
       if (phraseId) {
+        setUsedPhraseIds(new Set([phraseId]));
         await fetchPhraseById(phraseId);
         return;
       }
 
       // Fallback (solo play or if start payload wasn't provided)
-      await fetchRandomPhrase(payload.difficulty);
+      await fetchRandomPhrase(payload.difficulty, new Set());
     },
     [playSound, fetchPhraseById, fetchRandomPhrase]
   );
@@ -594,7 +617,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         gameSlug="the-translator"
         initialRoomCode={roomCode}
         buildStartPayload={async ({ difficulty }) => {
-          const phraseId = await pickRandomPhraseId(difficulty);
+          const phraseId = await pickRandomPhraseId(difficulty, new Set());
           return { phraseId };
         }}
         onStartGame={handleLobbyStart}
