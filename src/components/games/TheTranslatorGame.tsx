@@ -665,36 +665,42 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
                   </span>
                 </div>
 
-                {/* GIF Display */}
-                {currentPhrase.gif && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6"
-                  >
-                    <img
-                      src={currentPhrase.gif}
-                      alt="Phrase illustration"
-                      className="w-full max-w-xs mx-auto rounded-xl shadow-lg border border-border"
-                    />
-                  </motion.div>
-                )}
-                
-                <p className="text-sm text-muted-foreground mb-2">Traduce al inglés:</p>
-                <h2 className="text-3xl font-bold text-foreground">
-                  {currentPhrase.spanish_text}
-                </h2>
+                {/* Content: GIF + Text side by side */}
+                <div className={`flex items-center gap-6 ${currentPhrase.gif ? 'justify-between' : 'justify-center'}`}>
+                  {/* GIF Display */}
+                  {currentPhrase.gif && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex-shrink-0"
+                    >
+                      <img
+                        src={currentPhrase.gif}
+                        alt="Phrase illustration"
+                        className="w-40 h-40 object-cover rounded-xl shadow-lg border border-border"
+                      />
+                    </motion.div>
+                  )}
+                  
+                  {/* Text Content */}
+                  <div className="flex-1 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">Traduce al inglés:</p>
+                    <h2 className="text-3xl font-bold text-foreground">
+                      {currentPhrase.spanish_text}
+                    </h2>
 
-                {hasAnsweredCorrectly && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="mt-4 flex items-center justify-center gap-2 text-green-400"
-                  >
-                    <Check size={24} />
-                    <span className="font-bold">¡Correcto!</span>
-                  </motion.div>
-                )}
+                    {hasAnsweredCorrectly && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="mt-4 flex items-center justify-center gap-2 text-green-400"
+                      >
+                        <Check size={24} />
+                        <span className="font-bold">¡Correcto!</span>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </div>
