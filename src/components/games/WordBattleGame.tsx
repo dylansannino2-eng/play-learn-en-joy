@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -45,6 +45,8 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
+    gameEvent,
+    broadcastGameEvent,
   } = useMultiplayerGame('word-battle', gameRoomCode, displayName || undefined);
 
   const [currentCard, setCurrentCard] = useState<WordBattleCard | null>(null);
@@ -116,6 +118,10 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
 
   // Removed auto-fetch on mount - now starts from lobby
 
+  const endRound = useCallback(() => {
+    setGamePhase('ranking');
+  }, []);
+
   // Timer with sound effects
   useEffect(() => {
     if (gamePhase !== 'playing' || timeLeft <= 0) return;
@@ -135,15 +141,23 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, timeLeft, playSound]);
+  }, [gamePhase, timeLeft, playSound, endRound]);
 
   // Check if all players answered correctly - auto advance
+  const hasAdvancedRef = useRef(false);
+  
+  useEffect(() => {
+    hasAdvancedRef.current = false;
+  }, [round]);
+  
   useEffect(() => {
     if (gamePhase !== 'playing') return;
-    if (correctAnswers < round) return; // Current player hasn't answered this round
+    if (correctAnswers < round) return;
+    if (hasAdvancedRef.current) return;
     
     // Solo mode: advance when player answers correctly
     if (playerCount <= 1) {
+      hasAdvancedRef.current = true;
       setTimeout(() => {
         playSound('roundEnd', 0.6);
         endRound();
@@ -151,20 +165,30 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       return;
     }
     
-    // Multiplayer: check if all players have at least one correct answer this round
+    // Multiplayer: only host broadcasts
+    if (!isHostInRoom) return;
+    
     const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
     
     if (allAnswered) {
-      setTimeout(() => {
+      hasAdvancedRef.current = true;
+      setTimeout(async () => {
         playSound('roundEnd', 0.6);
         endRound();
+        await broadcastGameEvent('round_advance', { round });
       }, 800);
     }
-  }, [gamePhase, players, playerCount, round, correctAnswers, playSound]);
+  }, [gamePhase, players, playerCount, round, correctAnswers, playSound, isHostInRoom, broadcastGameEvent, endRound]);
 
-  const endRound = useCallback(() => {
-    setGamePhase('ranking');
-  }, []);
+  // Listen for round advance from host (non-hosts)
+  useEffect(() => {
+    if (isHostInRoom) return;
+    if (!gameRoomCode) return;
+    if (!gameEvent || gameEvent.type !== 'round_advance') return;
+    
+    playSound('roundEnd', 0.6);
+    endRound();
+  }, [gameEvent, isHostInRoom, gameRoomCode, playSound, endRound]);
 
   const nextRound = useCallback(() => {
     if (round >= totalRounds) {
