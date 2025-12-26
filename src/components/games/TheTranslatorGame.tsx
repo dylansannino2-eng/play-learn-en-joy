@@ -9,6 +9,8 @@ import GameLobby from './shared/GameLobby';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 
+const ROUND_SECONDS = 30;
+
 type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface DifficultyOption {
@@ -72,9 +74,22 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [streak, setStreak] = useState(0);
   const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+  const [roundEndsAt, setRoundEndsAt] = useState<number | null>(null);
+  const lastTimerSecondRef = useRef<number>(ROUND_SECONDS);
+
+  const startRoundTimer = useCallback((endsAt?: number) => {
+    const nextEndsAt = endsAt ?? Date.now() + ROUND_SECONDS * 1000;
+    const nextSeconds = Math.max(0, Math.ceil((nextEndsAt - Date.now()) / 1000));
+
+    lastTimerSecondRef.current = nextSeconds;
+    setRoundEndsAt(nextEndsAt);
+    setTimeLeft(nextSeconds);
+
+    return nextEndsAt;
+  }, []);
+
   const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
-  const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
@@ -227,7 +242,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     if (isHostInRoom) return;
     if (!gameRoomCode) return;
     if (!gameEvent) return;
-    
+
     // Handle phrase sync
     if (gameEvent.type === 'translator_phrase') {
       const p = gameEvent.payload as any;
@@ -241,40 +256,49 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
       // Bring player back to play state if needed
       setGamePhase('playing');
-      setTimeLeft(30);
+      startRoundTimer(typeof p.roundEndsAt === 'number' ? p.roundEndsAt : undefined);
       setHasAnsweredCorrectly(false);
       setChatMessages([]);
 
       fetchPhraseById(p.phraseId);
     }
-    
+
     // Handle round advance sync (all players answered)
     if (gameEvent.type === 'round_advance') {
       playSound('roundEnd', 0.6);
       setGamePhase('reveal');
     }
-  }, [gameEvent, isHostInRoom, gameRoomCode, fetchPhraseById, playSound]);
+  }, [gameEvent, isHostInRoom, gameRoomCode, fetchPhraseById, playSound, startRoundTimer]);
 
-  // Timer
+  // Timer (uses an absolute end timestamp so it doesn't "pause" when the tab is inactive)
   useEffect(() => {
-    if (gamePhase !== 'playing' || timeLeft <= 0) return;
+    if (gamePhase !== 'playing') return;
+    if (!roundEndsAt) {
+      startRoundTimer();
+      return;
+    }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 6 && prev > 1) {
+    const timer = window.setInterval(() => {
+      const remainingMs = roundEndsAt - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+
+      if (remainingSec !== lastTimerSecondRef.current) {
+        if (remainingSec <= 6 && remainingSec > 1) {
           playSound('tick', 0.3);
         }
-        if (prev <= 1) {
+
+        if (remainingSec <= 0 && lastTimerSecondRef.current > 0) {
           playSound('roundEnd', 0.6);
           setGamePhase('reveal');
-          return 0;
         }
-        return prev - 1;
-      });
-    }, 1000);
 
-    return () => clearInterval(timer);
-  }, [gamePhase, timeLeft, playSound]);
+        lastTimerSecondRef.current = remainingSec;
+        setTimeLeft(remainingSec);
+      }
+    }, 250);
+
+    return () => window.clearInterval(timer);
+  }, [gamePhase, roundEndsAt, playSound, startRoundTimer]);
 
   // Check if all players answered correctly - auto advance
   // Track if we already triggered advance for this round to prevent duplicates
@@ -379,7 +403,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     const nextRoundNumber = round + 1;
 
     setRound(nextRoundNumber);
-    setTimeLeft(30);
+    startRoundTimer();
     setHasAnsweredCorrectly(false);
     setChatMessages([]);
     setGamePhase('playing');
@@ -392,7 +416,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
       setUsedPhraseIds(prev => new Set(prev).add(phraseId));
       await fetchPhraseById(phraseId);
-      await broadcastGameEvent('translator_phrase', { phraseId, round: nextRoundNumber });
+      const roundEndsAt = startRoundTimer();
+      await broadcastGameEvent('translator_phrase', { phraseId, round: nextRoundNumber, roundEndsAt });
       return;
     }
 
@@ -424,7 +449,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
-      setTimeLeft(30);
+      startRoundTimer((payload.startPayload as any)?.roundEndsAt);
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
@@ -710,7 +735,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         initialPlayerName={displayName || undefined}
         buildStartPayload={async ({ difficulty }) => {
           const phraseId = await pickRandomPhraseId(difficulty, new Set());
-          return { phraseId };
+          const roundEndsAt = Date.now() + ROUND_SECONDS * 1000;
+          return { phraseId, roundEndsAt };
         }}
         onStartGame={handleLobbyStart}
       />
