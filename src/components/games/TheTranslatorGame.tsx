@@ -60,11 +60,15 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     playerCount,
     isConnected,
     username,
+    oderId,
     updateScore,
     broadcastCorrectAnswer,
     correctAnswerEvents,
     gameEvent,
     broadcastGameEvent,
+    chatMessages: remoteChatMessages,
+    broadcastChatMessage,
+    clearChatMessages,
   } = useMultiplayerGame('the-translator', activeRoomCode, displayName || undefined);
 
   const [currentPhrase, setCurrentPhrase] = useState<TranslatorPhrase | null>(null);
@@ -103,6 +107,26 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       }
     });
   }, [correctAnswerEvents, username]);
+
+  // Add remote chat messages from other players
+  useEffect(() => {
+    remoteChatMessages.forEach((msg) => {
+      if (msg.username !== username) {
+        const newMessage: ChatMessage = {
+          id: `remote-${msg.timestamp}-${msg.username}`,
+          username: msg.username,
+          message: msg.message,
+          type: 'message',
+          timestamp: new Date(msg.timestamp),
+          isCurrentUser: false,
+        };
+        setChatMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      }
+    });
+  }, [remoteChatMessages, username]);
 
   const pickRandomPhraseId = useCallback(async (difficulty: Difficulty): Promise<string | null> => {
     const { data, error } = await supabase
@@ -368,7 +392,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     const { isCorrect, similarity } = checkAnswer(message);
     const now = new Date();
 
-    // Add user's message
+    // Add user's message locally
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       username,
@@ -378,6 +402,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       isCurrentUser: true,
     };
     setChatMessages((prev) => [...prev, userMessage]);
+
+    // Broadcast message to other players (only if not correct, correct ones are hidden)
+    if (!isCorrect && activeRoomCode) {
+      await broadcastChatMessage(message);
+    }
 
     if (hasAnsweredCorrectly) {
       // Already answered correctly, ignore

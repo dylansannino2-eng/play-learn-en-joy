@@ -43,6 +43,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [correctAnswerEvents, setCorrectAnswerEvents] = useState<CorrectAnswerEvent[]>([]);
   const [gameEvent, setGameEvent] = useState<GameEvent | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ username: string; message: string; timestamp: string }[]>([]);
 
   // Initialize realtime connection
   useEffect(() => {
@@ -104,6 +105,12 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
     channel.on('broadcast', { event: 'game_event' }, ({ payload }) => {
       console.log('Game event received:', payload);
       setGameEvent(payload as GameEvent);
+    });
+
+    // Chat messages from other players
+    channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
+      console.log('Chat message received:', payload);
+      setChatMessages((prev) => [...prev, payload as { username: string; message: string; timestamp: string }]);
     });
 
     channel.subscribe(async (status) => {
@@ -179,7 +186,21 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
       await channelRef.current.send({
         type: 'broadcast',
         event: 'game_event',
-        payload: { type, payload },
+      payload: { type, payload },
+    });
+  }
+}, []);
+
+  const broadcastChatMessage = useCallback(async (message: string) => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'chat_message',
+        payload: {
+          username,
+          message,
+          timestamp: new Date().toISOString(),
+        },
       });
     }
   }, []);
@@ -200,16 +221,24 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
 
   const getPlayerCount = useCallback(() => players.size, [players]);
 
+  const clearChatMessages = useCallback(() => {
+    setChatMessages([]);
+  }, []);
+
   return {
     players: getSortedPlayers(),
     playerCount: getPlayerCount(),
     isConnected,
     username,
+    oderId,
     updateScore,
     broadcastCorrectAnswer,
     broadcastEvent,
     gameEvent,
     broadcastGameEvent,
     correctAnswerEvents,
+    chatMessages,
+    broadcastChatMessage,
+    clearChatMessages,
   };
 }
