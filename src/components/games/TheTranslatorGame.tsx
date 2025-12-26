@@ -270,14 +270,21 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   // Check if all players answered correctly - auto advance
   useEffect(() => {
     if (gamePhase !== 'playing') return;
-    if (playerCount <= 1) return; // Only in multiplayer
+    if (!hasAnsweredCorrectly) return;
     
-    // Check if all players have answered correctly for this round
-    // Each player should have correctAnswers >= current round number
+    // Solo mode: advance when player answers correctly
+    if (playerCount <= 1) {
+      setTimeout(() => {
+        playSound('roundEnd', 0.6);
+        setGamePhase('reveal');
+      }, 800);
+      return;
+    }
+    
+    // Multiplayer: check if all players have answered correctly for this round
     const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
     
-    if (allAnswered && hasAnsweredCorrectly) {
-      // Small delay so the last player sees the animation
+    if (allAnswered) {
       setTimeout(() => {
         playSound('roundEnd', 0.6);
         setGamePhase('reveal');
