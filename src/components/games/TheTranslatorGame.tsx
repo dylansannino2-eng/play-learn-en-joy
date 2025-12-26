@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Play, Plus, Copy, Check, Languages } from 'lucide-react';
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Languages, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import JoinRoomFromLink from './shared/JoinRoomFromLink';
+import GameLobby from './shared/GameLobby';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,175 +26,7 @@ const difficultyOptions: DifficultyOption[] = [
   { value: 'medium', label: 'Medium', levels: 'B1, B2', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20 border-yellow-500/50 hover:bg-yellow-500/30' },
   { value: 'hard', label: 'Hard', levels: 'C1, C2', color: 'text-red-400', bgColor: 'bg-red-500/20 border-red-500/50 hover:bg-red-500/30' },
 ];
-
-interface GameLobbyInlineProps {
-  isConnected: boolean;
-  playerCount: number;
-  onStartGame: (difficulty: Difficulty) => void;
-}
-
-function GameLobbyInline({ isConnected, playerCount, onStartGame }: GameLobbyInlineProps) {
-  const { user } = useAuth();
-  const username = user?.email?.split('@')[0] || 'Jugador';
-  
-  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
-  const [createdRoomCode, setCreatedRoomCode] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showRoomCreated, setShowRoomCreated] = useState(false);
-
-  const generateCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
-  const handleCreateRoom = async () => {
-    setIsCreating(true);
-    const code = generateCode();
-    
-    const { error } = await supabase
-      .from('game_rooms')
-      .insert({
-        code,
-        game_slug: 'the-translator',
-        host_id: user?.id || null,
-        host_name: username,
-        status: 'waiting',
-      });
-
-    if (error) {
-      toast.error('Error al crear la sala');
-    } else {
-      setCreatedRoomCode(code);
-      setShowRoomCreated(true);
-    }
-    setIsCreating(false);
-  };
-
-  const copyRoomLink = () => {
-    const link = `${window.location.origin}/game/the-translator?room=${createdRoomCode}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    toast.success('Enlace copiado');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (showRoomCreated) {
-    return (
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-md"
-      >
-        <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl p-6 border border-primary/30">
-          <h3 className="text-xl font-bold text-foreground text-center mb-2">
-            ¡Sala Creada!
-          </h3>
-          <p className="text-muted-foreground text-center text-sm mb-4">
-            Comparte el código con tus amigos
-          </p>
-
-          <div className="flex justify-center gap-2 mb-4">
-            {createdRoomCode.split('').map((char, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0, rotate: -10 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-              >
-                <span className="text-2xl font-black text-primary-foreground">{char}</span>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={copyRoomLink}
-              className="w-full py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-              {copied ? 'Copiado' : 'Copiar Enlace'}
-            </button>
-            <button
-              onClick={() => {
-                window.location.href = `/game/the-translator?room=${createdRoomCode}`;
-              }}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <Play size={18} />
-              Iniciar Partida
-            </button>
-            <button
-              onClick={() => setShowRoomCreated(false)}
-              className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      className="w-full max-w-md"
-    >
-      <div className="bg-card rounded-2xl p-6 border border-border">
-        <h2 className="text-2xl font-bold text-foreground text-center mb-4">
-          Play
-        </h2>
-        
-        {/* Difficulty Selection */}
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground text-center mb-3">Select difficulty</p>
-          <div className="flex gap-2">
-            {difficultyOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setSelectedDifficulty(option.value)}
-                className={`flex-1 py-3 px-2 rounded-xl border transition-all ${
-                  selectedDifficulty === option.value
-                    ? `${option.bgColor} border-2`
-                    : 'bg-secondary/50 border-border hover:bg-secondary'
-                }`}
-              >
-                <span className={`block font-bold ${selectedDifficulty === option.value ? option.color : 'text-foreground'}`}>
-                  {option.label}
-                </span>
-                <span className="block text-xs text-muted-foreground">{option.levels}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <button
-            onClick={() => onStartGame(selectedDifficulty)}
-            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors"
-          >
-            Play
-          </button>
-          
-          <button
-            onClick={handleCreateRoom}
-            disabled={isCreating}
-            className="w-full py-3 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors disabled:opacity-50"
-          >
-            {isCreating ? 'Creando...' : 'Create room'}
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+// Removed inline GameLobbyInline - now using shared GameLobby component
 
 interface TranslatorPhrase {
   id: string;
@@ -627,6 +460,25 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     );
   }
 
+  // Show lobby when waiting
+  if (gamePhase === 'waiting') {
+    return (
+      <GameLobby
+        gameSlug="the-translator"
+        gameTitle="The Translator"
+        onStartGame={(roomCodeFromLobby) => {
+          if (roomCodeFromLobby) {
+            // Navigate to room URL so multiplayer hook reconnects with roomCode
+            window.location.href = `/game/the-translator?room=${roomCodeFromLobby}`;
+          } else {
+            // Quick play - start immediately
+            startGame(currentDifficulty);
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <>
       {/* Game Area */}
@@ -661,61 +513,53 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
         {/* Main Game Content */}
         <div className="flex-1 flex items-center justify-center p-6">
-          {gamePhase === 'waiting' ? (
-            <GameLobbyInline
-              isConnected={isConnected}
-              playerCount={playerCount}
-              onStartGame={startGame}
-            />
-          ) : (
-            <div className="text-center max-w-2xl w-full">
-              {/* Round & Timer */}
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <span className="text-sm text-muted-foreground">
-                  Ronda {round}/{totalRounds}
+          <div className="text-center max-w-2xl w-full">
+            {/* Round & Timer */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <span className="text-sm text-muted-foreground">
+                Ronda {round}/{totalRounds}
+              </span>
+              <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-full">
+                <Clock className={`${timeLeft <= 10 ? 'text-red-400' : 'text-primary'}`} size={18} />
+                <span className={`font-bold ${timeLeft <= 10 ? 'text-red-400' : 'text-foreground'}`}>
+                  {timeLeft}s
                 </span>
-                <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-full">
-                  <Clock className={`${timeLeft <= 10 ? 'text-red-400' : 'text-primary'}`} size={18} />
-                  <span className={`font-bold ${timeLeft <= 10 ? 'text-red-400' : 'text-foreground'}`}>
-                    {timeLeft}s
+              </div>
+            </div>
+
+            {/* Phrase Card */}
+            {currentPhrase && (
+              <motion.div
+                key={currentPhrase.id}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl p-8 border border-primary/30"
+              >
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <Languages className="text-primary" size={24} />
+                  <span className={`text-sm font-medium ${getDifficultyColor(currentPhrase.difficulty)}`}>
+                    {getDifficultyLabel(currentPhrase.difficulty)}
                   </span>
                 </div>
-              </div>
+                
+                <p className="text-sm text-muted-foreground mb-2">Traduce al inglés:</p>
+                <h2 className="text-3xl font-bold text-foreground">
+                  {currentPhrase.spanish_text}
+                </h2>
 
-              {/* Phrase Card */}
-              {currentPhrase && (
-                <motion.div
-                  key={currentPhrase.id}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl p-8 border border-primary/30"
-                >
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <Languages className="text-primary" size={24} />
-                    <span className={`text-sm font-medium ${getDifficultyColor(currentPhrase.difficulty)}`}>
-                      {getDifficultyLabel(currentPhrase.difficulty)}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-muted-foreground mb-2">Traduce al inglés:</p>
-                  <h2 className="text-3xl font-bold text-foreground">
-                    {currentPhrase.spanish_text}
-                  </h2>
-
-                  {hasAnsweredCorrectly && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="mt-4 flex items-center justify-center gap-2 text-green-400"
-                    >
-                      <Check size={24} />
-                      <span className="font-bold">¡Correcto!</span>
-                    </motion.div>
-                  )}
-                </motion.div>
-              )}
-            </div>
-          )}
+                {hasAnsweredCorrectly && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="mt-4 flex items-center justify-center gap-2 text-green-400"
+                  >
+                    <Check size={24} />
+                    <span className="font-bold">¡Correcto!</span>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
 
