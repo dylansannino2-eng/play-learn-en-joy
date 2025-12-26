@@ -582,6 +582,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       { rank: 1, username, points: score, correctAnswers, streak, isCurrentUser: true }
     ];
     
+    // Check if all players answered correctly this round
+    const allPlayersCorrect = rankingPlayers.length > 0 && 
+      rankingPlayers.every(p => p.correctAnswers > 0);
+    
     return (
       <>
         <RoundRanking
@@ -591,6 +595,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
           countdownSeconds={5}
           onCountdownComplete={nextRound}
           isLastRound={isLastRound}
+          allPlayersCorrect={allPlayersCorrect}
         />
         <div className="w-80 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
           <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border">

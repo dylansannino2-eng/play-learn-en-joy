@@ -18,6 +18,7 @@ interface RoundRankingProps {
   countdownSeconds?: number;
   onCountdownComplete?: () => void;
   isLastRound?: boolean;
+  allPlayersCorrect?: boolean;
 }
 
 export default function RoundRanking({ 
@@ -26,9 +27,12 @@ export default function RoundRanking({
   totalRounds,
   countdownSeconds = 5,
   onCountdownComplete,
-  isLastRound = false
+  isLastRound = false,
+  allPlayersCorrect = false
 }: RoundRankingProps) {
-  const [countdown, setCountdown] = useState(countdownSeconds);
+  // Faster countdown if all players got it right
+  const effectiveCountdown = allPlayersCorrect ? Math.min(countdownSeconds, 2) : countdownSeconds;
+  const [countdown, setCountdown] = useState(effectiveCountdown);
 
   useEffect(() => {
     if (isLastRound) return; // No countdown on last round
@@ -278,6 +282,15 @@ export default function RoundRanking({
         animate={{ scale: 1 }}
         className="text-center"
       >
+        {allPlayersCorrect && (
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-green-400 font-bold mb-1"
+          >
+            ¡Todos acertaron! 🎉
+          </motion.p>
+        )}
         <p className="text-muted-foreground mb-2">Siguiente ronda en</p>
         <motion.div
           key={countdown}
