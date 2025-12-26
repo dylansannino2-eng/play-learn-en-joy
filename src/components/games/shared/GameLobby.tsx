@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Copy } from "lucide-react";
 
-type View = "main" | "create" | "join";
+type View = "play" | "room_created";
+type Difficulty = "easy" | "medium" | "hard";
 
-export default function RoomSystem() {
-  const [view, setView] = useState<View>("main");
+export default function GameLobby() {
+  const [view, setView] = useState<View>("play");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [roomCode, setRoomCode] = useState("");
-  const [createdRoomCode, setCreatedRoomCode] = useState("");
 
-  // Utils
+  /* ---------------- utils ---------------- */
+
   const generateRoomCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     return Array.from({ length: 4 })
@@ -16,109 +19,145 @@ export default function RoomSystem() {
       .join("");
   };
 
-  // Actions
+  /* ---------------- handlers ---------------- */
+
   const handleCreateRoom = () => {
     const code = generateRoomCode();
-    setCreatedRoomCode(code);
-    setView("create");
+    setRoomCode(code);
+    setView("room_created");
   };
 
-  const handleJoinRoom = () => {
-    if (roomCode.length !== 4) return;
-    console.log("Joining room:", roomCode);
-    // Acá después va Supabase
+  const handleStartGame = () => {
+    console.log("START GAME", { difficulty, roomCode });
+    // acá después conectamos el juego real
   };
 
   /* =========================
-      MAIN VIEW
+        PLAY VIEW
   ========================= */
-  if (view === "main") {
+
+  if (view === "play") {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm bg-background border rounded-2xl shadow-lg p-6"
+          className="w-full max-w-md rounded-3xl p-8
+            bg-gradient-to-br from-[#1c1f2e] to-[#141625]
+            border border-white/10 shadow-2xl"
         >
-          <h1 className="text-2xl font-bold text-center mb-6">Salas</h1>
+          <h1 className="text-3xl font-black text-center text-white mb-2">Play</h1>
+          <p className="text-center text-white/60 mb-8">Select difficulty</p>
 
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={handleCreateRoom}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition"
+          {/* Difficulty */}
+          <div className="grid grid-cols-3 gap-3 mb-8">
+            {[
+              { id: "easy", label: "Easy", sub: "A1, A2" },
+              { id: "medium", label: "Medium", sub: "B1, B2" },
+              { id: "hard", label: "Hard", sub: "C1, C2" },
+            ].map((d) => {
+              const active = difficulty === d.id;
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => setDifficulty(d.id as Difficulty)}
+                  className={`
+                    rounded-2xl p-4 text-center transition
+                    ${
+                      active
+                        ? "bg-yellow-400/20 border border-yellow-400 text-yellow-300"
+                        : "bg-white/5 border border-white/10 text-white"
+                    }
+                  `}
+                >
+                  <div className="font-bold">{d.label}</div>
+                  <div className="text-xs opacity-70">{d.sub}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Play */}
+          <button
+            onClick={handleStartGame}
+            className="w-full mb-3 py-4 rounded-2xl
+              bg-purple-600 hover:bg-purple-700
+              text-white font-bold transition"
+          >
+            Play
+          </button>
+
+          {/* Create room */}
+          <button
+            onClick={handleCreateRoom}
+            className="w-full py-4 rounded-2xl
+              bg-white/5 hover:bg-white/10
+              text-white font-semibold transition"
+          >
+            Create room
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* =========================
+      ROOM CREATED VIEW
+  ========================= */
+
+  return (
+    <div className="flex-1 flex items-center justify-center px-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md rounded-3xl p-8
+          bg-gradient-to-br from-[#3a2a78] to-[#1b163a]
+          border border-white/10 shadow-2xl"
+      >
+        <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
+        <p className="text-center text-white/70 mb-6">Comparte el código con tus amigos</p>
+
+        {/* Code */}
+        <div className="flex justify-center gap-3 mb-6">
+          {roomCode.split("").map((c, i) => (
+            <div
+              key={i}
+              className="w-14 h-14 rounded-2xl
+                bg-purple-500 flex items-center justify-center"
             >
-              Crear sala
-            </button>
-
-            <div className="flex flex-col gap-2">
-              <input
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                maxLength={4}
-                placeholder="Código de sala"
-                className="w-full text-center tracking-widest uppercase py-3 rounded-xl border bg-background"
-              />
-
-              <button
-                onClick={handleJoinRoom}
-                className="w-full py-3 rounded-xl border font-semibold hover:bg-muted transition"
-              >
-                Unirse a sala
-              </button>
+              <span className="text-2xl font-black text-white">{c}</span>
             </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+          ))}
+        </div>
 
-  /* =========================
-      CREATE ROOM VIEW
-  ========================= */
-  if (view === "create") {
-    return (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm bg-background border rounded-2xl shadow-lg p-6"
+        {/* Copy */}
+        <button
+          onClick={() => navigator.clipboard.writeText(roomCode)}
+          className="w-full mb-3 py-4 rounded-2xl
+            bg-[#24283b] hover:bg-[#2c3150]
+            text-white font-semibold flex items-center justify-center gap-2 transition"
         >
-          <h2 className="text-xl font-bold text-center mb-2">Sala creada</h2>
+          <Copy size={18} /> Copiar Enlace
+        </button>
 
-          <p className="text-sm text-muted-foreground text-center mb-6">Compartí este código con tus amigos</p>
+        {/* Start */}
+        <button
+          onClick={handleStartGame}
+          className="w-full mb-4 py-4 rounded-2xl
+            bg-purple-600 hover:bg-purple-700
+            text-white font-bold flex items-center justify-center gap-2 transition"
+        >
+          <Play size={18} /> Iniciar Partida
+        </button>
 
-          <div className="flex justify-center gap-2 mb-6">
-            {createdRoomCode.split("").map((char, i) => (
-              <div key={i} className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <span className="text-2xl font-black text-primary">{char}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-muted-foreground">Esperando jugadores…</span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => navigator.clipboard.writeText(createdRoomCode)}
-              className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition"
-            >
-              Copiar código
-            </button>
-
-            <button
-              onClick={() => setView("main")}
-              className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition"
-            >
-              Cancelar
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return null;
+        {/* Cancel */}
+        <button
+          onClick={() => setView("play")}
+          className="w-full text-center text-white/60 hover:text-white transition"
+        >
+          Cancelar
+        </button>
+      </motion.div>
+    </div>
+  );
 }
