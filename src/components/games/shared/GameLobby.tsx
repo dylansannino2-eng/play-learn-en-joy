@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Play, Copy } from "lucide-react";
+import { Play, Copy, Check, Users, Wifi, WifiOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 /* =======================
     TYPES
 ======================= */
 
-type View = "play" | "room_created";
+type View = "menu" | "room_created" | "waiting_room";
 type Difficulty = "easy" | "medium" | "hard";
 
+interface Player {
+  odId: string;
+  username: string;
+  isHost: boolean;
+}
+
 interface GameLobbyProps {
+  gameSlug: string;
+  initialRoomCode?: string;
   onStartGame: (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean }) => void;
 }
 
@@ -17,10 +27,70 @@ interface GameLobbyProps {
     COMPONENT
 ======================= */
 
-export default function GameLobby({ onStartGame }: GameLobbyProps) {
-  const [view, setView] = useState<View>("play");
+export default function GameLobby({ gameSlug, initialRoomCode, onStartGame }: GameLobbyProps) {
+  const [view, setView] = useState<View>(initialRoomCode ? "waiting_room" : "menu");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [roomCode, setRoomCode] = useState<string | null>(initialRoomCode?.toUpperCase() || null);
+  const [isHost, setIsHost] = useState(!initialRoomCode);
+  const [copied, setCopied] = useState(false);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const oderId = useRef(`player_${Math.random().toString(36).slice(2, 10)}`);
+  const username = useRef(`Jugador_${Math.random().toString(36).slice(2, 6)}`);
+
+  /* ---------------- Realtime channel for lobby ---------------- */
+
+  useEffect(() => {
+    if (!roomCode) return;
+
+    const channelName = `lobby:${gameSlug}:${roomCode}`;
+    const channel = supabase.channel(channelName, {
+      config: { presence: { key: oderId.current } },
+    });
+
+    // Presence sync
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const updatedPlayers: Player[] = [];
+      Object.entries(state).forEach(([id, presences]) => {
+        const p = presences[0] as any;
+        if (p) {
+          updatedPlayers.push({
+            odId: id,
+            username: p.username,
+            isHost: p.isHost ?? false,
+          });
+        }
+      });
+      setPlayers(updatedPlayers);
+    });
+
+    // Listen for game_start broadcast
+    channel.on("broadcast", { event: "game_start" }, ({ payload }) => {
+      const p = payload as { difficulty: Difficulty; roomCode: string };
+      onStartGame({ difficulty: p.difficulty, roomCode: p.roomCode, isHost: false });
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        setIsConnected(true);
+        await channel.track({
+          username: username.current,
+          isHost,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    channelRef.current = channel;
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [roomCode, gameSlug, isHost, onStartGame]);
 
   /* ---------------- utils ---------------- */
 
@@ -31,46 +101,54 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
       .join("");
   };
 
+  const copyLink = () => {
+    if (!roomCode) return;
+    const link = `${window.location.origin}/game/${gameSlug}?room=${roomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   /* ---------------- handlers ---------------- */
 
   const handleQuickPlay = () => {
-    onStartGame({
-      difficulty,
-      isHost: true,
-    });
+    onStartGame({ difficulty, isHost: true });
   };
 
   const handleCreateRoom = () => {
     const code = generateRoomCode();
     setRoomCode(code);
+    setIsHost(true);
     setView("room_created");
   };
 
-  const handleStartRoomGame = () => {
+  const handleStartRoomGame = async () => {
     if (!roomCode) return;
 
-    onStartGame({
-      difficulty,
-      roomCode,
-      isHost: true,
-    });
+    // Broadcast game_start to all players
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "game_start",
+        payload: { difficulty, roomCode },
+      });
+    }
+
+    // Host also starts
+    onStartGame({ difficulty, roomCode, isHost: true });
   };
 
   /* =========================
-        PLAY VIEW
+        MENU VIEW
   ========================= */
 
-  if (view === "play") {
+  if (view === "menu") {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="
-            w-full max-w-md rounded-3xl p-8
-            bg-gradient-to-br from-[#1c1f2e] to-[#141625]
-            border border-white/10 shadow-2xl
-          "
+          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl"
         >
           <h1 className="text-3xl font-black text-center text-white mb-2">Play</h1>
           <p className="text-center text-white/60 mb-8">Select difficulty</p>
@@ -87,14 +165,11 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
                 <button
                   key={d.id}
                   onClick={() => setDifficulty(d.id as Difficulty)}
-                  className={`
-                    rounded-2xl p-4 text-center transition
-                    ${
-                      active
-                        ? "bg-yellow-400/20 border border-yellow-400 text-yellow-300"
-                        : "bg-white/5 border border-white/10 text-white"
-                    }
-                  `}
+                  className={`rounded-2xl p-4 text-center transition ${
+                    active
+                      ? "bg-yellow-400/20 border border-yellow-400 text-yellow-300"
+                      : "bg-white/5 border border-white/10 text-white"
+                  }`}
                 >
                   <div className="font-bold">{d.label}</div>
                   <div className="text-xs opacity-70">{d.sub}</div>
@@ -106,11 +181,7 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
           {/* Play */}
           <button
             onClick={handleQuickPlay}
-            className="
-              w-full mb-3 py-4 rounded-2xl
-              bg-purple-600 hover:bg-purple-700
-              text-white font-bold transition
-            "
+            className="w-full mb-3 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition"
           >
             Play
           </button>
@@ -118,11 +189,7 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
           {/* Create room */}
           <button
             onClick={handleCreateRoom}
-            className="
-              w-full py-4 rounded-2xl
-              bg-white/5 hover:bg-white/10
-              text-white font-semibold transition
-            "
+            className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold transition"
           >
             Create room
           </button>
@@ -132,7 +199,101 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
   }
 
   /* =========================
-      ROOM CREATED VIEW
+      ROOM CREATED VIEW (Host waiting for players)
+  ========================= */
+
+  if (view === "room_created") {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
+        >
+          <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
+          <p className="text-center text-white/70 mb-6">Comparte el código con tus amigos</p>
+
+          {/* Code */}
+          <div className="flex justify-center gap-3 mb-6">
+            {roomCode?.split("").map((c, i) => (
+              <div
+                key={i}
+                className="w-14 h-14 rounded-2xl bg-purple-500 flex items-center justify-center"
+              >
+                <span className="text-2xl font-black text-white">{c}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Players list */}
+          <div className="bg-white/5 rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={18} className="text-white/70" />
+              <span className="text-white/70 text-sm">Jugadores ({players.length})</span>
+              {isConnected ? (
+                <Wifi size={14} className="text-green-400 ml-auto" />
+              ) : (
+                <WifiOff size={14} className="text-red-400 ml-auto" />
+              )}
+            </div>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {players.length === 0 ? (
+                <p className="text-white/40 text-sm text-center py-2">Esperando jugadores...</p>
+              ) : (
+                players.map((p) => (
+                  <div
+                    key={p.odId}
+                    className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                      {p.username.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-white text-sm">{p.username}</span>
+                    {p.isHost && (
+                      <span className="ml-auto text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">
+                        Host
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Copy */}
+          <button
+            onClick={copyLink}
+            className="w-full mb-3 py-4 rounded-2xl bg-[#24283b] hover:bg-[#2c3150] text-white font-semibold flex items-center justify-center gap-2 transition"
+          >
+            {copied ? <Check size={18} /> : <Copy size={18} />}
+            {copied ? "Copiado" : "Copiar Enlace"}
+          </button>
+
+          {/* Start */}
+          <button
+            onClick={handleStartRoomGame}
+            className="w-full mb-4 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center justify-center gap-2 transition"
+          >
+            <Play size={18} /> Iniciar Partida
+          </button>
+
+          {/* Cancel */}
+          <button
+            onClick={() => {
+              setRoomCode(null);
+              setView("menu");
+            }}
+            className="w-full text-center text-white/60 hover:text-white transition"
+          >
+            Cancelar
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* =========================
+      WAITING ROOM VIEW (Joiner waiting for host to start)
   ========================= */
 
   return (
@@ -140,68 +301,51 @@ export default function GameLobby({ onStartGame }: GameLobbyProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="
-          w-full max-w-md rounded-3xl p-8
-          bg-gradient-to-br from-[#3a2a78] to-[#1b163a]
-          border border-white/10 shadow-2xl
-        "
+        className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
       >
-        <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
-        <p className="text-center text-white/70 mb-6">Comparte el código con tus amigos</p>
+        <h2 className="text-3xl font-black text-white text-center mb-2">Sala {roomCode}</h2>
+        <p className="text-center text-white/70 mb-6">Esperando al host...</p>
 
-        {/* Code */}
-        <div className="flex justify-center gap-3 mb-6">
-          {roomCode?.split("").map((c, i) => (
-            <div
-              key={i}
-              className="
-                w-14 h-14 rounded-2xl
-                bg-purple-500 flex items-center justify-center
-              "
-            >
-              <span className="text-2xl font-black text-white">{c}</span>
-            </div>
-          ))}
+        {/* Players list */}
+        <div className="bg-white/5 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={18} className="text-white/70" />
+            <span className="text-white/70 text-sm">Jugadores ({players.length})</span>
+            {isConnected ? (
+              <Wifi size={14} className="text-green-400 ml-auto" />
+            ) : (
+              <WifiOff size={14} className="text-red-400 ml-auto" />
+            )}
+          </div>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {players.length === 0 ? (
+              <p className="text-white/40 text-sm text-center py-2">Conectando...</p>
+            ) : (
+              players.map((p) => (
+                <div
+                  key={p.odId}
+                  className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2"
+                >
+                  <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                    {p.username.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-white text-sm">{p.username}</span>
+                  {p.isHost && (
+                    <span className="ml-auto text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">
+                      Host
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Copy */}
-        <button
-          onClick={() => roomCode && navigator.clipboard.writeText(roomCode)}
-          className="
-            w-full mb-3 py-4 rounded-2xl
-            bg-[#24283b] hover:bg-[#2c3150]
-            text-white font-semibold
-            flex items-center justify-center gap-2
-            transition
-          "
-        >
-          <Copy size={18} /> Copiar Enlace
-        </button>
-
-        {/* Start */}
-        <button
-          onClick={handleStartRoomGame}
-          className="
-            w-full mb-4 py-4 rounded-2xl
-            bg-purple-600 hover:bg-purple-700
-            text-white font-bold
-            flex items-center justify-center gap-2
-            transition
-          "
-        >
-          <Play size={18} /> Iniciar Partida
-        </button>
-
-        {/* Cancel */}
-        <button
-          onClick={() => {
-            setRoomCode(null);
-            setView("play");
-          }}
-          className="w-full text-center text-white/60 hover:text-white transition"
-        >
-          Cancelar
-        </button>
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center gap-3 text-white/60">
+          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+          <span className="text-sm">Esperando que el host inicie la partida...</span>
+        </div>
       </motion.div>
     </div>
   );

@@ -452,14 +452,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     return (
       <GameLobby
         gameSlug="the-translator"
-        gameTitle="The Translator"
         initialRoomCode={roomCode}
-        defaultPlayerName={displayName || undefined}
-        onPlayerNameChange={setDisplayName}
-        onStartGame={(code) => {
-          if (code) setActiveRoomCode(code);
-          // Start immediately for host; joiners will start when host broadcasts
-          startGame(currentDifficulty);
+        onStartGame={(payload) => {
+          if (payload.roomCode) setActiveRoomCode(payload.roomCode);
+          startGame(payload.difficulty);
         }}
       />
     );
