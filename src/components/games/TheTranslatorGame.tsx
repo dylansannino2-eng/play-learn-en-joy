@@ -303,10 +303,19 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     // Multiplayer: only host checks and broadcasts
     if (!isHostInRoom) return;
     
+    console.log('Checking if all answered:', { 
+      players: players.map(p => ({ name: p.username, correct: p.correctAnswers })), 
+      round,
+      playerCount 
+    });
+    
     const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
+    
+    console.log('All answered?', allAnswered);
     
     if (allAnswered) {
       hasAdvancedRef.current = true;
+      console.log('Broadcasting round_advance');
       setTimeout(async () => {
         playSound('roundEnd', 0.6);
         setGamePhase('reveal');
