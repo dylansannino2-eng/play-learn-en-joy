@@ -190,16 +190,41 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     endRound();
   }, [gameEvent, isHostInRoom, gameRoomCode, playSound, endRound]);
 
-  const nextRound = useCallback(() => {
-    if (round >= totalRounds) {
-      toast.success(`¡Juego terminado! Puntuación final: ${score}`);
-      playSound('roundEnd', 0.7);
+  // Handle return to lobby event from host
+  useEffect(() => {
+    if (!gameEvent) return;
+    if (gameEvent.type === 'return_to_lobby') {
+      console.log('Received return_to_lobby event');
+      playSound('gameStart', 0.5);
       setGamePhase('waiting');
       setRound(1);
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
       setUsedCardIds(new Set());
+      // Don't reset gameRoomCode or isHostInRoom - keep players in the same room
+    }
+  }, [gameEvent, playSound]);
+
+  const handlePlayAgain = useCallback(async () => {
+    // If in a room, broadcast return to lobby
+    if (gameRoomCode && isHostInRoom) {
+      await broadcastGameEvent('return_to_lobby', { roomCode: gameRoomCode });
+    }
+    
+    playSound('gameStart', 0.5);
+    setGamePhase('waiting');
+    setRound(1);
+    setScore(0);
+    setCorrectAnswers(0);
+    setStreak(0);
+    setUsedCardIds(new Set());
+    // Don't reset gameRoomCode or isHostInRoom - keep players in the same room
+  }, [gameRoomCode, isHostInRoom, broadcastGameEvent, playSound]);
+
+  const nextRound = useCallback(() => {
+    if (round >= totalRounds) {
+      // Don't auto-reset here - let the "Jugar de Nuevo" button handle it
       return;
     }
 
@@ -210,7 +235,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setGamePhase('playing');
     playSound('gameStart', 0.5);
     fetchRandomCard(usedCardIds);
-  }, [round, totalRounds, score, fetchRandomCard, playSound, usedCardIds]);
+  }, [round, totalRounds, fetchRandomCard, playSound, usedCardIds]);
 
   const handleLobbyStart = useCallback(
     async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
@@ -361,7 +386,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
           roundNumber={round}
           totalRounds={totalRounds}
           countdownSeconds={5}
-          onCountdownComplete={nextRound}
+          onCountdownComplete={isLastRound ? handlePlayAgain : nextRound}
           isLastRound={isLastRound}
           allPlayersCorrect={allPlayersCorrect}
         />
@@ -476,6 +501,9 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
             <GameLobby
               gameSlug="word-battle"
               initialRoomCode={roomCode}
+              existingRoomCode={gameRoomCode}
+              isHostReturning={isHostInRoom}
+              initialPlayerName={displayName || undefined}
               onStartGame={handleLobbyStart}
             />
           )}

@@ -336,17 +336,43 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     return () => clearTimeout(timer);
   }, [gamePhase]);
 
-  const nextRound = useCallback(async () => {
-    if (round >= totalRounds) {
-      toast.success(`¡Juego terminado! Puntuación final: ${score}`);
-      playSound('roundEnd', 0.7);
+  // Handle return to lobby event from host
+  useEffect(() => {
+    if (!gameEvent) return;
+    if (gameEvent.type === 'return_to_lobby') {
+      console.log('Received return_to_lobby event');
+      playSound('gameStart', 0.5);
       setGamePhase('waiting');
       setRound(1);
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
-      setIsHostInRoom(false);
+      setHasAnsweredCorrectly(false);
       setUsedPhraseIds(new Set());
+      // Don't reset gameRoomCode or isHostInRoom - keep players in the same room
+    }
+  }, [gameEvent, playSound]);
+
+  const handlePlayAgain = useCallback(async () => {
+    // If in a room, broadcast return to lobby
+    if (gameRoomCode && isHostInRoom) {
+      await broadcastGameEvent('return_to_lobby', { roomCode: gameRoomCode });
+    }
+    
+    playSound('gameStart', 0.5);
+    setGamePhase('waiting');
+    setRound(1);
+    setScore(0);
+    setCorrectAnswers(0);
+    setStreak(0);
+    setHasAnsweredCorrectly(false);
+    setUsedPhraseIds(new Set());
+    // Don't reset gameRoomCode or isHostInRoom - keep players in the same room
+  }, [gameRoomCode, isHostInRoom, broadcastGameEvent, playSound]);
+
+  const nextRound = useCallback(async () => {
+    if (round >= totalRounds) {
+      // Don't auto-reset here - let the "Jugar de Nuevo" button handle it
       return;
     }
 
@@ -651,7 +677,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
           roundNumber={round}
           totalRounds={totalRounds}
           countdownSeconds={5}
-          onCountdownComplete={nextRound}
+          onCountdownComplete={isLastRound ? handlePlayAgain : nextRound}
           isLastRound={isLastRound}
           allPlayersCorrect={allPlayersCorrect}
         />
@@ -679,6 +705,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       <GameLobby
         gameSlug="the-translator"
         initialRoomCode={roomCode}
+        existingRoomCode={gameRoomCode}
+        isHostReturning={isHostInRoom}
+        initialPlayerName={displayName || undefined}
         buildStartPayload={async ({ difficulty }) => {
           const phraseId = await pickRandomPhraseId(difficulty, new Set());
           return { phraseId };

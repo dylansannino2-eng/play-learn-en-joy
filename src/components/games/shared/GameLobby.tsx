@@ -32,6 +32,9 @@ interface GameLobbyStartParams {
 interface GameLobbyProps {
   gameSlug: string;
   initialRoomCode?: string;
+  existingRoomCode?: string; // Room code from previous game (for "play again")
+  isHostReturning?: boolean; // Whether the current player was host in the previous game
+  initialPlayerName?: string; // Player name from previous game (for "play again")
   onStartGame: (payload: GameLobbyStartParams) => void;
   buildStartPayload?: StartPayloadBuilder;
 }
@@ -43,17 +46,28 @@ interface GameLobbyProps {
 export default function GameLobby({
   gameSlug,
   initialRoomCode,
+  existingRoomCode,
+  isHostReturning,
+  initialPlayerName,
   onStartGame,
   buildStartPayload,
 }: GameLobbyProps) {
-  const [view, setView] = useState<View>(initialRoomCode ? "waiting_room" : "menu");
+  // If returning from a game with an existing room, use that room and go directly to room view
+  const returningRoom = existingRoomCode?.toUpperCase();
+  const joiningRoom = initialRoomCode?.toUpperCase();
+  
+  const [view, setView] = useState<View>(
+    returningRoom 
+      ? (isHostReturning ? "room_created" : "waiting_room")
+      : (joiningRoom ? "waiting_room" : "menu")
+  );
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [roomCode, setRoomCode] = useState<string | null>(initialRoomCode?.toUpperCase() || null);
-  const [isHost, setIsHost] = useState(!initialRoomCode);
+  const [roomCode, setRoomCode] = useState<string | null>(returningRoom || joiningRoom || null);
+  const [isHost, setIsHost] = useState(isHostReturning ?? !initialRoomCode);
   const [copied, setCopied] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [playerName, setPlayerName] = useState(`Jugador_${Math.random().toString(36).slice(2, 6)}`);
+  const [playerName, setPlayerName] = useState(initialPlayerName || `Jugador_${Math.random().toString(36).slice(2, 6)}`);
   const [isEditingName, setIsEditingName] = useState(false);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
