@@ -536,7 +536,13 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         roomCode={roomCode}
         gameSlug="the-translator"
         gameTitle="The Translator"
-        onJoinGame={() => setGamePhase('waiting')}
+        onJoined={() => {
+          // Player joined waiting room
+        }}
+        onGameStart={(difficulty) => {
+          setCurrentDifficulty(difficulty);
+          startGame(difficulty);
+        }}
         onCancel={() => {
           window.history.pushState({}, '', '/game/the-translator');
           setGamePhase('waiting');
