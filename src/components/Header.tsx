@@ -3,30 +3,22 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
 const Header = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, signOut } = useAuth();
-
+  const {
+    user,
+    isAdmin,
+    signOut
+  } = useAuth();
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
   };
-
-  return (
-    <header className="fixed top-0 left-16 right-0 h-16 bg-background/95 backdrop-blur-sm border-b border-border z-30 flex items-center justify-between px-6">
+  return <header className="fixed top-0 left-16 right-0 h-16 bg-background/95 backdrop-blur-sm border-b border-border z-30 flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
-        <Link to="/" className="text-xl font-extrabold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          EnglishPlay
-        </Link>
+        <Link to="/" className="text-xl font-extrabold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Game Your Language</Link>
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-badge-new/20 text-badge-new">
           BETA
         </span>
@@ -35,10 +27,7 @@ const Header = () => {
       <div className="flex-1 max-w-xl mx-8">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar juegos para aprender inglés..."
-            className="w-full pl-12 pr-4 h-11 bg-secondary border-none rounded-xl text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-          />
+          <Input placeholder="Buscar juegos para aprender inglés..." className="w-full pl-12 pr-4 h-11 bg-secondary border-none rounded-xl text-foreground placeholder:text-muted-foreground focus-visible:ring-primary" />
         </div>
       </div>
       
@@ -53,8 +42,7 @@ const Header = () => {
           </span>
         </Button>
         
-        {user ? (
-          <DropdownMenu>
+        {user ? <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="ml-2 gap-2 rounded-xl px-3">
                 <Avatar className="h-7 w-7">
@@ -68,33 +56,23 @@ const Header = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {isAdmin && (
-                <>
+              {isAdmin && <>
                   <DropdownMenuItem onClick={() => navigate('/admin')}>
                     <Settings className="mr-2 h-4 w-4" />
                     Panel Admin
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                </>
-              )}
+                </>}
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button 
-            onClick={() => navigate('/auth')}
-            className="ml-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-5"
-          >
+          </DropdownMenu> : <Button onClick={() => navigate('/auth')} className="ml-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-5">
             <User size={18} className="mr-2" />
             Iniciar sesión
-          </Button>
-        )}
+          </Button>}
       </div>
-    </header>
-  );
+    </header>;
 };
-
 export default Header;
