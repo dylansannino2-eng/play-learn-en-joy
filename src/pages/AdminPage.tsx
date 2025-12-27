@@ -27,15 +27,22 @@ interface Game {
 
 type GameFormData = Omit<Game, "id">;
 
-const categories = ["new", "popular", "multiplayer", "brain", "ranking"];
+// 1. Lista extendida de categorías para incluir las habilidades de aprendizaje
+const categories = ["new", "popular", "multiplayer", "brain", "ranking", "listening", "speaking", "reading", "writing"];
+
 const badges = ["new", "hot", "top", "updated"];
 
+// 2. Etiquetas legibles para el panel de administración
 const categoryLabels: Record<string, string> = {
   new: "Nuevos",
   popular: "Populares",
   multiplayer: "Multijugador",
-  brain: "Cerebro",
+  brain: "Lógica",
   ranking: "Ranking",
+  listening: "🎧 Listening",
+  speaking: "🗣️ Speaking",
+  reading: "📖 Reading",
+  writing: "✍️ Writing",
 };
 
 const badgeLabels: Record<string, string> = {
@@ -213,7 +220,6 @@ export default function AdminPage() {
                 <DialogTitle>{editingGame ? "Editar Juego" : "Nuevo Juego"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* --- Datos Principales --- */}
                 <div className="space-y-2">
                   <Label htmlFor="title">Título *</Label>
                   <Input
@@ -273,7 +279,7 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Descripción (Interna/Visible en tarjeta)</Label>
+                  <Label htmlFor="description">Descripción (Corta)</Label>
                   <Input
                     id="description"
                     value={formData.description || ""}
@@ -301,7 +307,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancelar
@@ -315,15 +320,13 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Juegos ({games.length})</CardTitle>
+            <CardTitle>Listado de Juegos ({games.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingGames ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : games.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No hay juegos. ¡Agrega el primero!</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -344,11 +347,9 @@ export default function AdminPage() {
                         <TableCell>
                           <img src={game.image} alt={game.title} className="w-16 h-12 object-cover rounded" />
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {game.title}
-                        </TableCell>
+                        <TableCell className="font-medium">{game.title}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{categoryLabels[game.category]}</Badge>
+                          <Badge variant="secondary">{categoryLabels[game.category] || game.category}</Badge>
                         </TableCell>
                         <TableCell>
                           {game.badge && <Badge variant="outline">{badgeLabels[game.badge]}</Badge>}
