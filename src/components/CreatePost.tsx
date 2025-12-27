@@ -36,9 +36,9 @@ const CreatePost = () => {
           {
             title: formData.title,
             content: formData.content,
-            image_url: formData.image_url,
+            image_url: formData.image_url || null,
           },
-        ]);
+        ] as any);
 
       if (error) throw error;
 
