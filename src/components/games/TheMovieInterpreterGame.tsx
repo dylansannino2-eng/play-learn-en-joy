@@ -129,7 +129,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   const [displayName, setDisplayName] = useState('');
   const [gameRoomCode, setGameRoomCode] = useState<string | undefined>(undefined);
   const [isHostInRoom, setIsHostInRoom] = useState(false);
-  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
+  const [selectedDifficulties, setSelectedDifficulties] = useState<Difficulty[]>(['medium']);
 
   const {
     players,
@@ -363,13 +363,31 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     return () => clearInterval(interval);
   }, [gamePhase, subtitleConfig, currentSubtitleIndex, isPausedOnTarget]);
 
-  const fetchRandomConfig = useCallback(async (excludeIds: Set<string>) => {
-    setIsLoading(true);
+  // Helper to pick a random difficulty from selected ones
+  const getRandomDifficulty = useCallback(() => {
+    return selectedDifficulties[Math.floor(Math.random() * selectedDifficulties.length)];
+  }, [selectedDifficulties]);
 
-    const { data, error } = await supabase
+  const fetchRandomConfig = useCallback(async (excludeIds: Set<string>, difficulty?: Difficulty) => {
+    setIsLoading(true);
+    const targetDifficulty = difficulty || getRandomDifficulty();
+
+    // First try to get configs matching the difficulty
+    let { data, error } = await supabase
       .from('subtitle_configs')
       .select('*')
-      .not('hidden_word', 'is', null); // Only fetch configs with hidden word configured
+      .not('hidden_word', 'is', null)
+      .eq('difficulty', targetDifficulty);
+
+    // Fallback to any config if no matches
+    if (error || !data || data.length === 0) {
+      const fallback = await supabase
+        .from('subtitle_configs')
+        .select('*')
+        .not('hidden_word', 'is', null);
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error || !data || data.length === 0) {
       toast.error('No hay configuraciones de video con palabra oculta configurada');
@@ -412,7 +430,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
 
     setHasAnsweredThisRound(false);
     setIsLoading(false);
-  }, []);
+  }, [getRandomDifficulty]);
 
   const endRound = useCallback(() => {
     setGamePhase('ranking');
@@ -495,14 +513,17 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   }, [round, totalRounds, fetchRandomConfig, playSound, usedConfigIds, startRoundTimer]);
 
   const handleLobbyStart = useCallback(
-    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
+    async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
       if (normalizedRoom) setGameRoomCode(normalizedRoom);
 
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
-      setCurrentDifficulty(payload.difficulty);
+      setSelectedDifficulties(payload.difficulties);
       setUsedConfigIds(new Set());
+
+      // Pick a random difficulty from selected for first round
+      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
@@ -522,7 +543,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
         },
       ]);
       setRound(1);
-      await fetchRandomConfig(new Set());
+      await fetchRandomConfig(new Set(), firstDifficulty);
     },
     [playSound, fetchRandomConfig, startRoundTimer]
   );

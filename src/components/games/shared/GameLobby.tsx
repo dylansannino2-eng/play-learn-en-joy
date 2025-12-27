@@ -11,7 +11,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 type View = "menu" | "room_created" | "waiting_room";
 type Difficulty = "easy" | "medium" | "hard";
 
-type StartPayloadBuilder = (args: { difficulty: Difficulty; roomCode: string }) =>
+type StartPayloadBuilder = (args: { difficulties: Difficulty[]; roomCode: string }) =>
   | Promise<unknown>
   | unknown;
 
@@ -22,7 +22,7 @@ interface Player {
 }
 
 interface GameLobbyStartParams {
-  difficulty: Difficulty;
+  difficulties: Difficulty[];
   roomCode?: string;
   isHost: boolean;
   startPayload?: unknown;
@@ -61,7 +61,7 @@ export default function GameLobby({
       ? (isHostReturning ? "room_created" : "waiting_room")
       : (joiningRoom ? "waiting_room" : "menu")
   );
-  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [difficulties, setDifficulties] = useState<Difficulty[]>(["medium"]);
   const [roomCode, setRoomCode] = useState<string | null>(returningRoom || joiningRoom || null);
   const [isHost, setIsHost] = useState(isHostReturning ?? !initialRoomCode);
   const [copied, setCopied] = useState(false);
@@ -104,7 +104,7 @@ export default function GameLobby({
     channel.on("broadcast", { event: "game_start" }, ({ payload }) => {
       const p = payload as any;
       onStartGame({
-        difficulty: p.difficulty as Difficulty,
+        difficulties: p.difficulties as Difficulty[],
         roomCode: p.roomCode as string,
         isHost: false,
         startPayload: p.startPayload,
@@ -162,7 +162,7 @@ export default function GameLobby({
   /* ---------------- handlers ---------------- */
 
   const handleQuickPlay = () => {
-    onStartGame({ difficulty, isHost: true, playerName });
+    onStartGame({ difficulties, isHost: true, playerName });
   };
 
   const handleCreateRoom = () => {
@@ -176,7 +176,7 @@ export default function GameLobby({
     if (!roomCode) return;
 
     const startPayload = buildStartPayload
-      ? await buildStartPayload({ difficulty, roomCode })
+      ? await buildStartPayload({ difficulties, roomCode })
       : undefined;
 
     // Broadcast game_start to all players
@@ -184,12 +184,12 @@ export default function GameLobby({
       await channelRef.current.send({
         type: "broadcast",
         event: "game_start",
-        payload: { difficulty, roomCode, startPayload },
+        payload: { difficulties, roomCode, startPayload },
       });
     }
 
     // Host also starts
-    onStartGame({ difficulty, roomCode, isHost: true, startPayload, playerName });
+    onStartGame({ difficulties, roomCode, isHost: true, startPayload, playerName });
   };
 
   /* =========================
@@ -233,17 +233,26 @@ export default function GameLobby({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-3 gap-3 mb-2">
             {[
               { id: "easy", label: "Easy", sub: "A1, A2" },
               { id: "medium", label: "Medium", sub: "B1, B2" },
               { id: "hard", label: "Hard", sub: "C1, C2" },
             ].map((d) => {
-              const active = difficulty === d.id;
+              const active = difficulties.includes(d.id as Difficulty);
               return (
                 <button
                   key={d.id}
-                  onClick={() => setDifficulty(d.id as Difficulty)}
+                  onClick={() => {
+                    setDifficulties(prev => {
+                      if (prev.includes(d.id as Difficulty)) {
+                        // Don't allow deselecting if it's the only one
+                        if (prev.length === 1) return prev;
+                        return prev.filter(diff => diff !== d.id);
+                      }
+                      return [...prev, d.id as Difficulty];
+                    });
+                  }}
                   className={`rounded-2xl p-4 text-center transition ${
                     active
                       ? "bg-yellow-400/20 border border-yellow-400 text-yellow-300"
@@ -256,6 +265,9 @@ export default function GameLobby({
               );
             })}
           </div>
+          <p className="text-center text-white/50 text-xs mb-6">
+            Selecciona una o más dificultades
+          </p>
 
           {/* Play */}
           <button

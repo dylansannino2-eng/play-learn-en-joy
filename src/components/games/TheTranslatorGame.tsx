@@ -93,8 +93,13 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [isLoading, setIsLoading] = useState(false);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(5);
-  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
+  const [selectedDifficulties, setSelectedDifficulties] = useState<Difficulty[]>(['medium']);
   const [usedPhraseIds, setUsedPhraseIds] = useState<Set<string>>(new Set());
+
+  // Helper to pick a random difficulty from selected ones
+  const getRandomDifficulty = useCallback(() => {
+    return selectedDifficulties[Math.floor(Math.random() * selectedDifficulties.length)];
+  }, [selectedDifficulties]);
 
   // Preload sounds on mount
   useEffect(() => {
@@ -402,6 +407,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     }
 
     const nextRoundNumber = round + 1;
+    const roundDifficulty = getRandomDifficulty();
 
     setRound(nextRoundNumber);
     startRoundTimer();
@@ -412,7 +418,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
 
     // Host selects and broadcasts; joiners will receive via game_event
     if (gameRoomCode && isHostInRoom) {
-      const phraseId = await pickRandomPhraseId(currentDifficulty, usedPhraseIds);
+      const phraseId = await pickRandomPhraseId(roundDifficulty, usedPhraseIds);
       if (!phraseId) return;
 
       setUsedPhraseIds(prev => new Set(prev).add(phraseId));
@@ -422,7 +428,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       return;
     }
 
-    await fetchRandomPhrase(currentDifficulty, usedPhraseIds);
+    await fetchRandomPhrase(roundDifficulty, usedPhraseIds);
   }, [
     round,
     totalRounds,
@@ -431,7 +437,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     gameRoomCode,
     isHostInRoom,
     pickRandomPhraseId,
-    currentDifficulty,
+    getRandomDifficulty,
     fetchPhraseById,
     broadcastGameEvent,
     fetchRandomPhrase,
@@ -439,13 +445,13 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   ]);
 
   const handleLobbyStart = useCallback(
-    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
+    async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
       if (normalizedRoom) setGameRoomCode(normalizedRoom);
 
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
-      setCurrentDifficulty(payload.difficulty);
+      setSelectedDifficulties(payload.difficulties);
       setUsedPhraseIds(new Set());
 
       playSound('gameStart', 0.6);
@@ -474,9 +480,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       }
 
       // Fallback (solo play or if start payload wasn't provided)
-      await fetchRandomPhrase(payload.difficulty, new Set());
+      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
+      await fetchRandomPhrase(firstDifficulty, new Set());
     },
-    [playSound, fetchPhraseById, fetchRandomPhrase]
+    [playSound, fetchPhraseById, fetchRandomPhrase, startRoundTimer]
   );
 
   const normalizeText = (text: string): string => {
@@ -734,8 +741,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         existingRoomCode={gameRoomCode}
         isHostReturning={isHostInRoom}
         initialPlayerName={displayName || undefined}
-        buildStartPayload={async ({ difficulty }) => {
-          const phraseId = await pickRandomPhraseId(difficulty, new Set());
+        buildStartPayload={async ({ difficulties }) => {
+          const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+          const phraseId = await pickRandomPhraseId(randomDifficulty, new Set());
           const roundEndsAt = Date.now() + ROUND_SECONDS * 1000;
           return { phraseId, roundEndsAt };
         }}
