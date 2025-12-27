@@ -25,7 +25,7 @@ const SpeakingGames = () => {
         .from("games")
         .select("id, title, image, slug, badge, category")
         .eq("is_active", true)
-        // Filtramos por la categoría 'speaking'
+        // 🎯 Filtramos por la categoría 'speaking'
         .eq("category", "speaking") 
         .order("sort_order");
 
@@ -54,7 +54,7 @@ const SpeakingGames = () => {
               🗣️ Juegos de Speaking
             </h1>
             <p className="text-muted-foreground mt-1">
-              Practica tu pronunciación y fluidez con actividades interactivas.
+              Practica tu pronunciación y fluidez con actividades dinámicas.
             </p>
           </div>
         </div>
@@ -75,7 +75,7 @@ const SpeakingGames = () => {
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl">
             <Mic2 className="w-12 h-12 mb-4 opacity-20" />
-            <p>Aún no hay juegos de Speaking disponibles. ¡Vuelve pronto!</p>
+            <p>Aún no hay juegos de Speaking disponibles. ¡Prepárate para hablar pronto!</p>
           </div>
         )}
       </main>
