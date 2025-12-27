@@ -62,6 +62,7 @@ export type Database = {
       games: {
         Row: {
           badge: string | null
+          categories: string[] | null
           category: string
           created_at: string
           description: string | null
@@ -76,6 +77,7 @@ export type Database = {
         }
         Insert: {
           badge?: string | null
+          categories?: string[] | null
           category: string
           created_at?: string
           description?: string | null
@@ -90,6 +92,7 @@ export type Database = {
         }
         Update: {
           badge?: string | null
+          categories?: string[] | null
           category?: string
           created_at?: string
           description?: string | null

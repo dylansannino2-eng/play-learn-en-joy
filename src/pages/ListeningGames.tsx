@@ -24,12 +24,10 @@ const ListeningGames = () => {
     const fetchListeningGames = async () => {
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, badge, category")
+        .select("id, title, image, slug, badge, category, categories")
         .eq("is_active", true)
-        // ⚠️ IMPORTANTE: Aquí filtramos solo los de Listening.
-        // Asegúrate de que en tu base de datos la columna 'category' 
-        // o una columna nueva 'skill_type' tenga el valor 'listening'.
-        .eq("category", "listening") 
+        // Filter by categories array containing 'listening'
+        .contains("categories", ["listening"])
         .order("sort_order");
 
       if (!error && data) {

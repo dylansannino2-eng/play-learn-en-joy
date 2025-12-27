@@ -23,10 +23,10 @@ const ReadingGames = () => {
     const fetchReadingGames = async () => {
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, badge, category")
+        .select("id, title, image, slug, badge, category, categories")
         .eq("is_active", true)
-        // 🎯 Filtramos específicamente por la categoría 'reading'
-        .eq("category", "reading") 
+        // Filter by categories array containing 'reading'
+        .contains("categories", ["reading"])
         .order("sort_order");
 
       if (!error && data) {

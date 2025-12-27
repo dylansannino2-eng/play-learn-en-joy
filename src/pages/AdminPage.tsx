@@ -21,6 +21,7 @@ interface Game {
   image: string;
   badge: string | null;
   category: string;
+  categories: string[];
   description: string | null;
   is_active: boolean;
   sort_order: number;
@@ -28,7 +29,8 @@ interface Game {
 
 type GameFormData = Omit<Game, "id">;
 
-const categories = ["listening", "speaking", "writing", "reading", "new", "popular", "multiplayer", "brain", "ranking"];
+const skillCategories = ["listening", "speaking", "writing", "reading"];
+const otherCategories = ["new", "popular", "multiplayer", "brain", "ranking"];
 const badges = ["new", "hot", "top", "updated"];
 
 const categoryLabels: Record<string, string> = {
@@ -63,7 +65,8 @@ export default function AdminPage() {
     title: "",
     image: "",
     badge: null,
-    category: "new",
+    category: "listening",
+    categories: [],
     description: null,
     is_active: true,
     sort_order: 0,
@@ -103,7 +106,8 @@ export default function AdminPage() {
       title: "",
       image: "",
       badge: null,
-      category: "new",
+      category: "listening",
+      categories: [],
       description: null,
       is_active: true,
       sort_order: 0,
@@ -119,6 +123,7 @@ export default function AdminPage() {
         image: game.image,
         badge: game.badge,
         category: game.category,
+        categories: game.categories || [],
         description: game.description,
         is_active: game.is_active,
         sort_order: game.sort_order,
@@ -245,44 +250,73 @@ export default function AdminPage() {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Categoría</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {categoryLabels[cat]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-2">
+                  <Label>Habilidad (Skill)</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {skillCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {categoryLabels[cat]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Categorías adicionales</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[...skillCategories, ...otherCategories].map((cat) => {
+                      const isSelected = formData.categories.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              categories: isSelected
+                                ? prev.categories.filter(c => c !== cat)
+                                : [...prev.categories, cat]
+                            }));
+                          }}
+                          className={`px-3 py-1 rounded-full text-sm border transition ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted border-border hover:bg-muted/80"
+                          }`}
+                        >
+                          {categoryLabels[cat]}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Badge</Label>
-                    <Select
-                      value={formData.badge || "none"}
-                      onValueChange={(value) => setFormData({ ...formData, badge: value === "none" ? null : value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin badge</SelectItem>
-                        {badges.map((badge) => (
-                          <SelectItem key={badge} value={badge}>
-                            {badgeLabels[badge]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Badge</Label>
+                  <Select
+                    value={formData.badge || "none"}
+                    onValueChange={(value) => setFormData({ ...formData, badge: value === "none" ? null : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin badge</SelectItem>
+                      {badges.map((badge) => (
+                        <SelectItem key={badge} value={badge}>
+                          {badgeLabels[badge]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Descripción (Interna/Visible en tarjeta)</Label>
@@ -361,7 +395,12 @@ export default function AdminPage() {
                           {game.title}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{categoryLabels[game.category]}</Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="secondary">{categoryLabels[game.category] || game.category}</Badge>
+                            {game.categories?.filter(c => c !== game.category).map(cat => (
+                              <Badge key={cat} variant="outline">{categoryLabels[cat] || cat}</Badge>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {game.badge && <Badge variant="outline">{badgeLabels[game.badge]}</Badge>}
