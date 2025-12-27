@@ -7,22 +7,13 @@ import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import TheMovieInterpreterGame from "@/components/games/TheMovieInterpreterGame";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Game {
-  id: string;
-  title: string;
-  image: string;
-  slug: string | null;
-  description: string | null;
-  uses_chat: boolean;
-}
+// ... (Interface se mantiene igual)
 
 const GamePage = () => {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
-
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   const roomCode = searchParams.get("room") || undefined;
 
   useEffect(() => {
@@ -31,7 +22,6 @@ const GamePage = () => {
         setIsLoading(false);
         return;
       }
-
       const { data, error } = await supabase
         .from("games")
         .select("id, title, image, slug, description, uses_chat")
@@ -39,18 +29,14 @@ const GamePage = () => {
         .eq("is_active", true)
         .maybeSingle();
 
-      if (!error && data) {
-        setGame(data);
-      }
+      if (!error && data) setGame(data);
       setIsLoading(false);
     };
-
     fetchGame();
   }, [slug]);
 
   const renderGameComponent = () => {
     if (!game?.slug) return null;
-
     switch (game.slug) {
       case "word-battle":
         return <WordBattleGame roomCode={roomCode} />;
@@ -60,10 +46,10 @@ const GamePage = () => {
         return <TheMovieInterpreterGame roomCode={roomCode} />;
       default:
         return (
-          <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[300px] md:min-h-[400px] p-6 text-center">
+          <div className="flex-1 bg-card rounded-xl border border-border flex items-center justify-center min-h-[300px] p-6 text-center">
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">{game.title}</h2>
-              <p className="text-muted-foreground">Este juego estará disponible pronto</p>
+              <h2 className="text-xl font-bold mb-2">{game.title}</h2>
+              <p className="text-muted-foreground">Próximamente</p>
             </div>
           </div>
         );
@@ -80,58 +66,65 @@ const GamePage = () => {
 
   if (!game) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center p-4 text-center">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground mb-4">Juego no encontrado</h1>
-          <Link to="/" className="text-primary hover:underline inline-flex items-center gap-2">
-            <ArrowLeft size={18} /> Volver al catálogo
-          </Link>
-        </div>
+      <div className="h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-2xl font-bold mb-4">Juego no encontrado</h1>
+        <Link to="/" className="text-primary hover:underline flex items-center gap-2">
+          <ArrowLeft size={18} /> Volver al catálogo
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex overflow-hidden">
-      {/* Sidebar - Se asume que internamente maneja su visibilidad o es fijo */}
+    <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden">
+      {/* Sidebar: Asegúrate que tu Sidebar tenga clases como 'hidden md:flex' o sea responsiva */}
       <Sidebar />
 
-      {/* Main Container: ml-0 en móvil, ml-16 en desktop */}
-      <main className="flex-1 ml-0 md:ml-16 p-3 md:p-6 flex flex-col h-screen overflow-y-auto scrollbar-thin">
-        {/* Botón de volver y título */}
-        <div className="shrink-0 mb-4">
+      {/* Main Container: 
+          - md:ml-16 quita el solapamiento con la sidebar en escritorio.
+          - pb-20 o pb-24 en móvil por si la sidebar es un bottom-nav.
+      */}
+      <main className="flex-1 w-full md:ml-16 h-screen overflow-y-auto scrollbar-none md:scrollbar-thin flex flex-col">
+        {/* Header/Nav: Padding reducido en móvil */}
+        <header className="p-4 md:p-6 shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <ArrowLeft size={20} />
-            <span className="font-medium truncate max-w-[200px] md:max-w-none">{game.title}</span>
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="font-semibold text-sm md:text-base truncate max-w-[200px] md:max-w-none">
+              {game.title}
+            </span>
           </Link>
-        </div>
+        </header>
 
-        {/* Contenido principal */}
-        <div className="flex flex-col gap-6 pb-10 w-full max-w-7xl mx-auto">
-          {/* 1. Área de Juego (Adaptable) 
-              En móvil el min-h se reduce para que no rompa el viewport */}
-          <div className="flex flex-col lg:flex-row gap-4 min-h-[500px] md:min-h-[600px] w-full">
-            {renderGameComponent()}
-          </div>
+        {/* Content Area */}
+        <div className="flex-1 px-3 md:px-8 pb-24 md:pb-10 max-w-7xl mx-auto w-full space-y-6">
+          {/* 1. Área de Juego: 
+              - Cambiamos de flex a block o mantenemos flex-col. 
+              - Importante: Los juegos dentro deben tener w-full.
+          */}
+          <section className="w-full flex flex-col gap-4">
+            <div className="w-full min-h-[450px] md:min-h-[600px] flex">{renderGameComponent()}</div>
+          </section>
 
-          {/* 2. Sección de Descripción */}
-          <section className="w-full">
-            <div className="w-full lg:max-w-3xl bg-card border border-border rounded-xl p-5 md:p-8 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-primary/10 rounded-lg">
+          {/* 2. Sección de Información: 
+              - En móvil ocupa el 100%, en desktop se limita el ancho para lectura.
+          */}
+          <section className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-full lg:max-w-4xl bg-card border border-border rounded-2xl p-5 md:p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-primary/10 rounded-xl">
                   <Info className="text-primary h-5 w-5" />
                 </div>
-                <h3 className="text-lg md:text-xl font-bold text-foreground">Sobre este juego</h3>
+                <h3 className="text-lg md:text-xl font-bold">Sobre este juego</h3>
               </div>
 
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground border-t border-border/50 pt-4">
                 {game.description ? (
                   <p className="whitespace-pre-line leading-relaxed text-sm md:text-base">{game.description}</p>
                 ) : (
-                  <p className="italic opacity-50 text-sm">No hay descripción disponible para este juego.</p>
+                  <p className="italic opacity-60 text-sm">Sin descripción disponible.</p>
                 )}
               </div>
             </div>
