@@ -8,6 +8,7 @@ const SOUNDS = {
   roundEnd: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
   gameStart: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3',
   tick: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+  repeat: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
 };
 
 type SoundType = keyof typeof SOUNDS;
