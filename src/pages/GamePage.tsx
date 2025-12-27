@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
 import TheTranslatorGame from "@/components/games/TheTranslatorGame";
+import TheMovieInterpreterGame from "@/components/games/TheMovieInterpreterGame";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Game {
@@ -56,6 +57,8 @@ const GamePage = () => {
         return <WordBattleGame roomCode={roomCode} />;
       case 'the-translator':
         return <TheTranslatorGame roomCode={roomCode} />;
+      case 'the-movie-interpreter':
+        return <TheMovieInterpreterGame roomCode={roomCode} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center">
