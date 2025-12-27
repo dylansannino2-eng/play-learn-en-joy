@@ -264,6 +264,11 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
           modestbranding: 1,
           rel: 0,
           fs: 0,
+          disablekb: 1,
+          iv_load_policy: 3,
+          showinfo: 0,
+          cc_load_policy: 0,
+          playsinline: 1,
         },
         events: {
           onReady: (event: any) => {
@@ -763,7 +768,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
         <div className="flex-1 flex flex-col p-4 overflow-hidden">
           <div className="flex-1 max-h-[50vh] relative bg-black rounded-lg overflow-hidden">
             <div id="yt-player" className="absolute inset-0" />
-            
+            {/* Overlay to prevent clicking on video */}
+            <div className="absolute inset-0 z-10" />
           </div>
 
           {/* Subtitle Display */}
