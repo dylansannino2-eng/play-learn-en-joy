@@ -28,10 +28,14 @@ interface Game {
 
 type GameFormData = Omit<Game, "id">;
 
-const categories = ["new", "popular", "multiplayer", "brain", "ranking"];
+const categories = ["listening", "speaking", "writing", "reading", "new", "popular", "multiplayer", "brain", "ranking"];
 const badges = ["new", "hot", "top", "updated"];
 
 const categoryLabels: Record<string, string> = {
+  listening: "🎧 Listening",
+  speaking: "🗣️ Speaking",
+  writing: "✍️ Writing",
+  reading: "📖 Reading",
   new: "Nuevos",
   popular: "Populares",
   multiplayer: "Multijugador",
