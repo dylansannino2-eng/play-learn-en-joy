@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2, Film } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Link } from "react-router-dom";
 
 interface Game {
   id: string;
@@ -201,13 +202,20 @@ export default function AdminPage() {
               <h1 className="text-2xl font-bold">Panel de Administración</h1>
             </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Juego
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/admin/subtitle-configs">
+                <Film className="h-4 w-4 mr-2" />
+                Movie Interpreter
+              </Link>
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => handleOpenDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Juego
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingGame ? "Editar Juego" : "Nuevo Juego"}</DialogTitle>
@@ -311,6 +319,7 @@ export default function AdminPage() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <Card>

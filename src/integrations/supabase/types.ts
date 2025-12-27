@@ -160,9 +160,14 @@ export type Database = {
       }
       subtitle_configs: {
         Row: {
+          category: string | null
           created_at: string | null
+          difficulty: string | null
           end_time: number | null
+          hidden_word: string | null
+          hidden_word_index: number | null
           id: string | null
+          is_active: boolean | null
           name: string | null
           repeat_count: number | null
           repeat_enabled: boolean | null
@@ -170,14 +175,20 @@ export type Database = {
           repeat_start_time: number | null
           start_time: number | null
           subtitles: Json | null
+          target_subtitle_index: number | null
           translations: Json | null
           updated_at: string | null
           video_id: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
+          difficulty?: string | null
           end_time?: number | null
+          hidden_word?: string | null
+          hidden_word_index?: number | null
           id?: string | null
+          is_active?: boolean | null
           name?: string | null
           repeat_count?: number | null
           repeat_enabled?: boolean | null
@@ -185,14 +196,20 @@ export type Database = {
           repeat_start_time?: number | null
           start_time?: number | null
           subtitles?: Json | null
+          target_subtitle_index?: number | null
           translations?: Json | null
           updated_at?: string | null
           video_id?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string | null
+          difficulty?: string | null
           end_time?: number | null
+          hidden_word?: string | null
+          hidden_word_index?: number | null
           id?: string | null
+          is_active?: boolean | null
           name?: string | null
           repeat_count?: number | null
           repeat_enabled?: boolean | null
@@ -200,6 +217,7 @@ export type Database = {
           repeat_start_time?: number | null
           start_time?: number | null
           subtitles?: Json | null
+          target_subtitle_index?: number | null
           translations?: Json | null
           updated_at?: string | null
           video_id?: string | null
