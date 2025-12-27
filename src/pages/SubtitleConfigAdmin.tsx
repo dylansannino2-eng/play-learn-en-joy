@@ -572,8 +572,8 @@ export default function SubtitleConfigAdmin() {
                           {config.hidden_word ? (
                             <Badge variant="default">{config.hidden_word}</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              Aleatorio
+                            <Badge variant="destructive" className="opacity-70">
+                              Sin configurar
                             </Badge>
                           )}
                         </TableCell>
