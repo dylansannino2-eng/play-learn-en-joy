@@ -327,12 +327,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
               );
               setBlankSubtitle(blank);
               setHasAnsweredThisRound(false);
-              
-              // Pause video when reaching the target subtitle with hidden word
-              if (ytPlayerRef.current) {
-                ytPlayerRef.current.pauseVideo();
-                setIsPausedOnTarget(true);
-              }
             } else {
               // For non-target subtitles, show the full text without blanks
               setBlankSubtitle({
@@ -343,6 +337,16 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
               });
             }
           }
+          
+          // Pause video at the END of the target subtitle (when reaching its endTime)
+          const isTargetSubtitle = subtitleConfig.target_subtitle_index !== null && 
+                                   subtitleConfig.target_subtitle_index !== undefined &&
+                                   newIndex === subtitleConfig.target_subtitle_index;
+          
+          if (isTargetSubtitle && !isPausedOnTarget && currentTime >= currentSub.endTime - 0.15) {
+            ytPlayerRef.current.pauseVideo();
+            setIsPausedOnTarget(true);
+          }
         }
       } catch (e) {
         // Player might not be ready
@@ -350,7 +354,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     }, 100);
 
     return () => clearInterval(interval);
-  }, [gamePhase, subtitleConfig, currentSubtitleIndex]);
+  }, [gamePhase, subtitleConfig, currentSubtitleIndex, isPausedOnTarget]);
 
   const fetchRandomConfig = useCallback(async (excludeIds: Set<string>) => {
     setIsLoading(true);
