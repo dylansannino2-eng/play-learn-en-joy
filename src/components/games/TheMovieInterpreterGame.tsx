@@ -31,6 +31,10 @@ interface SubtitleConfig {
   end_time: number | null;
   subtitles: SubtitleItem[] | null;
   translations: SubtitleItem[] | null;
+  // New fields for predefined hidden word
+  target_subtitle_index: number | null;
+  hidden_word: string | null;
+  hidden_word_index: number | null;
 }
 
 // Generates a blank version of subtitle with one word hidden
@@ -41,17 +45,53 @@ interface BlankSubtitle {
   wordIndex: number;
 }
 
-function createBlankSubtitle(text: string): BlankSubtitle | null {
+// Create blank using predefined word if available, otherwise random
+function createBlankSubtitle(
+  text: string, 
+  predefinedWord?: string | null, 
+  predefinedWordIndex?: number | null
+): BlankSubtitle | null {
   const words = text.replace(/\n/g, ' ').split(/\s+/).filter(w => w.length > 0);
   if (words.length === 0) return null;
 
-  // Pick a random word that's at least 3 characters (skip short words like "a", "I")
+  // If we have a predefined word, use it
+  if (predefinedWord && predefinedWordIndex !== null && predefinedWordIndex !== undefined) {
+    const displayWords = [...words];
+    if (predefinedWordIndex >= 0 && predefinedWordIndex < words.length) {
+      displayWords[predefinedWordIndex] = '____';
+      return {
+        originalText: text,
+        displayText: displayWords.join(' '),
+        hiddenWord: predefinedWord.toLowerCase(),
+        wordIndex: predefinedWordIndex,
+      };
+    }
+  }
+
+  // If predefined word exists but no index, find it in text
+  if (predefinedWord) {
+    const lowerPredefined = predefinedWord.toLowerCase();
+    for (let i = 0; i < words.length; i++) {
+      const cleanWord = words[i].replace(/[.,!?'"()]/g, '').toLowerCase();
+      if (cleanWord === lowerPredefined) {
+        const displayWords = [...words];
+        displayWords[i] = '____';
+        return {
+          originalText: text,
+          displayText: displayWords.join(' '),
+          hiddenWord: lowerPredefined,
+          wordIndex: i,
+        };
+      }
+    }
+  }
+
+  // Fallback: Pick a random word that's at least 3 characters
   const validIndices = words
     .map((w, i) => ({ word: w.replace(/[.,!?'"()]/g, ''), index: i }))
     .filter(item => item.word.length >= 3);
 
   if (validIndices.length === 0) {
-    // Fallback: use any word
     const randomIndex = Math.floor(Math.random() * words.length);
     const hiddenWord = words[randomIndex].replace(/[.,!?'"()]/g, '');
     const displayWords = [...words];
@@ -272,8 +312,13 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
           const newIndex = subtitles.findIndex((s) => s.id === currentSub.id);
           if (newIndex !== currentSubtitleIndex) {
             setCurrentSubtitleIndex(newIndex);
-            // Create new blank for this subtitle
-            const blank = createBlankSubtitle(currentSub.text);
+            // Create new blank for this subtitle - use predefined word if this is the target subtitle
+            const isTargetSubtitle = newIndex === subtitleConfig.target_subtitle_index;
+            const blank = createBlankSubtitle(
+              currentSub.text,
+              isTargetSubtitle ? subtitleConfig.hidden_word : null,
+              isTargetSubtitle ? subtitleConfig.hidden_word_index : null
+            );
             setBlankSubtitle(blank);
             setHasAnsweredThisRound(false);
           }
@@ -321,15 +366,23 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
       end_time: randomConfig.end_time,
       subtitles: subtitlesArray,
       translations: translationsArray,
+      target_subtitle_index: randomConfig.target_subtitle_index,
+      hidden_word: randomConfig.hidden_word,
+      hidden_word_index: randomConfig.hidden_word_index,
     };
 
     setSubtitleConfig(config);
     setUsedConfigIds(prev => new Set(prev).add(config.id));
     setCurrentSubtitleIndex(0);
     
-    // Create first blank
+    // Create first blank - use predefined word if target subtitle is the first one
     if (config.subtitles && config.subtitles.length > 0) {
-      const blank = createBlankSubtitle(config.subtitles[0].text);
+      const isTargetSubtitle = config.target_subtitle_index === 0;
+      const blank = createBlankSubtitle(
+        config.subtitles[0].text,
+        isTargetSubtitle ? config.hidden_word : null,
+        isTargetSubtitle ? config.hidden_word_index : null
+      );
       setBlankSubtitle(blank);
     }
 
