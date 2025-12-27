@@ -39,10 +39,10 @@ const categoryLabels: Record<string, string> = {
   multiplayer: "Multijugador",
   brain: "Lógica",
   ranking: "Ranking",
-  listening: "🎧 Listening",
-  speaking: "🗣️ Speaking",
-  reading: "📖 Reading",
-  writing: "✍️ Writing",
+  listening: "Listening",
+  speaking: "Speaking",
+  reading: "Reading",
+  writing: "Writing",
 };
 
 const badgeLabels: Record<string, string> = {
