@@ -594,6 +594,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     const targetSub = subtitles[targetIndex];
     
     if (targetSub) {
+      playSound('repeat', 0.4);
       setIsPausedOnTarget(false);
       setRepeatCount(prev => prev + 1);
       ytPlayerRef.current.seekTo(targetSub.startTime, true);
@@ -619,7 +620,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
         });
       }
     }
-  }, [subtitleConfig, currentSubtitleIndex, gameRoomCode, broadcastGameEvent, repeatCount, username]);
+  }, [subtitleConfig, currentSubtitleIndex, gameRoomCode, broadcastGameEvent, repeatCount, username, playSound]);
 
   // Listen for repeat_clip events from other players
   useEffect(() => {
@@ -627,6 +628,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     
     const payload = gameEvent.payload as { startTime: number; roomCode: string; username: string; repeatNumber: number };
     if (payload.roomCode === gameRoomCode && ytPlayerRef.current) {
+      playSound('repeat', 0.4);
       setIsPausedOnTarget(false);
       setRepeatCount(payload.repeatNumber);
       ytPlayerRef.current.seekTo(payload.startTime, true);
@@ -644,7 +646,12 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
         setChatMessages(prev => [...prev, repeatMessage]);
       }
     }
-  }, [gameEvent, gameRoomCode, username]);
+  }, [gameEvent, gameRoomCode, username, playSound]);
+
+  // Check if current subtitle is the target
+  const isOnTargetSubtitle = subtitleConfig?.target_subtitle_index !== null && 
+                              subtitleConfig?.target_subtitle_index !== undefined &&
+                              currentSubtitleIndex === subtitleConfig.target_subtitle_index;
 
   if (isLoading) {
     return (
@@ -774,22 +781,30 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
                 </div>
               )}
 
-              {/* Repeat button */}
-              <div className="absolute top-3 right-3 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {MAX_REPEATS - repeatCount} restantes
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={handleRepeatSubtitle}
-                  disabled={repeatCount >= MAX_REPEATS}
-                  title={repeatCount >= MAX_REPEATS ? "Sin repeticiones" : "Repetir frase"}
+              {/* Repeat button - only visible on target subtitle */}
+              {isOnTargetSubtitle && isPausedOnTarget && !hasAnsweredThisRound && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute top-3 right-3"
                 >
-                  <RefreshCw className={cn("h-4 w-4", repeatCount >= MAX_REPEATS && "opacity-50")} />
-                </Button>
-              </div>
+                  <Button
+                    variant={repeatCount >= MAX_REPEATS ? "outline" : "default"}
+                    size="sm"
+                    className={cn(
+                      "gap-2 transition-all",
+                      repeatCount >= MAX_REPEATS 
+                        ? "opacity-50 cursor-not-allowed" 
+                        : "animate-pulse hover:animate-none"
+                    )}
+                    onClick={handleRepeatSubtitle}
+                    disabled={repeatCount >= MAX_REPEATS}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Repetir ({MAX_REPEATS - repeatCount})</span>
+                  </Button>
+                </motion.div>
+              )}
 
               {blankSubtitle ? (
                 <div className="text-center">
