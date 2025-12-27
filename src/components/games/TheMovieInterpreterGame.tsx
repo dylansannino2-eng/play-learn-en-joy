@@ -789,8 +789,22 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
         <div className="flex-1 flex flex-col p-4 overflow-hidden">
           <div className="flex-1 max-h-[50vh] relative bg-black rounded-lg overflow-hidden">
             <div id="yt-player" className="absolute inset-0" />
-            {/* Overlay to prevent clicking on video */}
-            <div className="absolute inset-0 z-10" />
+            {/* Overlay to prevent clicking and hide related videos when paused */}
+            <div 
+              className={cn(
+                "absolute inset-0 z-10 transition-colors duration-300",
+                isPausedOnTarget ? "bg-black/80 backdrop-blur-sm" : "bg-transparent"
+              )} 
+            />
+            {/* Show video thumbnail when paused to hide related videos */}
+            {isPausedOnTarget && subtitleConfig?.video_id && (
+              <div 
+                className="absolute inset-0 z-5 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(https://img.youtube.com/vi/${subtitleConfig.video_id}/maxresdefault.jpg)`
+                }}
+              />
+            )}
           </div>
 
           {/* Subtitle Display */}
