@@ -11,7 +11,7 @@ import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 // 👇 1. Importamos el nuevo componente
 import ListeningGames from "./pages/ListeningGames";
-import ListeningGames from "./pages/WritingGames";
+import WritingGames from "./pages/WritingGames";
 
 const queryClient = new QueryClient();
 
