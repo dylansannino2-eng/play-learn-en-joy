@@ -162,6 +162,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [isPausedOnTarget, setIsPausedOnTarget] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
+  const MAX_REPEATS = 3;
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
 
@@ -481,6 +483,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     startRoundTimer();
     setHasAnsweredThisRound(false);
     setChatMessages([]);
+    setRepeatCount(0);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
     fetchRandomConfig(usedConfigIds);
@@ -502,6 +505,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
+      setRepeatCount(0);
       setHasAnsweredThisRound(false);
       setChatMessages([
         {
@@ -583,6 +587,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
 
   const handleRepeatSubtitle = useCallback(() => {
     if (!ytPlayerRef.current || !subtitleConfig?.subtitles) return;
+    if (repeatCount >= MAX_REPEATS) return;
 
     const subtitles = subtitleConfig.subtitles as SubtitleItem[];
     const targetIndex = subtitleConfig.target_subtitle_index ?? currentSubtitleIndex;
@@ -590,30 +595,56 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     
     if (targetSub) {
       setIsPausedOnTarget(false);
+      setRepeatCount(prev => prev + 1);
       ytPlayerRef.current.seekTo(targetSub.startTime, true);
       ytPlayerRef.current.playVideo();
+      
+      // Add chat message for repeat
+      const repeatMessage: ChatMessage = {
+        id: `repeat-${Date.now()}`,
+        username,
+        message: `repitió el clip (${repeatCount + 1}/${MAX_REPEATS})`,
+        type: 'system',
+        timestamp: new Date(),
+      };
+      setChatMessages(prev => [...prev, repeatMessage]);
       
       // Broadcast to sync with other players
       if (gameRoomCode) {
         broadcastGameEvent('repeat_clip', { 
           startTime: targetSub.startTime,
-          roomCode: gameRoomCode 
+          roomCode: gameRoomCode,
+          username,
+          repeatNumber: repeatCount + 1,
         });
       }
     }
-  }, [subtitleConfig, currentSubtitleIndex, gameRoomCode, broadcastGameEvent]);
+  }, [subtitleConfig, currentSubtitleIndex, gameRoomCode, broadcastGameEvent, repeatCount, username]);
 
   // Listen for repeat_clip events from other players
   useEffect(() => {
     if (!gameEvent || gameEvent.type !== 'repeat_clip') return;
     
-    const payload = gameEvent.payload as { startTime: number; roomCode: string };
+    const payload = gameEvent.payload as { startTime: number; roomCode: string; username: string; repeatNumber: number };
     if (payload.roomCode === gameRoomCode && ytPlayerRef.current) {
       setIsPausedOnTarget(false);
+      setRepeatCount(payload.repeatNumber);
       ytPlayerRef.current.seekTo(payload.startTime, true);
       ytPlayerRef.current.playVideo();
+      
+      // Add chat message for remote repeat (only if not from current user)
+      if (payload.username !== username) {
+        const repeatMessage: ChatMessage = {
+          id: `repeat-remote-${Date.now()}`,
+          username: payload.username,
+          message: `repitió el clip (${payload.repeatNumber}/${MAX_REPEATS})`,
+          type: 'system',
+          timestamp: new Date(),
+        };
+        setChatMessages(prev => [...prev, repeatMessage]);
+      }
     }
-  }, [gameEvent, gameRoomCode]);
+  }, [gameEvent, gameRoomCode, username]);
 
   if (isLoading) {
     return (
@@ -744,15 +775,21 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
               )}
 
               {/* Repeat button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-3 right-3 h-8 w-8"
-                onClick={handleRepeatSubtitle}
-                title="Repetir frase"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              <div className="absolute top-3 right-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {MAX_REPEATS - repeatCount} restantes
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleRepeatSubtitle}
+                  disabled={repeatCount >= MAX_REPEATS}
+                  title={repeatCount >= MAX_REPEATS ? "Sin repeticiones" : "Repetir frase"}
+                >
+                  <RefreshCw className={cn("h-4 w-4", repeatCount >= MAX_REPEATS && "opacity-50")} />
+                </Button>
+              </div>
 
               {blankSubtitle ? (
                 <div className="text-center">
