@@ -57,6 +57,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [streak, setStreak] = useState(0);
   const [usedAnswers, setUsedAnswers] = useState<Set<string>>(new Set());
+  const [hasAnsweredThisRound, setHasAnsweredThisRound] = useState(false);
   const [usedCardIds, setUsedCardIds] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [roundEndsAt, setRoundEndsAt] = useState<number | null>(null);
@@ -256,6 +257,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setRound((r) => r + 1);
     startRoundTimer();
     setUsedAnswers(new Set());
+    setHasAnsweredThisRound(false);
     setChatMessages([]);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
@@ -279,6 +281,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       setCorrectAnswers(0);
       setStreak(0);
       setUsedAnswers(new Set());
+      setHasAnsweredThisRound(false);
       setChatMessages([
         {
           id: 'start',
@@ -307,6 +310,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
 
   const handleSendMessage = async (message: string) => {
     if (!currentCard || gamePhase !== 'playing') return;
+    if (hasAnsweredThisRound) return; // Ya acertó esta ronda
 
     const isCorrect = checkAnswer(message);
     const now = new Date();
@@ -327,6 +331,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
 
       const normalizedAnswer = message.toLowerCase().trim();
       setUsedAnswers((prev) => new Set(prev).add(normalizedAnswer));
+      setHasAnsweredThisRound(true);
 
       // Calculate points based on time and streak
       const basePoints = 10;
@@ -514,9 +519,6 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
                       {currentCard.letter}
                     </span>
                   </div>
-                </div>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  {usedAnswers.size} / {currentCard.correct_answers.length} respuestas encontradas
                 </div>
               </div>
             </div>
