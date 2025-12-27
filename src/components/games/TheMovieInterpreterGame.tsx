@@ -313,20 +313,34 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
           const newIndex = subtitles.findIndex((s) => s.id === currentSub.id);
           if (newIndex !== currentSubtitleIndex) {
             setCurrentSubtitleIndex(newIndex);
-            // Create new blank for this subtitle - use predefined word if this is the target subtitle
-            const isTargetSubtitle = newIndex === subtitleConfig.target_subtitle_index;
-            const blank = createBlankSubtitle(
-              currentSub.text,
-              isTargetSubtitle ? subtitleConfig.hidden_word : null,
-              isTargetSubtitle ? subtitleConfig.hidden_word_index : null
-            );
-            setBlankSubtitle(blank);
-            setHasAnsweredThisRound(false);
             
-            // Pause video when reaching the target subtitle with hidden word
-            if (isTargetSubtitle && ytPlayerRef.current) {
-              ytPlayerRef.current.pauseVideo();
-              setIsPausedOnTarget(true);
+            // Only create blank for the target subtitle, show normal text for others
+            const isTargetSubtitle = subtitleConfig.target_subtitle_index !== null && 
+                                     subtitleConfig.target_subtitle_index !== undefined &&
+                                     newIndex === subtitleConfig.target_subtitle_index;
+            
+            if (isTargetSubtitle) {
+              const blank = createBlankSubtitle(
+                currentSub.text,
+                subtitleConfig.hidden_word,
+                subtitleConfig.hidden_word_index
+              );
+              setBlankSubtitle(blank);
+              setHasAnsweredThisRound(false);
+              
+              // Pause video when reaching the target subtitle with hidden word
+              if (ytPlayerRef.current) {
+                ytPlayerRef.current.pauseVideo();
+                setIsPausedOnTarget(true);
+              }
+            } else {
+              // For non-target subtitles, show the full text without blanks
+              setBlankSubtitle({
+                originalText: currentSub.text,
+                displayText: currentSub.text.replace(/\n/g, ' '),
+                hiddenWord: '',
+                wordIndex: -1,
+              });
             }
           }
         }
@@ -343,10 +357,11 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
 
     const { data, error } = await supabase
       .from('subtitle_configs')
-      .select('*');
+      .select('*')
+      .not('hidden_word', 'is', null); // Only fetch configs with hidden word configured
 
     if (error || !data || data.length === 0) {
-      toast.error('No hay configuraciones de video disponibles');
+      toast.error('No hay configuraciones de video con palabra oculta configurada');
       setIsLoading(false);
       return;
     }
@@ -380,18 +395,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
 
     setSubtitleConfig(config);
     setUsedConfigIds(prev => new Set(prev).add(config.id));
-    setCurrentSubtitleIndex(0);
-    
-    // Create first blank - use predefined word if target subtitle is the first one
-    if (config.subtitles && config.subtitles.length > 0) {
-      const isTargetSubtitle = config.target_subtitle_index === 0;
-      const blank = createBlankSubtitle(
-        config.subtitles[0].text,
-        isTargetSubtitle ? config.hidden_word : null,
-        isTargetSubtitle ? config.hidden_word_index : null
-      );
-      setBlankSubtitle(blank);
-    }
+    setCurrentSubtitleIndex(-1); // Start at -1 so first subtitle triggers update
+    setBlankSubtitle(null);
+    setIsPausedOnTarget(false);
 
     setHasAnsweredThisRound(false);
     setIsLoading(false);
