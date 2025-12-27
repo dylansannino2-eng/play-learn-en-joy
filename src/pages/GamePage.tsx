@@ -1,5 +1,5 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react"; // 👈 Agregué el icono Info
+import { ArrowLeft, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
@@ -23,7 +23,6 @@ const GamePage = () => {
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get room code from URL
   const roomCode = searchParams.get("room") || undefined;
 
   useEffect(() => {
@@ -96,9 +95,9 @@ const GamePage = () => {
     <div className="h-screen bg-background flex overflow-hidden">
       <Sidebar />
 
-      {/* 👇 CAMBIO IMPORTANTE: overflow-y-auto en lugar de overflow-hidden para permitir scroll vertical */}
-      <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-y-auto scrollbar-thin scrollbar-thumb-primary/10">
-        {/* Back button */}
+      {/* Main Container: Permitimos el scroll vertical con overflow-y-auto */}
+      <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-y-auto scrollbar-thin">
+        {/* Botón de volver */}
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-4"
@@ -107,23 +106,22 @@ const GamePage = () => {
           <span>{game.title}</span>
         </Link>
 
-        {/* Contenedor Vertical */}
-        <div className="flex flex-col gap-8 pb-10">
-          {/* 1. Área del Juego (Mantiene altura mínima para que se vea bien) */}
-          <div className="flex gap-4 flex-1 min-h-[600px] w-full">{renderGameComponent()}</div>
+        {/* Contenedor de contenido: Alineación natural a la izquierda */}
+        <div className="flex flex-col gap-6 pb-10">
+          {/* 1. Área de Juego y Chat (Ocupa el ancho disponible) */}
+          <div className="flex gap-4 min-h-[600px] w-full">{renderGameComponent()}</div>
 
-          {/* 2. 👇 Nueva Sección: Descripción del Juego */}
-          <section className="max-w-4xl mx-auto w-full">
-            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          {/* 2. Sección de Descripción: Alineada a la izquierda */}
+          <section className="w-full">
+            <div className="max-w-3xl bg-card border border-border rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Info className="text-primary h-5 w-5" />
                 <h3 className="text-xl font-bold text-foreground">Sobre este juego</h3>
               </div>
 
-              <div className="prose prose-invert max-w-none text-muted-foreground">
+              <div className="text-muted-foreground">
                 {game.description ? (
-                  /* whitespace-pre-line respeta los saltos de línea de la base de datos */
-                  <p className="whitespace-pre-line leading-relaxed">{game.description}</p>
+                  <p className="whitespace-pre-line leading-relaxed text-sm md:text-base">{game.description}</p>
                 ) : (
                   <p className="italic opacity-50">No hay descripción disponible para este juego.</p>
                 )}
