@@ -23,9 +23,6 @@ interface Game {
   description: string | null;
   is_active: boolean;
   sort_order: number;
-  // Nuevos campos SEO
-  meta_title: string | null;
-  meta_description: string | null;
 }
 
 type GameFormData = Omit<Game, "id">;
@@ -65,8 +62,6 @@ export default function AdminPage() {
     description: null,
     is_active: true,
     sort_order: 0,
-    meta_title: null,
-    meta_description: null,
   });
 
   useEffect(() => {
@@ -107,8 +102,6 @@ export default function AdminPage() {
       description: null,
       is_active: true,
       sort_order: 0,
-      meta_title: null,
-      meta_description: null,
     });
     setEditingGame(null);
   };
@@ -124,8 +117,6 @@ export default function AdminPage() {
         description: game.description,
         is_active: game.is_active,
         sort_order: game.sort_order,
-        meta_title: game.meta_title,
-        meta_description: game.meta_description,
       });
     } else {
       resetForm();
@@ -310,30 +301,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* --- Sección SEO --- */}
-                <div className="border-t pt-4 mt-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Configuración SEO
-                  </h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="meta_title">Meta Título (Pestaña del navegador)</Label>
-                    <Input
-                      id="meta_title"
-                      value={formData.meta_title || ""}
-                      onChange={(e) => setFormData({ ...formData, meta_title: e.target.value || null })}
-                      placeholder="Ej: Candy Crush - Juega Gratis Online"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="meta_description">Meta Descripción (Buscadores)</Label>
-                    <Input
-                      id="meta_description"
-                      value={formData.meta_description || ""}
-                      onChange={(e) => setFormData({ ...formData, meta_description: e.target.value || null })}
-                      placeholder="Ej: Disfruta de los mejores juegos de puzzle..."
-                    />
-                  </div>
-                </div>
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
@@ -378,10 +345,7 @@ export default function AdminPage() {
                           <img src={game.image} alt={game.title} className="w-16 h-12 object-cover rounded" />
                         </TableCell>
                         <TableCell className="font-medium">
-                          <div className="flex flex-col">
-                            <span>{game.title}</span>
-                            {game.meta_title && <span className="text-xs text-muted-foreground mt-1">SEO: OK</span>}
-                          </div>
+                          {game.title}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{categoryLabels[game.category]}</Badge>

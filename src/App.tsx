@@ -20,8 +20,6 @@ const App = () => (
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
-        <Toaster asChild />{" "}
-        {/* A veces Sonner requiere configuración específica, lo dejé como lo tenías pero asegurate de que sea correcto */}
         <Sonner />
         <BrowserRouter>
           <Routes>
