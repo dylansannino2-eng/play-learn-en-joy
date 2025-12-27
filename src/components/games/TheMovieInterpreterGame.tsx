@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff, RefreshCw, Play, Pause } from 'lucide-react';
+import { Trophy, Clock, Zap, Users, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
@@ -581,29 +581,39 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     }
   };
 
-  const handleRepeatSubtitle = () => {
+  const handleRepeatSubtitle = useCallback(() => {
     if (!ytPlayerRef.current || !subtitleConfig?.subtitles) return;
 
     const subtitles = subtitleConfig.subtitles as SubtitleItem[];
-    const currentSub = subtitles[currentSubtitleIndex];
-    if (currentSub) {
-      setIsPausedOnTarget(false);
-      ytPlayerRef.current.seekTo(currentSub.startTime, true);
-      ytPlayerRef.current.playVideo();
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (!ytPlayerRef.current) return;
-    // Don't allow resuming if paused on target subtitle
-    if (isPausedOnTarget && !isPlaying) return;
+    const targetIndex = subtitleConfig.target_subtitle_index ?? currentSubtitleIndex;
+    const targetSub = subtitles[targetIndex];
     
-    if (isPlaying) {
-      ytPlayerRef.current.pauseVideo();
-    } else {
+    if (targetSub) {
+      setIsPausedOnTarget(false);
+      ytPlayerRef.current.seekTo(targetSub.startTime, true);
+      ytPlayerRef.current.playVideo();
+      
+      // Broadcast to sync with other players
+      if (gameRoomCode) {
+        broadcastGameEvent('repeat_clip', { 
+          startTime: targetSub.startTime,
+          roomCode: gameRoomCode 
+        });
+      }
+    }
+  }, [subtitleConfig, currentSubtitleIndex, gameRoomCode, broadcastGameEvent]);
+
+  // Listen for repeat_clip events from other players
+  useEffect(() => {
+    if (!gameEvent || gameEvent.type !== 'repeat_clip') return;
+    
+    const payload = gameEvent.payload as { startTime: number; roomCode: string };
+    if (payload.roomCode === gameRoomCode && ytPlayerRef.current) {
+      setIsPausedOnTarget(false);
+      ytPlayerRef.current.seekTo(payload.startTime, true);
       ytPlayerRef.current.playVideo();
     }
-  };
+  }, [gameEvent, gameRoomCode]);
 
   if (isLoading) {
     return (
@@ -716,15 +726,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
           <div className="flex-1 max-h-[50vh] relative bg-black rounded-lg overflow-hidden">
             <div id="yt-player" className="absolute inset-0" />
             
-            {/* Play/Pause overlay button - hidden when paused on target */}
-            {!isPausedOnTarget && (
-              <button
-                onClick={togglePlayPause}
-                className="absolute bottom-4 left-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-              >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-              </button>
-            )}
           </div>
 
           {/* Subtitle Display */}
