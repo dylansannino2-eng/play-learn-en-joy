@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Home, Gamepad2, Users, Trophy, Flame, Sparkles, BookOpen, GraduationCap, Brain, MessageCircle, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Home, Gamepad2, Users, Trophy, Flame, Sparkles, BookOpen, GraduationCap, Brain, MessageCircle, Settings, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarItemProps {
@@ -7,28 +8,44 @@ interface SidebarItemProps {
   label: string;
   active?: boolean;
   expanded?: boolean;
+  to?: string;
 }
 
-const SidebarItem = ({ icon, label, active, expanded }: SidebarItemProps) => (
-  <button
-    className={cn(
-      "h-12 flex items-center rounded-xl transition-all duration-200 gap-3",
-      expanded ? "w-full px-3" : "w-12 justify-center",
-      active 
-        ? "bg-primary text-primary-foreground" 
-        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-    )}
-    title={!expanded ? label : undefined}
-  >
-    <span className="flex-shrink-0">{icon}</span>
-    <span className={cn(
-      "text-sm font-semibold whitespace-nowrap transition-all duration-200 overflow-hidden",
-      expanded ? "opacity-100 w-auto" : "opacity-0 w-0"
-    )}>
-      {label}
-    </span>
-  </button>
-);
+const SidebarItem = ({ icon, label, active, expanded, to }: SidebarItemProps) => {
+  const content = (
+    <>
+      <span className="flex-shrink-0">{icon}</span>
+      <span className={cn(
+        "text-sm font-semibold whitespace-nowrap transition-all duration-200 overflow-hidden",
+        expanded ? "opacity-100 w-auto" : "opacity-0 w-0"
+      )}>
+        {label}
+      </span>
+    </>
+  );
+
+  const className = cn(
+    "h-12 flex items-center rounded-xl transition-all duration-200 gap-3",
+    expanded ? "w-full px-3" : "w-12 justify-center",
+    active 
+      ? "bg-primary text-primary-foreground" 
+      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className={className} title={!expanded ? label : undefined}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button className={className} title={!expanded ? label : undefined}>
+      {content}
+    </button>
+  );
+};
 
 const Sidebar = () => {
   const [expanded, setExpanded] = useState(false);
@@ -49,7 +66,7 @@ const Sidebar = () => {
       </div>
       
       <nav className="flex flex-col gap-1 flex-1">
-        <SidebarItem icon={<Home size={22} />} label="Inicio" active expanded={expanded} />
+        <SidebarItem icon={<Home size={22} />} label="Inicio" active expanded={expanded} to="/" />
         <SidebarItem icon={<Sparkles size={22} />} label="Nuevos" expanded={expanded} />
         <SidebarItem icon={<Flame size={22} />} label="Populares" expanded={expanded} />
         <SidebarItem icon={<Trophy size={22} />} label="Ranking" expanded={expanded} />
@@ -61,6 +78,10 @@ const Sidebar = () => {
         <SidebarItem icon={<Brain size={22} />} label="Pronunciación" expanded={expanded} />
         <SidebarItem icon={<Users size={22} />} label="Multijugador" expanded={expanded} />
         <SidebarItem icon={<Gamepad2 size={22} />} label="Arcade" expanded={expanded} />
+        
+        <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
+        
+        <SidebarItem icon={<Wand2 size={22} />} label="Crear con IA" expanded={expanded} to="/ai-creator" />
       </nav>
       
       <SidebarItem icon={<Settings size={22} />} label="Configuración" expanded={expanded} />
