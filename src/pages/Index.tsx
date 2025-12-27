@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom"; // 👈 Importante: Importar Link
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import GameSection from "@/components/GameSection";
@@ -73,12 +74,12 @@ const Index = () => {
           <h2 className="text-2xl font-bold mb-4">📚 Categorías</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {learningCategories.map((cat) => (
-              <div
-                key={cat.key}
-                className="flex items-center justify-center h-24 rounded-xl bg-card border border-border text-lg font-semibold hover:bg-muted transition cursor-pointer"
-              >
-                {cat.label}
-              </div>
+              /* 👇 Envolvemos la tarjeta con Link usando la ruta dinámica */
+              <Link to={`/${cat.key}`} key={cat.key} className="block hover:no-underline">
+                <div className="flex items-center justify-center h-24 rounded-xl bg-card border border-border text-lg font-semibold hover:bg-muted transition cursor-pointer shadow-sm hover:shadow-md">
+                  {cat.label}
+                </div>
+              </Link>
             ))}
           </div>
         </section>
