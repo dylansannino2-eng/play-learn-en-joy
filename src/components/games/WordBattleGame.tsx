@@ -37,7 +37,12 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   // Don't connect to game channel until game starts (displayName is set)
   const [gameRoomCode, setGameRoomCode] = useState<string | undefined>(undefined);
   const [isHostInRoom, setIsHostInRoom] = useState(false);
-  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>('medium');
+  const [selectedDifficulties, setSelectedDifficulties] = useState<Difficulty[]>(['medium']);
+
+  // Helper to pick a random difficulty from selected ones
+  const getRandomDifficulty = useCallback(() => {
+    return selectedDifficulties[Math.floor(Math.random() * selectedDifficulties.length)];
+  }, [selectedDifficulties]);
 
   const {
     players,
@@ -109,11 +114,23 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     });
   }, [correctAnswerEvents, username]);
 
-  const fetchRandomCard = useCallback(async (excludeIds: Set<string>) => {
-    const { data, error } = await supabase
+  const fetchRandomCard = useCallback(async (excludeIds: Set<string>, difficulty?: Difficulty) => {
+    // First try to get cards matching the difficulty
+    let { data, error } = await supabase
       .from('word_battle_cards')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('difficulty', difficulty || 'medium');
+
+    // Fallback to any card if no matches
+    if (error || !data || data.length === 0) {
+      const fallback = await supabase
+        .from('word_battle_cards')
+        .select('*')
+        .eq('is_active', true);
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error || !data || data.length === 0) {
       toast.error('No hay cartas disponibles');
@@ -261,18 +278,23 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setChatMessages([]);
     setGamePhase('playing');
     playSound('gameStart', 0.5);
-    fetchRandomCard(usedCardIds);
-  }, [round, totalRounds, fetchRandomCard, playSound, usedCardIds]);
+    // Pick a random difficulty for this round
+    const roundDifficulty = getRandomDifficulty();
+    fetchRandomCard(usedCardIds, roundDifficulty);
+  }, [round, totalRounds, fetchRandomCard, playSound, usedCardIds, getRandomDifficulty]);
 
   const handleLobbyStart = useCallback(
-    async (payload: { difficulty: Difficulty; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
+    async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
       if (normalizedRoom) setGameRoomCode(normalizedRoom);
 
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
-      setCurrentDifficulty(payload.difficulty);
+      setSelectedDifficulties(payload.difficulties);
       setUsedCardIds(new Set());
+
+      // Pick a random difficulty from selected for first round
+      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
@@ -292,9 +314,9 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
         },
       ]);
       setRound(1);
-      await fetchRandomCard(new Set());
+      await fetchRandomCard(new Set(), firstDifficulty);
     },
-    [playSound, fetchRandomCard]
+    [playSound, fetchRandomCard, startRoundTimer]
   );
 
   const checkAnswer = (answer: string): boolean => {
