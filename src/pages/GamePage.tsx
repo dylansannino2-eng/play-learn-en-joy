@@ -60,9 +60,9 @@ const GamePage = () => {
         return <TheMovieInterpreterGame roomCode={roomCode} />;
       default:
         return (
-          <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-foreground mb-2">{game.title}</h2>
+          <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[300px] md:min-h-[400px] p-6 text-center">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">{game.title}</h2>
               <p className="text-muted-foreground">Este juego estará disponible pronto</p>
             </div>
           </div>
@@ -80,11 +80,11 @@ const GamePage = () => {
 
   if (!game) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Juego no encontrado</h1>
-          <Link to="/" className="text-primary hover:underline">
-            Volver al catálogo
+      <div className="h-screen bg-background flex items-center justify-center p-4 text-center">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground mb-4">Juego no encontrado</h1>
+          <Link to="/" className="text-primary hover:underline inline-flex items-center gap-2">
+            <ArrowLeft size={18} /> Volver al catálogo
           </Link>
         </div>
       </div>
@@ -92,38 +92,46 @@ const GamePage = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="min-h-screen bg-background flex overflow-hidden">
+      {/* Sidebar - Se asume que internamente maneja su visibilidad o es fijo */}
       <Sidebar />
 
-      {/* Main Container: Permitimos el scroll vertical con overflow-y-auto */}
-      <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-y-auto scrollbar-thin">
-        {/* Botón de volver */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-4"
-        >
-          <ArrowLeft size={20} />
-          <span>{game.title}</span>
-        </Link>
+      {/* Main Container: ml-0 en móvil, ml-16 en desktop */}
+      <main className="flex-1 ml-0 md:ml-16 p-3 md:p-6 flex flex-col h-screen overflow-y-auto scrollbar-thin">
+        {/* Botón de volver y título */}
+        <div className="shrink-0 mb-4">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft size={20} />
+            <span className="font-medium truncate max-w-[200px] md:max-w-none">{game.title}</span>
+          </Link>
+        </div>
 
-        {/* Contenedor de contenido: Alineación natural a la izquierda */}
-        <div className="flex flex-col gap-6 pb-10">
-          {/* 1. Área de Juego y Chat (Ocupa el ancho disponible) */}
-          <div className="flex gap-4 min-h-[600px] w-full">{renderGameComponent()}</div>
+        {/* Contenido principal */}
+        <div className="flex flex-col gap-6 pb-10 w-full max-w-7xl mx-auto">
+          {/* 1. Área de Juego (Adaptable) 
+              En móvil el min-h se reduce para que no rompa el viewport */}
+          <div className="flex flex-col lg:flex-row gap-4 min-h-[500px] md:min-h-[600px] w-full">
+            {renderGameComponent()}
+          </div>
 
-          {/* 2. Sección de Descripción: Alineada a la izquierda */}
+          {/* 2. Sección de Descripción */}
           <section className="w-full">
-            <div className="max-w-3xl bg-card border border-border rounded-xl p-6 shadow-sm">
+            <div className="w-full lg:max-w-3xl bg-card border border-border rounded-xl p-5 md:p-8 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <Info className="text-primary h-5 w-5" />
-                <h3 className="text-xl font-bold text-foreground">Sobre este juego</h3>
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Info className="text-primary h-5 w-5" />
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-foreground">Sobre este juego</h3>
               </div>
 
               <div className="text-muted-foreground">
                 {game.description ? (
                   <p className="whitespace-pre-line leading-relaxed text-sm md:text-base">{game.description}</p>
                 ) : (
-                  <p className="italic opacity-50">No hay descripción disponible para este juego.</p>
+                  <p className="italic opacity-50 text-sm">No hay descripción disponible para este juego.</p>
                 )}
               </div>
             </div>
