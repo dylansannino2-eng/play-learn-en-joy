@@ -23,10 +23,10 @@ const SpeakingGames = () => {
     const fetchSpeakingGames = async () => {
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, badge, category")
+        .select("id, title, image, slug, badge, category, categories")
         .eq("is_active", true)
-        // 🎯 Filtramos por la categoría 'speaking'
-        .eq("category", "speaking") 
+        // Filter by categories array containing 'speaking'
+        .contains("categories", ["speaking"])
         .order("sort_order");
 
       if (!error && data) {
