@@ -8,8 +8,8 @@ import Index from "./pages/Index";
 import GamePage from "./pages/GamePage";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
+import AIGameCreator from "./pages/AIGameCreator";
 import NotFound from "./pages/NotFound";
-// 👇 1. Importamos el nuevo componente
 import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
@@ -36,6 +36,7 @@ const App = () => (
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/ai-creator" element={<AIGameCreator />} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

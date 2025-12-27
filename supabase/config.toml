@@ -1,1 +1,4 @@
 project_id = "efzuokydxgadotqchxdw"
+
+[functions.generate-game-content]
+verify_jwt = true
