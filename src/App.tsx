@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
+import ReadingGames from "./pages/ReadingGames";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/listening" element={<ListeningGames />} />
             <Route path="/writing" element={<WritingGames />} />
             <Route path="/speaking" element={<SpeakingGames />} />
+            <Route path="/reading" element={<ReadingGamesGames />} />
 
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/auth" element={<AuthPage />} />
