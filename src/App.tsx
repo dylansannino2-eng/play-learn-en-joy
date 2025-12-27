@@ -11,6 +11,7 @@ import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 // 👇 1. Importamos el nuevo componente
 import ListeningGames from "./pages/ListeningGames";
+import ListeningGames from "./pages/WritingGames";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
 
             {/* 👇 2. Agregamos la ruta específica para Listening */}
             <Route path="/listening" element={<ListeningGames />} />
+            <Route path="/writing" element={<WritingGames />} />
 
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/auth" element={<AuthPage />} />
