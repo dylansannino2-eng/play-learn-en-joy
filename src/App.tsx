@@ -29,7 +29,7 @@ const App = () => (
             {/* 👇 2. Agregamos la ruta específica para Listening */}
             <Route path="/listening" element={<ListeningGames />} />
             <Route path="/writing" element={<WritingGames />} />
-            <Route path="/speaking" element={<SpeakingGamesGames />} />
+            <Route path="/speaking" element={<SpeakingGames />} />
 
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/auth" element={<AuthPage />} />
