@@ -161,6 +161,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   // Video state
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [isPausedOnTarget, setIsPausedOnTarget] = useState(false);
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
 
@@ -321,6 +322,12 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
             );
             setBlankSubtitle(blank);
             setHasAnsweredThisRound(false);
+            
+            // Pause video when reaching the target subtitle with hidden word
+            if (isTargetSubtitle && ytPlayerRef.current) {
+              ytPlayerRef.current.pauseVideo();
+              setIsPausedOnTarget(true);
+            }
           }
         }
       } catch (e) {
@@ -570,6 +577,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     const subtitles = subtitleConfig.subtitles as SubtitleItem[];
     const currentSub = subtitles[currentSubtitleIndex];
     if (currentSub) {
+      setIsPausedOnTarget(false);
       ytPlayerRef.current.seekTo(currentSub.startTime, true);
       ytPlayerRef.current.playVideo();
     }
@@ -577,6 +585,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
 
   const togglePlayPause = () => {
     if (!ytPlayerRef.current) return;
+    // Don't allow resuming if paused on target subtitle
+    if (isPausedOnTarget && !isPlaying) return;
+    
     if (isPlaying) {
       ytPlayerRef.current.pauseVideo();
     } else {
@@ -695,13 +706,15 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
           <div className="flex-1 max-h-[50vh] relative bg-black rounded-lg overflow-hidden">
             <div id="yt-player" className="absolute inset-0" />
             
-            {/* Play/Pause overlay button */}
-            <button
-              onClick={togglePlayPause}
-              className="absolute bottom-4 left-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-            >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-            </button>
+            {/* Play/Pause overlay button - hidden when paused on target */}
+            {!isPausedOnTarget && (
+              <button
+                onClick={togglePlayPause}
+                className="absolute bottom-4 left-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+              >
+                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+              </button>
+            )}
           </div>
 
           {/* Subtitle Display */}
