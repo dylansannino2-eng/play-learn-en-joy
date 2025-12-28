@@ -360,7 +360,7 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     setIsSelecting(true);
     setStartCell({ r, c });
     setCurrentCell({ r, c });
-    playSound("click", 0.2);
+    // Selection sound feedback
   };
 
   const handleMouseEnter = (r: number, c: number) => {

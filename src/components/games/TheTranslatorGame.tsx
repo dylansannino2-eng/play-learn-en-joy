@@ -244,6 +244,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   }, []);
 
   // Joiners: receive phrase sync from host during the match
+  // Track last processed phrase to avoid double-loading
+  const lastSyncedPhraseRef = useRef<string | null>(null);
+  
   useEffect(() => {
     if (isHostInRoom) return;
     if (!gameRoomCode) return;
@@ -253,6 +256,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     if (gameEvent.type === 'translator_phrase') {
       const p = gameEvent.payload as any;
       if (!p?.phraseId) return;
+      
+      // Skip if we already loaded this phrase
+      if (lastSyncedPhraseRef.current === p.phraseId) return;
+      lastSyncedPhraseRef.current = p.phraseId;
 
       console.log('Translator synced phrase:', p);
 
@@ -475,13 +482,18 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
       const phraseId = (payload.startPayload as any)?.phraseId as string | undefined;
       if (phraseId) {
         setUsedPhraseIds(new Set([phraseId]));
+        // Track this phrase to avoid duplicate loading
+        lastSyncedPhraseRef.current = phraseId;
         await fetchPhraseById(phraseId);
         return;
       }
 
-      // Fallback (solo play or if start payload wasn't provided)
-      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
-      await fetchRandomPhrase(firstDifficulty, new Set());
+      // Only fetch random phrase for solo play (no roomCode) or if host didn't provide a phrase
+      // Joiners will receive the phrase via the game event
+      if (!normalizedRoom || payload.isHost) {
+        const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
+        await fetchRandomPhrase(firstDifficulty, new Set());
+      }
     },
     [playSound, fetchPhraseById, fetchRandomPhrase, startRoundTimer]
   );
