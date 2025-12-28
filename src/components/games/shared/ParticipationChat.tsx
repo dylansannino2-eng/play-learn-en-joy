@@ -101,7 +101,7 @@ export default function ParticipationChat({
   };
 
   return (
-    <div className="w-80 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+    <div className="w-80 h-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
       {/* Header */}
       <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
