@@ -222,25 +222,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     });
   }, [correctAnswerEvents, username]);
 
-  // Add remote chat messages
-  useEffect(() => {
-    remoteChatMessages.forEach((msg) => {
-      if (msg.username !== username) {
-        const newMessage: ChatMessage = {
-          id: `remote-${msg.timestamp}-${msg.username}`,
-          username: msg.username,
-          message: msg.message,
-          type: 'message',
-          timestamp: new Date(msg.timestamp),
-          isCurrentUser: false,
-        };
-        setChatMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
-      }
-    });
-  }, [remoteChatMessages, username]);
+  // Note: We intentionally do NOT add remote chat messages to avoid showing correct answers
+  // Other players' messages are hidden - only "ha acertado" notifications are shown via correctAnswerEvents
 
   // Initialize YouTube player when config changes
   useEffect(() => {
@@ -439,6 +422,53 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     }
   }, []);
 
+  // Check if all players answered correctly - auto advance round
+  const hasAdvancedRef = useRef(false);
+  
+  useEffect(() => {
+    hasAdvancedRef.current = false;
+  }, [round]);
+  
+  useEffect(() => {
+    if (gamePhase !== 'playing') return;
+    if (!hasAnsweredThisRound) return;
+    if (hasAdvancedRef.current) return;
+    
+    // Solo mode: advance when player answers correctly
+    if (playerCount <= 1) {
+      hasAdvancedRef.current = true;
+      setTimeout(() => {
+        playSound('roundEnd', 0.6);
+        endRound();
+      }, 800);
+      return;
+    }
+    
+    // Multiplayer: only host checks and broadcasts
+    if (!isHostInRoom) return;
+    
+    const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
+    
+    if (allAnswered) {
+      hasAdvancedRef.current = true;
+      setTimeout(async () => {
+        playSound('roundEnd', 0.6);
+        endRound();
+        await broadcastGameEvent('round_advance', { round });
+      }, 800);
+    }
+  }, [gamePhase, players, playerCount, round, hasAnsweredThisRound, playSound, isHostInRoom, broadcastGameEvent, endRound]);
+
+  // Listen for round advance from host (non-hosts)
+  useEffect(() => {
+    if (isHostInRoom) return;
+    if (!gameRoomCode) return;
+    if (!gameEvent || gameEvent.type !== 'round_advance') return;
+    
+    playSound('roundEnd', 0.6);
+    endRound();
+  }, [gameEvent, isHostInRoom, gameRoomCode, playSound, endRound]);
+
   // Timer
   useEffect(() => {
     if (gamePhase !== 'playing') return;
@@ -556,7 +586,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     const isCorrect = normalizedAnswer === blankSubtitle.hiddenWord;
     const now = new Date();
 
-    // Add user's message
+    // Add user's message (only visible to them - not broadcasted to avoid showing correct answers)
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       username,
@@ -566,9 +596,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
       isCurrentUser: true,
     };
     setChatMessages((prev) => [...prev, userMessage]);
-
-    // Broadcast message
-    await broadcastChatMessage(message);
+    // Note: We intentionally do NOT broadcast chat messages to avoid showing correct answers to other players
 
     if (isCorrect) {
       playSound('correct', 0.6);
