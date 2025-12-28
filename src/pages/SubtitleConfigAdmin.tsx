@@ -541,7 +541,7 @@ export default function SubtitleConfigAdmin() {
               </div>
             ) : configs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No hay configuraciones. Usa el AI Creator para generar clips.
+                No hay configuraciones. Crea una nueva configuración para comenzar.
               </div>
             ) : (
               <div className="overflow-x-auto">

@@ -81,7 +81,7 @@ const Sidebar = () => {
         
         <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
         
-        <SidebarItem icon={<Wand2 size={22} />} label="Crear con IA" expanded={expanded} to="/ai-creator" />
+        <SidebarItem icon={<Wand2 size={22} />} label="Crear Contenido" expanded={expanded} to="/ai-creator" />
       </nav>
       
       <SidebarItem icon={<Settings size={22} />} label="Configuración" expanded={expanded} />

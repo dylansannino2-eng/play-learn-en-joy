@@ -263,7 +263,7 @@ const AIGameCreator = () => {
                 Acceso Requerido
               </CardTitle>
               <CardDescription>
-                Debes iniciar sesión para crear juegos con IA
+                Debes iniciar sesión para crear contenido
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -291,7 +291,7 @@ const AIGameCreator = () => {
               <Sparkles className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Crear Juegos con IA</h1>
+              <h1 className="text-3xl font-bold text-foreground">Crear Contenido</h1>
               <p className="text-muted-foreground">
                 Genera contenido para tus juegos automáticamente
               </p>
@@ -369,7 +369,7 @@ const AIGameCreator = () => {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-5 w-5" />
-                      Generar con IA
+                      Generar Contenido
                     </>
                   )}
                 </Button>
@@ -508,7 +508,7 @@ const AIGameCreator = () => {
                 {!isGenerating && generatedItems.length === 0 && streamedContent === "" && (
                   <div className="text-center py-12 text-muted-foreground">
                     <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Configura los parámetros y haz clic en "Generar con IA"</p>
+                    <p>Configura los parámetros y haz clic en "Generar Contenido"</p>
                   </div>
                 )}
               </CardContent>
