@@ -487,13 +487,10 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   );
 
   const normalizeText = (text: string): string => {
-    let normalized = text
-      .toLowerCase()
-      .trim()
-      .replace(/[.,!?¿¡'"]/g, '')
-      .replace(/\s+/g, ' ');
+    // First: lowercase and trim
+    let normalized = text.toLowerCase().trim();
     
-    // Expand common contractions for comparison
+    // Expand common contractions BEFORE removing punctuation
     const contractions: Record<string, string> = {
       "i'm": "i am",
       "you're": "you are",
@@ -552,6 +549,12 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     Object.entries(contractions).forEach(([contraction, expanded]) => {
       normalized = normalized.replace(new RegExp(`\\b${contraction}\\b`, 'g'), expanded);
     });
+    
+    // NOW remove punctuation and normalize spaces
+    normalized = normalized
+      .replace(/[.,!?¿¡'"]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     
     return normalized;
   };
