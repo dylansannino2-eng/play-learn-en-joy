@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Grid3X3, Check, MousePointer2 } from "lucide-react";
+import { Trophy, Clock, Users, Wifi, WifiOff, Lightbulb, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
-// Se eliminó la importación de ParticipationChat
+import { motion, AnimatePresence } from "framer-motion";
 import RoundRanking from "./shared/RoundRanking";
 import GameLobby from "./shared/GameLobby";
 import { useGameSounds } from "@/hooks/useGameSounds";
@@ -11,7 +9,7 @@ import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
-const ROUND_SECONDS = 60;
+const ROUND_SECONDS = 90; // Aumentado un poco porque leer pistas toma tiempo
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -25,16 +23,51 @@ interface DifficultyOption {
 }
 
 const difficultyOptions: DifficultyOption[] = [
-  { value: "easy", label: "Fácil", gridSize: 8, wordCount: 5, color: "text-green-400", bgColor: "bg-green-500/20" },
+  { value: "easy", label: "Fácil", gridSize: 8, wordCount: 4, color: "text-green-400", bgColor: "bg-green-500/20" },
   {
     value: "medium",
     label: "Medio",
     gridSize: 10,
-    wordCount: 8,
+    wordCount: 6,
     color: "text-yellow-400",
     bgColor: "bg-yellow-500/20",
   },
-  { value: "hard", label: "Difícil", gridSize: 12, wordCount: 12, color: "text-red-400", bgColor: "bg-red-500/20" },
+  { value: "hard", label: "Difícil", gridSize: 12, wordCount: 8, color: "text-red-400", bgColor: "bg-red-500/20" },
+];
+
+// --- BANCO DE PREGUNTAS (Palabra + Definición) ---
+interface WordDef {
+  word: string;
+  clue: string;
+}
+
+const WORD_DEFINITIONS: WordDef[] = [
+  { word: "REACT", clue: "Biblioteca de JS desarrollada por Facebook" },
+  { word: "HOOK", clue: "Permite usar estado en componentes funcionales" },
+  { word: "COMPONENT", clue: "Pieza reutilizable de la interfaz de usuario" },
+  { word: "PROPS", clue: "Argumentos que se pasan de padre a hijo" },
+  { word: "STATE", clue: "Información interna que maneja un componente" },
+  { word: "JSX", clue: "Extensión de sintaxis similar a HTML en JS" },
+  { word: "NODE", clue: "Entorno de ejecución de JS fuera del navegador" },
+  { word: "NPM", clue: "Gestor de paquetes por defecto de Node" },
+  { word: "TYPESCRIPT", clue: "Superset de JS con tipado estático" },
+  { word: "INTERFACE", clue: "Define la estructura de un objeto en TS" },
+  { word: "SUPABASE", clue: "Alternativa Open Source a Firebase" },
+  { word: "POSTGRES", clue: "Base de datos relacional potente" },
+  { word: "ROW", clue: "Una fila en una tabla de base de datos" },
+  { word: "TAILWIND", clue: "Framework de CSS basado en utilidades" },
+  { word: "FLEX", clue: "Propiedad CSS para diseños unidimensionales" },
+  { word: "GRID", clue: "Sistema de diseño bidimensional en CSS" },
+  { word: "VITE", clue: "Herramienta de construcción frontend muy rápida" },
+  { word: "LUCIDE", clue: "Biblioteca de iconos hermosa y ligera" },
+  { word: "API", clue: "Interfaz para que dos aplicaciones se comuniquen" },
+  { word: "JSON", clue: "Formato ligero de intercambio de datos" },
+  { word: "DEPLOY", clue: "Proceso de publicar una aplicación" },
+  { word: "VERCEL", clue: "Plataforma popular para alojar frontend" },
+  { word: "GIT", clue: "Sistema de control de versiones" },
+  { word: "BRANCH", clue: "Rama de desarrollo independiente en Git" },
+  { word: "COMMIT", clue: "Guardar cambios en el historial de Git" },
+  { word: "BUG", clue: "Error o fallo en el software" },
 ];
 
 type GamePhase = "waiting" | "playing" | "ranking";
@@ -57,11 +90,12 @@ const DIRECTIONS = [
   [-1, 1],
 ]; // Horiz, Vert, Diag, DiagInv
 
+// Genera la grilla usando solo las strings, devuelve grid y strings colocadas
 const generateGrid = (words: string[], size: number) => {
   const grid = Array(size)
     .fill(null)
     .map(() => Array(size).fill(""));
-  const placedWords: string[] = [];
+  const placedWordsStrings: string[] = [];
 
   const sortedWords = [...words].map((w) => w.toUpperCase().replace(/\s/g, "")).sort((a, b) => b.length - a.length);
 
@@ -91,7 +125,7 @@ const generateGrid = (words: string[], size: number) => {
           for (let i = 0; i < word.length; i++) {
             grid[rowStart + i * dRow][colStart + i * dCol] = word[i];
           }
-          placedWords.push(word);
+          placedWordsStrings.push(word);
           placed = true;
         }
       }
@@ -108,7 +142,7 @@ const generateGrid = (words: string[], size: number) => {
     }
   }
 
-  return { grid, placedWords };
+  return { grid, placedWordsStrings };
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -127,17 +161,16 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     username,
     updateScore,
     broadcastCorrectAnswer,
-    // correctAnswerEvents, // Ya no necesitamos escuchar esto para el chat
     gameEvent,
     broadcastGameEvent,
-    // chatMessages, // Eliminado
-    // broadcastChatMessage, // Eliminado
   } = useMultiplayerGame("word-search", gameRoomCode, displayName || undefined);
 
   // Estados del Juego
   const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
   const [grid, setGrid] = useState<string[][]>([]);
-  const [targetWords, setTargetWords] = useState<string[]>([]);
+
+  // AHORA targetWords guarda los objetos completos {word, clue}
+  const [targetWords, setTargetWords] = useState<WordDef[]>([]);
   const [myFoundWords, setMyFoundWords] = useState<string[]>([]);
 
   // Estado para guardar coordenadas de palabras ya encontradas
@@ -157,12 +190,9 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
   const lastTimerSecondRef = useRef<number>(ROUND_SECONDS);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>("medium");
 
-  // Precarga de sonidos
   useEffect(() => {
     preloadSounds();
   }, [preloadSounds]);
-
-  // --- (SECCIÓN DE CHAT ELIMINADA) ---
 
   // --- SINCRONIZACIÓN DE JUEGO (GAME LOOP) ---
 
@@ -210,12 +240,12 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
       const p = gameEvent.payload as any;
 
       setGrid(p.grid);
-      setTargetWords(p.words);
+      setTargetWords(p.words); // Recibe [{word, clue}, ...]
       setRound(p.round);
       setCurrentDifficulty(p.difficulty);
 
       setMyFoundWords([]);
-      setFoundWordsCoords([]); // Reset visual de palabras encontradas
+      setFoundWordsCoords([]);
       setGamePhase("playing");
       startRoundTimer(p.roundEndsAt);
       playSound("gameStart", 0.6);
@@ -237,37 +267,23 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     async (difficultyVal: Difficulty, roundNum: number) => {
       const diffConfig = difficultyOptions.find((d) => d.value === difficultyVal) || difficultyOptions[1];
 
-      const wordBank = [
-        "REACT",
-        "TYPESCRIPT",
-        "SUPABASE",
-        "TAILWIND",
-        "CODIGO",
-        "LUCIDE",
-        "FRONTEND",
-        "BACKEND",
-        "DATABASE",
-        "DEPLOY",
-        "VERCEL",
-        "NODE",
-        "PYTHON",
-        "JAVA",
-        "DOCKER",
-        "CLOUD",
-        "API",
-        "REST",
-        "GRAPHQL",
-        "HOOK",
-      ];
-      const shuffled = wordBank.sort(() => 0.5 - Math.random());
-      const selectedWords = shuffled.slice(0, diffConfig.wordCount);
+      // 1. Seleccionar palabras aleatorias del banco de definiciones
+      const shuffled = [...WORD_DEFINITIONS].sort(() => 0.5 - Math.random());
+      const selectedItems = shuffled.slice(0, diffConfig.wordCount);
 
-      const { grid: newGrid, placedWords } = generateGrid(selectedWords, diffConfig.gridSize);
+      // 2. Extraer solo los textos de las palabras para el generador de grilla
+      const wordsOnly = selectedItems.map((item) => item.word);
+
+      // 3. Generar grilla
+      const { grid: newGrid, placedWordsStrings } = generateGrid(wordsOnly, diffConfig.gridSize);
+
+      // 4. Filtrar los items originales para mantener solo los que cupieron en la grilla y conservar sus pistas
+      const finalTargetWords = selectedItems.filter((item) => placedWordsStrings.includes(item.word));
 
       setGrid(newGrid);
-      setTargetWords(placedWords);
+      setTargetWords(finalTargetWords);
       setMyFoundWords([]);
-      setFoundWordsCoords([]); // Reset visual host
+      setFoundWordsCoords([]);
       setRound(roundNum);
       setCurrentDifficulty(difficultyVal);
       setGamePhase("playing");
@@ -277,7 +293,7 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
       if (gameRoomCode) {
         await broadcastGameEvent("wordsearch_start", {
           grid: newGrid,
-          words: placedWords,
+          words: finalTargetWords, // Enviamos el objeto completo (palabra + pista)
           round: roundNum,
           difficulty: difficultyVal,
           roundEndsAt: endsAt,
@@ -309,7 +325,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     const dr = end.r - start.r;
     const dc = end.c - start.c;
 
-    // Permitir selección en 8 direcciones (Horiz, Vert, Diag)
     if (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc)) {
       const steps = Math.max(Math.abs(dr), Math.abs(dc));
       const rStep = dr === 0 ? 0 : dr / steps;
@@ -333,10 +348,8 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     return getSelectedCells(startCell, currentCell);
   }, [isSelecting, startCell, currentCell]);
 
-  // Verifica si la celda es parte de la selección ACTUAL (drag)
   const isSelected = (r: number, c: number) => currentSelectionCoords.some((cell) => cell.r === r && cell.c === c);
 
-  // Verifica si la celda es parte de una palabra YA ENCONTRADA (permanent)
   const isPermanentlyFound = (r: number, c: number) =>
     foundWordsCoords.some((coords) => coords.some((cell) => cell.r === r && cell.c === c));
 
@@ -359,36 +372,45 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
   const handleMouseUp = async () => {
     if (!isSelecting || !startCell || !currentCell) return;
 
-    const word = getSelectedWord();
-    const reversedWord = word.split("").reverse().join("");
-    // Guardamos las coordenadas candidatas antes de limpiar el estado
+    const wordStr = getSelectedWord();
+    const reversedWordStr = wordStr.split("").reverse().join("");
     const candidateCoords = getSelectedCells(startCell, currentCell);
 
-    let found = null;
-    // Verificamos si es palabra objetivo Y si no la encontré yo todavía
-    if (targetWords.includes(word) && !myFoundWords.includes(word)) found = word;
-    else if (targetWords.includes(reversedWord) && !myFoundWords.includes(reversedWord)) found = reversedWord;
+    // Verificamos si la cadena seleccionada coincide con alguna WORD en nuestros objetos targetWords
+    let foundItem = null;
 
-    if (found) {
+    // Buscar coincidencia normal
+    const matchNormal = targetWords.find((t) => t.word === wordStr);
+    if (matchNormal && !myFoundWords.includes(matchNormal.word)) {
+      foundItem = matchNormal;
+    }
+    // Buscar coincidencia invertida
+    else {
+      const matchReverse = targetWords.find((t) => t.word === reversedWordStr);
+      if (matchReverse && !myFoundWords.includes(matchReverse.word)) {
+        foundItem = matchReverse;
+      }
+    }
+
+    if (foundItem) {
       // --- ÉXITO ---
-      // 1. Guardar coordenadas visuales
+      const actualWord = foundItem.word;
+
       setFoundWordsCoords((prev) => [...prev, candidateCoords]);
 
-      // 2. Lógica de juego
-      const newFound = [...myFoundWords, found];
+      const newFound = [...myFoundWords, actualWord];
       setMyFoundWords(newFound);
       playSound("correct", 0.6);
 
-      const wordPoints = found.length * 10;
+      const wordPoints = actualWord.length * 15; // Más puntos porque es con pistas
       const newScore = score + wordPoints;
       setScore(newScore);
 
       await updateScore(newScore, newFound.length, 0);
-      await broadcastCorrectAnswer(found, wordPoints);
-      toast.success(`¡Encontraste ${found}! (+${wordPoints})`);
+      await broadcastCorrectAnswer(actualWord, wordPoints);
+      toast.success(`¡Correcto! ${actualWord} (+${wordPoints})`);
     }
 
-    // Resetear selección
     setIsSelecting(false);
     setStartCell(null);
     setCurrentCell(null);
@@ -443,7 +465,7 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
         players={rankingPlayers}
         roundNumber={round}
         totalRounds={totalRounds}
-        countdownSeconds={8}
+        countdownSeconds={10}
         onCountdownComplete={isHostInRoom ? handleNextRound : () => {}}
         isLastRound={isLastRound}
         allPlayersCorrect={false}
@@ -452,7 +474,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
   }
 
   return (
-    // Agregamos handleMouseUp al contenedor principal para soltar el click fuera de la grilla
     <div
       className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex flex-col h-full select-none"
       onMouseUp={handleMouseUp}
@@ -488,7 +509,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
         {/* LADO IZQUIERDO: GRILLA */}
         <div className="flex-1 flex items-center justify-center p-4 bg-secondary/10 overflow-auto">
           <div
-            // select-none y touch-none son vitales para evitar selección de texto y scroll en móvil al jugar
             className="grid gap-1 select-none touch-none p-2 bg-card rounded-lg shadow-xl border border-border relative"
             style={{
               gridTemplateColumns: `repeat(${grid.length}, minmax(28px, 40px))`,
@@ -500,8 +520,8 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
           >
             {grid.map((row, rIndex) =>
               row.map((letter, cIndex) => {
-                const isActive = isSelected(rIndex, cIndex); // Seleccionando ahora mismo
-                const isAlreadyFound = isPermanentlyFound(rIndex, cIndex); // Ya encontrada antes
+                const isActive = isSelected(rIndex, cIndex);
+                const isAlreadyFound = isPermanentlyFound(rIndex, cIndex);
 
                 return (
                   <motion.div
@@ -512,11 +532,11 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
                        transition-colors duration-100
                        ${
                          isActive
-                           ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20" // Estilo al arrastrar
+                           ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20"
                            : isAlreadyFound
-                             ? "bg-green-500/20 text-green-500 border border-green-500/30" // Estilo palabra encontrada
+                             ? "bg-green-500/20 text-green-500 border border-green-500/30"
                              : "bg-secondary/40 text-foreground hover:bg-secondary/70"
-                       } // Estilo normal
+                       } 
                      `}
                     onMouseDown={() => handleMouseDown(rIndex, cIndex)}
                     onMouseEnter={() => handleMouseEnter(rIndex, cIndex)}
@@ -529,33 +549,68 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
           </div>
         </div>
 
-        {/* LADO DERECHO: SOLO PALABRAS (Chat eliminado) */}
-        <div className="w-full md:w-80 border-l border-border bg-card flex flex-col">
-          <div className="p-4 flex-1 overflow-y-auto">
-            <h3 className="font-semibold text-sm mb-3 text-muted-foreground flex items-center gap-2">
-              <Grid3X3 size={16} />
-              PALABRAS ({myFoundWords.length}/{targetWords.length})
+        {/* LADO DERECHO: PISTAS (TARJETAS) */}
+        <div className="w-full md:w-96 border-l border-border bg-card flex flex-col">
+          <div className="p-4 border-b border-border bg-secondary/5">
+            <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
+              <Lightbulb size={16} className="text-yellow-500" />
+              PISTAS ({myFoundWords.length}/{targetWords.length})
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {targetWords.map((word) => {
-                const found = myFoundWords.includes(word);
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <AnimatePresence>
+              {targetWords.map((item) => {
+                const found = myFoundWords.includes(item.word);
                 return (
-                  <div
-                    key={word}
+                  <motion.div
+                    key={item.word}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className={`
-                      px-2 py-1 rounded text-xs font-medium border
+                      relative p-3 rounded-lg border text-sm transition-all duration-300
                       ${
                         found
-                          ? "bg-green-500/20 border-green-500/50 text-green-500 line-through decoration-2 opacity-60"
-                          : "bg-secondary border-border text-foreground"
+                          ? "bg-green-500/10 border-green-500/30"
+                          : "bg-secondary/30 border-border hover:bg-secondary/50"
                       }
                     `}
                   >
-                    {word}
-                  </div>
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 ${found ? "text-green-500" : "text-muted-foreground"}`}>
+                        {found ? (
+                          <CheckCircle2 size={16} />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border border-current opacity-40" />
+                        )}
+                      </div>
+
+                      <div className="flex-1">
+                        <p
+                          className={`mb-1 ${found ? "text-muted-foreground line-through opacity-70" : "text-foreground font-medium"}`}
+                        >
+                          {item.clue}
+                        </p>
+
+                        <div className="flex items-center justify-between">
+                          {/* Indicador de letras (pista) */}
+                          <span className="text-xs font-mono text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded border border-border/50">
+                            {item.word.length} letras
+                          </span>
+
+                          {/* Palabra revelada si se encontró */}
+                          {found && (
+                            <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded animate-in fade-in zoom-in">
+                              {item.word}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
