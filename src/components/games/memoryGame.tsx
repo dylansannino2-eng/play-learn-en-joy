@@ -1,206 +1,175 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Trophy, Clock, Users, Wifi, WifiOff, HelpCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
-import RoundRanking from './shared/RoundRanking';
-import GameLobby from './shared/GameLobby';
+import { useState, useEffect, useCallback } from 'react';
+import { Trophy, Clock, Eye, Zap, Image as ImageIcon } from 'lucide-react';
+import { supabase } from '@/lib/supabase'; // Asegúrate de tener configurado tu cliente
+import { motion } from 'framer-motion';
 import { useGameSounds } from '@/hooks/useGameSounds';
-import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
-
-// --- CONFIGURACIÓN Y DATOS ---
-
-const ROUND_SECONDS = 60;
 
 interface MemoryItem {
-  id: string; // ID común para la pareja
-  content: string | JSX.Element;
+  id: string;
+  content: string; // URL de imagen o Texto
   type: 'image' | 'text';
-  value: string; // Para comparar si coinciden
+  matchValue: string; // El identificador para unir (la palabra)
 }
 
-// Banco de datos: Icono/Imagen vs Texto
-const MEMORY_DATABASE = [
-  { value: "React", label: "React", icon: "⚛️" },
-  { value: "Node", label: "Node.js", icon: "🟢" },
-  { value: "Database", label: "Postgres", icon: "🗄️" },
-  { value: "Styling", label: "Tailwind", icon: "🎨" },
-  { value: "Types", label: "TypeScript", icon: "📘" },
-  { value: "Cloud", label: "Vercel", icon: "☁️" },
-  { value: "Version", label: "Git", icon: "🌿" },
-  { value: "Package", label: "NPM", icon: "📦" },
-  { value: "API", label: "GraphQL", icon: "🕸️" },
-  { value: "Mobile", label: "Native", icon: "📱" },
-];
-
-type GamePhase = 'waiting' | 'playing' | 'ranking';
-
-// --- COMPONENTE DE CARTA ---
-
-function MemoryCard({ 
-  item, 
-  isFlipped, 
-  isMatched, 
-  onClick 
-}: { 
-  item: MemoryItem; 
-  isFlipped: boolean; 
-  isMatched: boolean; 
-  onClick: () => void 
-}) {
-  return (
-    <div 
-      className="relative h-24 sm:h-32 w-full perspective-1000 cursor-pointer"
-      onClick={!isFlipped && !isMatched ? onClick : undefined}
-    >
-      <motion.div
-        className="w-full h-full transition-all duration-500 preserve-3d"
-        initial={false}
-        animate={{ rotateY: isFlipped || isMatched ? 180 : 0 }}
-      >
-        {/* Lado Frontal (Oculto) */}
-        <div className="absolute inset-0 bg-secondary/50 border-2 border-primary/20 rounded-xl flex items-center justify-center backface-hidden">
-          <HelpCircle className="text-primary/30 w-8 h-8" />
-        </div>
-
-        {/* Lado Trasero (Revelado) */}
-        <div 
-          className={`absolute inset-0 rounded-xl flex flex-col items-center justify-center backface-hidden rotate-y-180 border-2 shadow-inner
-            ${isMatched ? 'bg-green-500/20 border-green-500/50' : 'bg-card border-primary'}
-          `}
-        >
-          {item.type === 'image' ? (
-            <span className="text-4xl">{item.content}</span>
-          ) : (
-            <span className="font-bold text-sm sm:text-base text-center px-2">{item.content}</span>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// --- COMPONENTE PRINCIPAL ---
-
-export default function MemoryGame({ roomCode }: { roomCode?: string }) {
+export default function MemoryGame() {
   const { playSound } = useGameSounds();
-  const [gamePhase, setGamePhase] = useState<GamePhase>('waiting');
+  
+  // Estados del juego
   const [cards, setCards] = useState<MemoryItem[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedValues, setMatchedValues] = useState<string[]>([]);
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+  const [isPreviewing, setIsPreviewing] = useState(false); // Estado para el Power-up inicial
+  const [loading, setLoading] = useState(true);
 
-  const {
-    players,
-    isConnected,
-    username,
-    updateScore,
-    broadcastGameEvent,
-    gameEvent,
-  } = useMultiplayerGame('memorama', roomCode);
+  // --- CARGA DE DATOS DESDE SUPABASE ---
+  const fetchCards = useCallback(async (limit = 6) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('memory_cards')
+      .select('image_url, word')
+      .limit(limit);
 
-  // --- LÓGICA DE GENERACIÓN ---
+    if (error) {
+      console.error("Error cargando cartas:", error);
+      return;
+    }
 
-  const setupGame = useCallback((difficulty: string) => {
-    const pairCount = difficulty === 'easy' ? 4 : difficulty === 'medium' ? 6 : 8;
-    const selected = [...MEMORY_DATABASE].sort(() => 0.5 - Math.random()).slice(0, pairCount);
-    
+    // Crear parejas: una carta con imagen y otra con texto
     let deck: MemoryItem[] = [];
-    selected.forEach((item, index) => {
-      // Carta de Imagen
-      deck.push({ id: `img-${index}`, value: item.value, content: item.icon, type: 'image' });
-      // Carta de Texto
-      deck.push({ id: `txt-${index}`, value: item.value, content: item.label, type: 'text' });
+    data.forEach((item, index) => {
+      deck.push({ 
+        id: `img-${index}`, 
+        content: item.image_url, 
+        type: 'image', 
+        matchValue: item.word 
+      });
+      deck.push({ 
+        id: `txt-${index}`, 
+        content: item.word, 
+        type: 'text', 
+        matchValue: item.word 
+      });
     });
 
-    setCards(deck.sort(() => 0.5 - Math.random()));
-    setMatchedValues([]);
-    setFlippedIndices([]);
-    setScore(0);
-    setGamePhase('playing');
-    setTimeLeft(ROUND_SECONDS);
+    // Barajar y activar visualización inicial
+    const shuffledDeck = deck.sort(() => Math.random() - 0.5);
+    setCards(shuffledDeck);
+    startInitialPreview();
+    setLoading(false);
   }, []);
 
-  // --- MANEJO DE SELECCIÓN ---
+  // --- LÓGICA DEL POWER-UP INICIAL ---
+  const startInitialPreview = () => {
+    setIsPreviewing(true);
+    playSound('powerup', 0.5); // Sonido de inicio
+    
+    // Después de 5 segundos, ocultar todas las cartas
+    setTimeout(() => {
+      setIsPreviewing(false);
+      playSound('clock', 0.3);
+    }, 5000);
+  };
 
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
+
+  // --- HANDLER DE CLIC ---
   const handleCardClick = (index: number) => {
-    if (flippedIndices.length === 2 || flippedIndices.includes(index)) return;
+    if (isPreviewing || flippedIndices.length === 2 || flippedIndices.includes(index)) return;
 
     const newFlipped = [...flippedIndices, index];
     setFlippedIndices(newFlipped);
-    playSound('click', 0.2);
 
     if (newFlipped.length === 2) {
-      const firstCard = cards[newFlipped[0]];
-      const secondCard = cards[newFlipped[1]];
+      const first = cards[newFlipped[0]];
+      const second = cards[newFlipped[1]];
 
-      if (firstCard.value === secondCard.value) {
-        // ¡COINCIDENCIA!
-        setTimeout(() => {
-          setMatchedValues(prev => [...prev, firstCard.value]);
-          setFlippedIndices([]);
-          setScore(s => s + 50);
-          playSound('correct', 0.5);
-          toast.success(`¡Pareja encontrada: ${firstCard.value}!`);
-          
-          // Sincronizar con otros si es necesario
-          updateScore(score + 50, matchedValues.length + 1, 0);
-        }, 600);
+      if (first.matchValue === second.matchValue) {
+        setMatchedValues(prev => [...prev, first.matchValue]);
+        setFlippedIndices([]);
+        playSound('correct', 0.6);
       } else {
-        // ERROR
-        setTimeout(() => {
-          setFlippedIndices([]);
-        }, 1000);
+        setTimeout(() => setFlippedIndices([]), 1000);
+        playSound('error', 0.3);
       }
     }
   };
 
-  // --- RENDER ---
-
-  if (gamePhase === 'waiting') {
-    return (
-      <GameLobby
-        gameSlug="memorama"
-        onStartGame={(payload) => setupGame(payload.difficulties[0])}
-      />
-    );
-  }
+  if (loading) return <div className="text-center p-10">Cargando desafío...</div>;
 
   return (
-    <div className="flex flex-col h-full bg-background p-4 gap-4">
-      {/* Header */}
-      <div className="flex justify-between items-center bg-card p-4 rounded-xl border border-border">
+    <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto">
+      
+      {/* Barra de Estado y Power-up */}
+      <div className="flex justify-between items-center bg-secondary/20 p-4 rounded-2xl border border-primary/10">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="text-yellow-500" />
-            <span className="text-2xl font-black">{score}</span>
-          </div>
-          <div className="text-muted-foreground text-sm font-medium">
-            Parejas: {matchedValues.length} / {cards.length / 2}
-          </div>
+          <Trophy className="text-yellow-500" />
+          <span className="text-xl font-bold">{matchedValues.length * 100} pts</span>
         </div>
-        
-        <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-full font-mono font-bold text-xl">
-          <Clock className={timeLeft < 10 ? "text-red-500 animate-pulse" : ""} />
-          {timeLeft}s
-        </div>
+
+        {isPreviewing && (
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-2 bg-yellow-500/20 text-yellow-600 px-4 py-1 rounded-full border border-yellow-500/30"
+          >
+            <Zap size={16} className="animate-pulse" />
+            <span className="font-bold text-sm">MEMORIZA AHORA (5s)</span>
+          </motion.div>
+        )}
       </div>
 
-      {/* Grid de Cartas */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className={`grid gap-3 w-full max-w-4xl 
-          ${cards.length <= 8 ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-4'}`}
-        >
-          {cards.map((card, index) => (
-            <MemoryCard
-              key={index}
-              item={card}
-              isFlipped={flippedIndices.includes(index)}
-              isMatched={matchedValues.includes(card.value)}
+      {/* Grid del Memorama */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {cards.map((card, index) => {
+          // Una carta está "visible" si está volteada, si ya fue emparejada o si el power-up está activo
+          const isVisible = flippedIndices.includes(index) || 
+                            matchedValues.includes(card.matchValue) || 
+                            isPreviewing;
+
+          return (
+            <div 
+              key={card.id}
               onClick={() => handleCardClick(index)}
-            />
-          ))}
-        </div>
+              className="relative h-40 cursor-pointer perspective-1000"
+            >
+              <motion.div
+                animate={{ rotateY: isVisible ? 180 : 0 }}
+                transition={{ duration: 0.4 }}
+                className="w-full h-full relative preserve-3d"
+              >
+                {/* Cara de atrás (Oculta) */}
+                <div className="absolute inset-0 bg-slate-800 rounded-xl flex items-center justify-center backface-hidden border-4 border-slate-700 shadow-xl">
+                   <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center">
+                      <ImageIcon className="text-slate-500" />
+                   </div>
+                </div>
+
+                {/* Cara de adelante (Contenido) */}
+                <div className="absolute inset-0 bg-white rounded-xl flex items-center justify-center backface-hidden rotate-y-180 border-4 border-primary shadow-2xl overflow-hidden">
+                  {card.type === 'image' ? (
+                    <img 
+                      src={card.content} 
+                      alt="target" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-slate-900 font-black text-xl px-2 text-center">
+                      {card.content.toUpperCase()}
+                    </span>
+                  )}
+                  
+                  {matchedValues.includes(card.matchValue) && (
+                    <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
+                       <div className="bg-white rounded-full p-1 shadow-lg">✅</div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
