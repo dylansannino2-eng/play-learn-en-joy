@@ -1,8 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1";
   };
@@ -98,6 +96,39 @@ export type Database = {
           title?: string;
           updated_at?: string;
           uses_chat?: boolean;
+        };
+        Relationships: [];
+      };
+      memory_cards: {
+        Row: {
+          category: string | null;
+          created_at: string;
+          difficulty: string | null;
+          id: string;
+          image_url: string;
+          is_active: boolean;
+          updated_at: string;
+          word: string;
+        };
+        Insert: {
+          category?: string | null;
+          created_at?: string;
+          difficulty?: string | null;
+          id?: string;
+          image_url: string;
+          is_active?: boolean;
+          updated_at?: string;
+          word: string;
+        };
+        Update: {
+          category?: string | null;
+          created_at?: string;
+          difficulty?: string | null;
+          id?: string;
+          image_url?: string;
+          is_active?: boolean;
+          updated_at?: string;
+          word?: string;
         };
         Relationships: [];
       };
@@ -314,33 +345,6 @@ export type Database = {
           prompt?: string;
           times_played?: number;
           updated_at?: string;
-        };
-        Relationships: [];
-      };
-      wordsearch_dictionary: {
-        Row: {
-          id: string;
-          word: string;
-          category: string | null;
-          difficulty: string | null;
-          is_active: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          word: string;
-          category?: string | null;
-          difficulty?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          word?: string;
-          category?: string | null;
-          difficulty?: string | null;
-          is_active?: boolean;
-          created_at?: string;
         };
         Relationships: [];
       };
