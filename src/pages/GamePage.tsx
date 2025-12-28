@@ -5,6 +5,8 @@ import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
 import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import TheMovieInterpreterGame from "@/components/games/TheMovieInterpreterGame";
+// IMPORTACIÓN AÑADIDA:
+import WordSearchGame from "@/components/games/WordSearchGame";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Game {
@@ -51,6 +53,7 @@ const GamePage = () => {
   const renderGameComponent = () => {
     if (!game?.slug) return null;
 
+    // IMPORTANTE: El valor de los 'case' debe ser EXACTAMENTE igual al slug en la base de datos
     switch (game.slug) {
       case "word-battle":
         return <WordBattleGame roomCode={roomCode} />;
@@ -58,6 +61,9 @@ const GamePage = () => {
         return <TheTranslatorGame roomCode={roomCode} />;
       case "the-movie-interpreter":
         return <TheMovieInterpreterGame roomCode={roomCode} />;
+      // CASO AÑADIDO:
+      case "word-search":
+        return <WordSearchGame roomCode={roomCode} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[400px]">
@@ -95,9 +101,7 @@ const GamePage = () => {
     <div className="h-screen bg-background flex overflow-hidden">
       <Sidebar />
 
-      {/* Main Container: Permitimos el scroll vertical con overflow-y-auto */}
       <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-y-auto scrollbar-thin">
-        {/* Botón de volver */}
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-4"
@@ -106,12 +110,9 @@ const GamePage = () => {
           <span>{game.title}</span>
         </Link>
 
-        {/* Contenedor de contenido: Alineación natural a la izquierda */}
         <div className="flex flex-col gap-6 pb-10">
-          {/* 1. Área de Juego y Chat (Ocupa el ancho disponible) */}
           <div className="flex gap-4 min-h-[600px] w-full">{renderGameComponent()}</div>
 
-          {/* 2. Sección de Descripción: Alineada a la izquierda */}
           <section className="w-full">
             <div className="max-w-3xl bg-card border border-border rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
