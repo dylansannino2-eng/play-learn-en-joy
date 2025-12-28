@@ -5,8 +5,9 @@ import Sidebar from "@/components/Sidebar";
 import WordBattleGame from "@/components/games/WordBattleGame";
 import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import TheMovieInterpreterGame from "@/components/games/TheMovieInterpreterGame";
-// IMPORTACIÓN AÑADIDA:
 import WordSearchGame from "@/components/games/WordSearchGame";
+// IMPORTACIÓN AÑADIDA:
+import MemoryGame from "@/components/games/MemoryGame";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Game {
@@ -53,7 +54,6 @@ const GamePage = () => {
   const renderGameComponent = () => {
     if (!game?.slug) return null;
 
-    // IMPORTANTE: El valor de los 'case' debe ser EXACTAMENTE igual al slug en la base de datos
     switch (game.slug) {
       case "word-battle":
         return <WordBattleGame roomCode={roomCode} />;
@@ -61,9 +61,11 @@ const GamePage = () => {
         return <TheTranslatorGame roomCode={roomCode} />;
       case "the-movie-interpreter":
         return <TheMovieInterpreterGame roomCode={roomCode} />;
-      // CASO AÑADIDO:
       case "word-search":
         return <WordSearchGame roomCode={roomCode} />;
+      // CASO AÑADIDO:
+      case "memorama":
+        return <MemoryGame />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[400px]">
@@ -111,6 +113,7 @@ const GamePage = () => {
         </Link>
 
         <div className="flex flex-col gap-6 pb-10">
+          {/* El contenedor del juego */}
           <div className="flex gap-4 min-h-[600px] w-full">{renderGameComponent()}</div>
 
           <section className="w-full">
