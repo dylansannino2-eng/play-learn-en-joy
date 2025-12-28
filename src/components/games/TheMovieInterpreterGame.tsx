@@ -537,6 +537,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     setHasAnsweredThisRound(false);
     setChatMessages([]);
     setRepeatCount(0);
+    setShowAnimation(false); // Reset animation state
     setGamePhase('playing');
     playSound('gameStart', 0.5);
     fetchRandomConfig(usedConfigIds);

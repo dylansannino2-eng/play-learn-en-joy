@@ -276,12 +276,13 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     setUsedAnswers(new Set());
     setHasAnsweredThisRound(false);
     setChatMessages([]);
+    setShowAnimation(false); // Reset animation state
     setGamePhase('playing');
     playSound('gameStart', 0.5);
     // Pick a random difficulty for this round
     const roundDifficulty = getRandomDifficulty();
     fetchRandomCard(usedCardIds, roundDifficulty);
-  }, [round, totalRounds, fetchRandomCard, playSound, usedCardIds, getRandomDifficulty]);
+  }, [round, totalRounds, fetchRandomCard, playSound, usedCardIds, getRandomDifficulty, startRoundTimer]);
 
   const handleLobbyStart = useCallback(
     async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
