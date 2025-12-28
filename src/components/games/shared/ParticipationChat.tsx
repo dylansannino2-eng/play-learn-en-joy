@@ -27,10 +27,12 @@ export default function ParticipationChat({
   currentUsername
 }: ParticipationChatProps) {
   const [input, setInput] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -111,8 +113,7 @@ export default function ParticipationChat({
         <p className="text-xs text-muted-foreground mt-1">Escribe tu respuesta aquí</p>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 p-3 space-y-2 overflow-y-auto scrollbar-hide min-h-0">
+      <div ref={messagesContainerRef} className="flex-1 p-3 space-y-2 overflow-y-auto scrollbar-hide min-h-0">
         <AnimatePresence>
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
@@ -126,7 +127,6 @@ export default function ParticipationChat({
             ))
           )}
         </AnimatePresence>
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
