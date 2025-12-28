@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import GamePage from "./pages/GamePage";
+import GamePageMobile from "./pages/GamePageMobile";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import AIGameCreator from "./pages/AIGameCreator";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/reading" element={<ReadingGames />} />
 
             <Route path="/game/:slug" element={<GamePage />} />
+            <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/subtitle-configs" element={<SubtitleConfigAdmin />} />
