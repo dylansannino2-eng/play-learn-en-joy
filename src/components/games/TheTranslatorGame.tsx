@@ -562,24 +562,31 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     const normalizedAnswer = normalizeText(answer);
     const normalizedCorrect = normalizeText(currentPhrase.english_translation);
 
-    // Exact match
+    // Exact match after normalization (including contraction expansion)
     if (normalizedAnswer === normalizedCorrect) {
       return { isCorrect: true, similarity: 1 };
     }
 
-    // Calculate similarity (simple word matching)
-    const answerWords = normalizedAnswer.split(' ');
-    const correctWords = normalizedCorrect.split(' ');
+    // Calculate similarity for feedback purposes only
+    const answerWords = normalizedAnswer.split(' ').filter(w => w.length > 0);
+    const correctWords = normalizedCorrect.split(' ').filter(w => w.length > 0);
     
+    // Must have the same number of words
+    if (answerWords.length !== correctWords.length) {
+      const similarity = Math.min(answerWords.length, correctWords.length) / Math.max(answerWords.length, correctWords.length);
+      return { isCorrect: false, similarity };
+    }
+    
+    // Count matching words
     let matchCount = 0;
     answerWords.forEach(word => {
       if (correctWords.includes(word)) matchCount++;
     });
     
-    const similarity = matchCount / Math.max(answerWords.length, correctWords.length);
+    const similarity = matchCount / correctWords.length;
     
-    // Consider correct if similarity > 0.8
-    const isCorrect = similarity >= 0.8;
+    // Only accept if ALL words match (similarity === 1)
+    const isCorrect = similarity === 1;
     
     return { isCorrect, similarity };
   };
