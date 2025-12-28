@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ArrowLeft, Film, Eye, Play, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Film, Eye, Check, clock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -66,14 +66,12 @@ export default function SubtitleConfigAdmin() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SubtitleConfig | null>(null);
   const [previewConfig, setPreviewConfig] = useState<SubtitleConfig | null>(null);
-  
-  // Word selection state
+
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number | null>(null);
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
   const [selectedWord, setSelectedWord] = useState<string>("");
   const [manualWord, setManualWord] = useState("");
 
-  // Form state
   const [formData, setFormData] = useState({
     name: "",
     video_id: "",
@@ -111,11 +109,10 @@ export default function SubtitleConfigAdmin() {
     if (error) {
       toast.error("Error al cargar configuraciones");
     } else {
-      // Parse the data properly
-      const parsedConfigs = (data || []).map(item => ({
+      const parsedConfigs = (data || []).map((item) => ({
         ...item,
-        subtitles: Array.isArray(item.subtitles) ? item.subtitles as unknown as SubtitleItem[] : null,
-        translations: Array.isArray(item.translations) ? item.translations as unknown as SubtitleItem[] : null,
+        subtitles: Array.isArray(item.subtitles) ? (item.subtitles as unknown as SubtitleItem[]) : null,
+        translations: Array.isArray(item.translations) ? (item.translations as unknown as SubtitleItem[]) : null,
       }));
       setConfigs(parsedConfigs);
     }
@@ -158,7 +155,7 @@ export default function SubtitleConfigAdmin() {
   };
 
   const handleWordClick = (subtitleIndex: number, wordIndex: number, word: string) => {
-    const cleanWord = word.replace(/[.,!?'"()]/g, '');
+    const cleanWord = word.replace(/[.,!?'"()]/g, "");
     setSelectedSubtitleIndex(subtitleIndex);
     setSelectedWordIndex(wordIndex);
     setSelectedWord(cleanWord);
@@ -167,12 +164,11 @@ export default function SubtitleConfigAdmin() {
 
   const handleManualWordChange = (value: string) => {
     setManualWord(value);
-    // Try to find this word in subtitles
     if (editingConfig?.subtitles) {
       for (let si = 0; si < editingConfig.subtitles.length; si++) {
         const words = editingConfig.subtitles[si].text.split(/\s+/);
         for (let wi = 0; wi < words.length; wi++) {
-          const cleanWord = words[wi].replace(/[.,!?'"()]/g, '').toLowerCase();
+          const cleanWord = words[wi].replace(/[.,!?'"()]/g, "").toLowerCase();
           if (cleanWord === value.toLowerCase()) {
             setSelectedSubtitleIndex(si);
             setSelectedWordIndex(wi);
@@ -182,39 +178,24 @@ export default function SubtitleConfigAdmin() {
         }
       }
     }
-    // If not found, just use the manual word
     setSelectedWord(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!editingConfig) {
-      toast.error("Debes seleccionar una configuración existente para editar");
-      return;
-    }
+    if (!editingConfig) return;
 
     const updateData = {
-      name: formData.name,
-      video_id: formData.video_id,
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      difficulty: formData.difficulty,
-      category: formData.category,
-      is_active: formData.is_active,
+      ...formData,
       target_subtitle_index: selectedSubtitleIndex,
       hidden_word: manualWord || selectedWord || null,
       hidden_word_index: selectedWordIndex,
     };
 
-    const { error } = await supabase
-      .from("subtitle_configs")
-      .update(updateData)
-      .eq("id", editingConfig.id);
+    const { error } = await supabase.from("subtitle_configs").update(updateData).eq("id", editingConfig.id);
 
     if (error) {
       toast.error("Error al actualizar configuración");
-      console.error(error);
     } else {
       toast.success("Configuración actualizada");
       setDialogOpen(false);
@@ -224,15 +205,9 @@ export default function SubtitleConfigAdmin() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de eliminar esta configuración?")) return;
-
     const { error } = await supabase.from("subtitle_configs").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Error al eliminar configuración");
-    } else {
-      toast.success("Configuración eliminada");
-      fetchConfigs();
-    }
+    if (error) toast.error("Error al eliminar");
+    else fetchConfigs();
   };
 
   const toggleActive = async (config: SubtitleConfig) => {
@@ -240,45 +215,61 @@ export default function SubtitleConfigAdmin() {
       .from("subtitle_configs")
       .update({ is_active: !config.is_active })
       .eq("id", config.id);
-
-    if (error) {
-      toast.error("Error al actualizar estado");
-    } else {
-      fetchConfigs();
-    }
-  };
-
-  const openPreview = (config: SubtitleConfig) => {
-    setPreviewConfig(config);
-    setPreviewOpen(true);
+    if (!error) fetchConfigs();
   };
 
   const renderSubtitleWithSelection = (subtitle: SubtitleItem, subtitleIndex: number) => {
     const words = subtitle.text.split(/\s+/);
-    
+    const isInRange = subtitle.startTime >= formData.start_time && subtitle.endTime <= formData.end_time;
+
     return (
-      <div key={subtitle.id} className="p-3 bg-muted/50 rounded-lg mb-2">
-        <div className="text-xs text-muted-foreground mb-1">
-          {subtitle.startTime.toFixed(1)}s - {subtitle.endTime.toFixed(1)}s
+      <div
+        key={subtitle.id}
+        className={cn(
+          "p-3 rounded-lg mb-2 border transition-all group relative",
+          isInRange ? "bg-primary/5 border-primary/30" : "bg-muted/50 border-transparent",
+        )}
+      >
+        <div className="flex justify-between items-center mb-1">
+          <div className="text-[10px] font-mono text-muted-foreground">
+            {subtitle.startTime.toFixed(1)}s - {subtitle.endTime.toFixed(1)}s
+          </div>
+
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              type="button"
+              size="sm"
+              variant={formData.start_time === subtitle.startTime ? "default" : "outline"}
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setFormData((prev) => ({ ...prev, start_time: subtitle.startTime }))}
+            >
+              Set Inicio
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={formData.end_time === subtitle.endTime ? "default" : "outline"}
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setFormData((prev) => ({ ...prev, end_time: subtitle.endTime }))}
+            >
+              Set Fin
+            </Button>
+          </div>
         </div>
+
         <div className="flex flex-wrap gap-1">
           {words.map((word, wordIndex) => {
-            const isSelected = 
-              selectedSubtitleIndex === subtitleIndex && 
-              selectedWordIndex === wordIndex;
-            const cleanWord = word.replace(/[.,!?'"()]/g, '');
-            
+            const isSelected = selectedSubtitleIndex === subtitleIndex && selectedWordIndex === wordIndex;
             return (
               <button
                 key={wordIndex}
                 type="button"
                 onClick={() => handleWordClick(subtitleIndex, wordIndex, word)}
                 className={cn(
-                  "px-2 py-1 rounded text-sm transition-all cursor-pointer hover:bg-primary/20",
-                  isSelected 
-                    ? "bg-primary text-primary-foreground font-bold" 
-                    : "bg-background hover:ring-2 ring-primary/50",
-                  cleanWord.length < 3 && "opacity-50"
+                  "px-2 py-1 rounded text-sm transition-all cursor-pointer",
+                  isSelected
+                    ? "bg-primary text-primary-foreground font-bold"
+                    : "bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20",
                 )}
               >
                 {word}
@@ -290,59 +281,42 @@ export default function SubtitleConfigAdmin() {
     );
   };
 
-  if (isLoading || !isAdmin) {
+  if (isLoading || !isAdmin)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
-  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                <Film className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Movie Interpreter</h1>
-                <p className="text-sm text-muted-foreground">Configurar clips y palabras ocultas</p>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold">Movie Interpreter</h1>
+              <p className="text-sm text-muted-foreground">Configurar clips y palabras ocultas</p>
             </div>
           </div>
         </div>
 
-        {/* Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingConfig ? `Editar: ${editingConfig.name}` : "Nueva Configuración"}
-              </DialogTitle>
+              <DialogTitle>{editingConfig ? `Editar: ${editingConfig.name}` : "Nueva Configuración"}</DialogTitle>
             </DialogHeader>
-            
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nombre</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
+                  <Label>Nombre</Label>
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="video_id">Video ID (YouTube)</Label>
+                  <Label>Video ID</Label>
                   <Input
-                    id="video_id"
                     value={formData.video_id}
                     onChange={(e) => setFormData({ ...formData, video_id: e.target.value })}
                   />
@@ -354,7 +328,7 @@ export default function SubtitleConfigAdmin() {
                   <Label>Dificultad</Label>
                   <Select
                     value={formData.difficulty}
-                    onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
+                    onValueChange={(v) => setFormData({ ...formData, difficulty: v })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -370,10 +344,7 @@ export default function SubtitleConfigAdmin() {
                 </div>
                 <div className="space-y-2">
                   <Label>Categoría</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
+                  <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -387,248 +358,120 @@ export default function SubtitleConfigAdmin() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Inicio (seg)</Label>
+                  <Label className="text-primary flex items-center gap-1">Inicio (seg)</Label>
                   <Input
                     type="number"
+                    step="0.1"
                     value={formData.start_time}
                     onChange={(e) => setFormData({ ...formData, start_time: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fin (seg)</Label>
+                  <Label className="text-primary flex items-center gap-1">Fin (seg)</Label>
                   <Input
                     type="number"
+                    step="0.1"
                     value={formData.end_time}
                     onChange={(e) => setFormData({ ...formData, end_time: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
               </div>
 
-              {/* Word Selection Section */}
-              {editingConfig?.subtitles && editingConfig.subtitles.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Seleccionar Palabra Oculta</CardTitle>
+              {editingConfig?.subtitles && (
+                <Card className="border-primary/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Editor de Clip y Palabra</CardTitle>
                     <CardDescription>
-                      Haz clic en la palabra que quieres ocultar, o escríbela manualmente
+                      Usa "Set Inicio/Fin" para definir el tiempo del video basado en los subtítulos.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Manual input */}
                     <div className="flex gap-4 items-end">
                       <div className="flex-1 space-y-2">
                         <Label>Palabra a ocultar</Label>
                         <Input
                           value={manualWord}
                           onChange={(e) => handleManualWordChange(e.target.value)}
-                          placeholder="Escribe la palabra o haz clic abajo..."
+                          placeholder="Selecciona una palabra abajo..."
                         />
                       </div>
                       {selectedWord && (
-                        <Badge variant="default" className="h-10 px-4 text-base">
+                        <Badge className="h-10 px-4 text-base">
                           <Check className="w-4 h-4 mr-2" />
                           {selectedWord}
                         </Badge>
                       )}
                     </div>
 
-                    {/* Subtitles with clickable words */}
-                    <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-3">
-                      {editingConfig.subtitles.map((sub, idx) => 
-                        renderSubtitleWithSelection(sub, idx)
-                      )}
+                    <div className="max-h-80 overflow-y-auto space-y-1 border rounded-lg p-3 bg-black/5">
+                      {editingConfig.subtitles.map((sub, idx) => renderSubtitleWithSelection(sub, idx))}
                     </div>
-
-                    {selectedSubtitleIndex !== null && selectedWordIndex !== null && (
-                      <div className="text-sm text-muted-foreground">
-                        Seleccionado: Subtítulo #{selectedSubtitleIndex + 1}, Palabra #{selectedWordIndex + 1}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               )}
 
-              <div className="flex items-center gap-4">
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label>Activo</Label>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Guardar Cambios</Button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Switch
+                    checked={formData.is_active}
+                    onCheckedChange={(c) => setFormData({ ...formData, is_active: c })}
+                  />
+                  <Label>Activo</Label>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">Guardar Cambios</Button>
+                </div>
               </div>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Preview Dialog */}
-        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Vista Previa: {previewConfig?.name}</DialogTitle>
-            </DialogHeader>
-            {previewConfig && (
-              <div className="space-y-4">
-                {previewConfig.video_id && (
-                  <div className="aspect-video rounded-lg overflow-hidden bg-black">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      src={`https://www.youtube.com/embed/${previewConfig.video_id}?start=${Math.floor(previewConfig.start_time || 0)}`}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                )}
-                
-                {previewConfig.hidden_word && (
-                  <div className="p-4 bg-primary/10 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Palabra a adivinar:</p>
-                    <p className="text-2xl font-bold text-primary">{previewConfig.hidden_word}</p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Subtítulos:</p>
-                  {previewConfig.subtitles?.map((sub, idx) => (
-                    <div 
-                      key={sub.id} 
-                      className={cn(
-                        "p-2 rounded text-sm",
-                        idx === previewConfig.target_subtitle_index 
-                          ? "bg-primary/20 border border-primary" 
-                          : "bg-muted/50"
-                      )}
-                    >
-                      {idx === previewConfig.target_subtitle_index && previewConfig.hidden_word ? (
-                        <span>
-                          {sub.text.split(/\s+/).map((word, wi) => (
-                            <span key={wi}>
-                              {wi === previewConfig.hidden_word_index ? (
-                                <span className="bg-primary text-primary-foreground px-1 rounded">____</span>
-                              ) : (
-                                word
-                              )}
-                              {wi < sub.text.split(/\s+/).length - 1 ? " " : ""}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        sub.text
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Configs Table */}
+        {/* Tabla de configuraciones (Mismo código original simplificado) */}
         <Card>
           <CardHeader>
             <CardTitle>Configuraciones ({configs.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoadingConfigs ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : configs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay configuraciones. Crea una nueva configuración para comenzar.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Video</TableHead>
-                      <TableHead>Palabra Oculta</TableHead>
-                      <TableHead>Dificultad</TableHead>
-                      <TableHead>Categoría</TableHead>
-                      <TableHead>Activo</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {configs.map((config) => (
-                      <TableRow key={config.id}>
-                        <TableCell className="font-medium">
-                          {config.name || "Sin nombre"}
-                        </TableCell>
-                        <TableCell>
-                          <code className="text-xs bg-muted px-2 py-1 rounded">
-                            {config.video_id || "-"}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          {config.hidden_word ? (
-                            <Badge variant="default">{config.hidden_word}</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="opacity-70">
-                              Sin configurar
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {difficultyLabels[config.difficulty || "medium"]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {config.category && (
-                            <Badge variant="outline">
-                              {categoryLabels[config.category] || config.category}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Switch 
-                            checked={config.is_active ?? true} 
-                            onCheckedChange={() => toggleActive(config)} 
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => openPreview(config)}
-                              title="Vista previa"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleOpenDialog(config)}
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleDelete(config.id)}
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Palabra</TableHead>
+                  <TableHead>Rango</TableHead>
+                  <TableHead>Activo</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {configs.map((config) => (
+                  <TableRow key={config.id}>
+                    <TableCell className="font-medium">{config.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{config.hidden_word}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono">
+                      {config.start_time}s - {config.end_time}s
+                    </TableCell>
+                    <TableCell>
+                      <Switch checked={config.is_active ?? true} onCheckedChange={() => toggleActive(config)} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(config)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(config.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
