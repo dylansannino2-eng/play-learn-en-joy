@@ -125,10 +125,11 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     });
   }, [correctAnswerEvents, username]);
 
-  // Add remote chat messages from other players
+  // Add remote chat messages from other players - only for current round
   useEffect(() => {
     remoteChatMessages.forEach((msg) => {
-      if (msg.username !== username) {
+      // Only show messages from the current round
+      if (msg.username !== username && msg.round === round) {
         const newMessage: ChatMessage = {
           id: `remote-${msg.timestamp}-${msg.username}`,
           username: msg.username,
@@ -143,7 +144,7 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
         });
       }
     });
-  }, [remoteChatMessages, username]);
+  }, [remoteChatMessages, username, round]);
 
   const pickRandomPhraseId = useCallback(async (difficulty: Difficulty, excludeIds: Set<string>): Promise<string | null> => {
     const { data, error } = await supabase
@@ -623,9 +624,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     };
     setChatMessages((prev) => [...prev, userMessage]);
 
-    // Broadcast message to other players (only if not correct, correct ones are hidden)
+    // Broadcast message to other players with round info (only if not correct, correct ones are hidden)
     if (!isCorrect && gameRoomCode) {
-      await broadcastChatMessage(message);
+      await broadcastChatMessage(message, round);
     }
 
     if (hasAnsweredCorrectly) {
