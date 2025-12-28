@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Grid3X3, Check, MousePointer2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import ParticipationChat, { ChatMessage } from "./shared/ParticipationChat";
+// Se eliminó la importación de ParticipationChat
 import RoundRanking from "./shared/RoundRanking";
 import GameLobby from "./shared/GameLobby";
 import { useGameSounds } from "@/hooks/useGameSounds";
@@ -127,11 +127,11 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     username,
     updateScore,
     broadcastCorrectAnswer,
-    correctAnswerEvents,
+    // correctAnswerEvents, // Ya no necesitamos escuchar esto para el chat
     gameEvent,
     broadcastGameEvent,
-    chatMessages: remoteChatMessages,
-    broadcastChatMessage,
+    // chatMessages, // Eliminado
+    // broadcastChatMessage, // Eliminado
   } = useMultiplayerGame("word-search", gameRoomCode, displayName || undefined);
 
   // Estados del Juego
@@ -140,7 +140,7 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
   const [targetWords, setTargetWords] = useState<string[]>([]);
   const [myFoundWords, setMyFoundWords] = useState<string[]>([]);
 
-  // *** NUEVO: Estado para guardar coordenadas de palabras ya encontradas (para pintarlas) ***
+  // Estado para guardar coordenadas de palabras ya encontradas
   const [foundWordsCoords, setFoundWordsCoords] = useState<Coordinate[][]>([]);
 
   // Estados de Selección
@@ -155,7 +155,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [roundEndsAt, setRoundEndsAt] = useState<number | null>(null);
   const lastTimerSecondRef = useRef<number>(ROUND_SECONDS);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>("medium");
 
   // Precarga de sonidos
@@ -163,44 +162,7 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
     preloadSounds();
   }, [preloadSounds]);
 
-  // --- SINCRONIZACIÓN DE CHAT Y EVENTOS ---
-
-  useEffect(() => {
-    correctAnswerEvents.forEach((event) => {
-      if (event.username !== username) {
-        const newMessage: ChatMessage = {
-          id: `correct-${Date.now()}-${event.username}`,
-          username: event.username,
-          message: `Encontró una palabra (+${event.points})`,
-          type: "correct",
-          timestamp: new Date(),
-        };
-        setChatMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
-      }
-    });
-  }, [correctAnswerEvents, username]);
-
-  useEffect(() => {
-    remoteChatMessages.forEach((msg) => {
-      if (msg.username !== username) {
-        const newMessage: ChatMessage = {
-          id: `remote-${msg.timestamp}-${msg.username}`,
-          username: msg.username,
-          message: msg.message,
-          type: "message",
-          timestamp: new Date(msg.timestamp),
-          isCurrentUser: false,
-        };
-        setChatMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
-      }
-    });
-  }, [remoteChatMessages, username]);
+  // --- (SECCIÓN DE CHAT ELIMINADA) ---
 
   // --- SINCRONIZACIÓN DE JUEGO (GAME LOOP) ---
 
@@ -257,17 +219,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
       setGamePhase("playing");
       startRoundTimer(p.roundEndsAt);
       playSound("gameStart", 0.6);
-
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `sys-${Date.now()}`,
-          username: "Sistema",
-          message: `Ronda ${p.round} iniciada`,
-          type: "system",
-          timestamp: new Date(),
-        },
-      ]);
     }
 
     if (gameEvent.type === "return_to_lobby") {
@@ -435,28 +386,12 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
       await updateScore(newScore, newFound.length, 0);
       await broadcastCorrectAnswer(found, wordPoints);
       toast.success(`¡Encontraste ${found}! (+${wordPoints})`);
-    } else {
-      // --- FALLO O YA ENCONTRADA ---
-      // Opcional: Sonido de error leve si la palabra no existe
     }
 
     // Resetear selección
     setIsSelecting(false);
     setStartCell(null);
     setCurrentCell(null);
-  };
-
-  const handleSendChatMessage = async (msg: string) => {
-    const newMsg: ChatMessage = {
-      id: Date.now().toString(),
-      username: username,
-      message: msg,
-      type: "message",
-      timestamp: new Date(),
-      isCurrentUser: true,
-    };
-    setChatMessages((prev) => [...prev, newMsg]);
-    if (gameRoomCode) await broadcastChatMessage(msg);
   };
 
   const handleNextRound = () => {
@@ -594,9 +529,9 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
           </div>
         </div>
 
-        {/* LADO DERECHO: PALABRAS Y CHAT */}
+        {/* LADO DERECHO: SOLO PALABRAS (Chat eliminado) */}
         <div className="w-full md:w-80 border-l border-border bg-card flex flex-col">
-          <div className="p-4 border-b border-border bg-secondary/5 flex-shrink-0 max-h-48 md:max-h-64 overflow-y-auto">
+          <div className="p-4 flex-1 overflow-y-auto">
             <h3 className="font-semibold text-sm mb-3 text-muted-foreground flex items-center gap-2">
               <Grid3X3 size={16} />
               PALABRAS ({myFoundWords.length}/{targetWords.length})
@@ -621,16 +556,6 @@ export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps
                 );
               })}
             </div>
-          </div>
-
-          <div className="flex-1 overflow-hidden">
-            <ParticipationChat
-              messages={chatMessages}
-              onSendMessage={handleSendChatMessage}
-              currentUser={username}
-              placeholder="Chatea con los jugadores..."
-              readOnly={false}
-            />
           </div>
         </div>
       </div>
