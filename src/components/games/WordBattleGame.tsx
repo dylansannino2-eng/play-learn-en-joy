@@ -337,7 +337,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     const isCorrect = checkAnswer(message);
     const now = new Date();
 
-    // Add user's message (only visible to them)
+    // Add user's message (only visible to them - not broadcasted to avoid showing correct answers)
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       username,
@@ -347,6 +347,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       isCurrentUser: true,
     };
     setChatMessages((prev) => [...prev, userMessage]);
+    // Note: We intentionally do NOT broadcast chat messages to avoid showing correct answers to other players
 
     if (isCorrect) {
       playSound('correct', 0.6);

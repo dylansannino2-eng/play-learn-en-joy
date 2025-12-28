@@ -196,7 +196,7 @@ export type Database = {
           end_time: number | null
           hidden_word: string | null
           hidden_word_index: number | null
-          id: string | null
+          id: string
           is_active: boolean | null
           name: string | null
           repeat_count: number | null
@@ -217,7 +217,7 @@ export type Database = {
           end_time?: number | null
           hidden_word?: string | null
           hidden_word_index?: number | null
-          id?: string | null
+          id?: string
           is_active?: boolean | null
           name?: string | null
           repeat_count?: number | null
@@ -238,7 +238,7 @@ export type Database = {
           end_time?: number | null
           hidden_word?: string | null
           hidden_word_index?: number | null
-          id?: string | null
+          id?: string
           is_active?: boolean | null
           name?: string | null
           repeat_count?: number | null

@@ -125,26 +125,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     });
   }, [correctAnswerEvents, username]);
 
-  // Add remote chat messages from other players - only for current round
-  useEffect(() => {
-    remoteChatMessages.forEach((msg) => {
-      // Only show messages from the current round
-      if (msg.username !== username && msg.round === round) {
-        const newMessage: ChatMessage = {
-          id: `remote-${msg.timestamp}-${msg.username}`,
-          username: msg.username,
-          message: msg.message,
-          type: 'message',
-          timestamp: new Date(msg.timestamp),
-          isCurrentUser: false,
-        };
-        setChatMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
-      }
-    });
-  }, [remoteChatMessages, username, round]);
+  // Note: We intentionally do NOT add remote chat messages to avoid showing correct answers
+  // Other players' messages are hidden - only "ha acertado" notifications are shown via correctAnswerEvents
 
   const pickRandomPhraseId = useCallback(async (difficulty: Difficulty, excludeIds: Set<string>): Promise<string | null> => {
     const { data, error } = await supabase
