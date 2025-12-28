@@ -28,11 +28,6 @@ const GamePage = () => {
 
   const roomCode = searchParams.get("room") || undefined;
 
-  // Scroll to top when page loads or slug changes
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [slug]);
-
   useEffect(() => {
     const fetchGame = async () => {
       if (!slug) {
