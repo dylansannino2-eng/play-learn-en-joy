@@ -1,7 +1,7 @@
-import { Subtitle } from '@/lib/srtParser';
-import { cn } from '@/lib/utils';
-import { Bookmark } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Subtitle } from "@/lib/srtParser";
+import { cn } from "@/lib/utils";
+import { Bookmark } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SubtitleDisplayProps {
   currentSubtitle: Subtitle | null;
@@ -32,14 +32,14 @@ function renderTextWithBlanks(text: string) {
   });
 }
 
-export function SubtitleDisplay({ 
-  currentSubtitle, 
-  currentTranslation, 
-  isLoading, 
+export function SubtitleDisplay({
+  currentSubtitle,
+  currentTranslation,
+  isLoading,
   isRepeating,
   currentIndex,
   totalSubtitles,
-  onSave
+  onSave,
 }: SubtitleDisplayProps) {
   if (isLoading) {
     return (
@@ -59,14 +59,16 @@ export function SubtitleDisplay({
     );
   }
 
-  const mainText = currentSubtitle?.text.replace(/\n/g, ' ') || '';
-  const translationText = currentTranslation?.text.replace(/\n/g, ' ') || '';
+  const mainText = currentSubtitle?.text.replace(/\n/g, " ") || "";
+  const translationText = currentTranslation?.text.replace(/\n/g, " ") || "";
 
   return (
-    <div className={cn(
-      "subtitle-card min-h-[140px] flex flex-col justify-center gap-4 animate-fade-in transition-colors relative",
-      isRepeating && "border-blue-500/50 bg-blue-500/5"
-    )}>
+    <div
+      className={cn(
+        "subtitle-card min-h-[140px] flex flex-col justify-center gap-4 animate-fade-in transition-colors relative",
+        isRepeating && "border-blue-500/50 bg-blue-500/5",
+      )}
+    >
       {/* Contador y botón guardar */}
       {totalSubtitles && totalSubtitles > 0 && (
         <div className="absolute top-3 right-3 flex items-center gap-2">
@@ -89,20 +91,24 @@ export function SubtitleDisplay({
 
       {/* Texto principal */}
       {mainText && (
-        <p className={cn(
-          "text-center text-xl md:text-2xl leading-relaxed font-semibold transition-colors",
-          isRepeating ? "text-blue-400" : "text-foreground"
-        )}>
+        <p
+          className={cn(
+            "text-center text-xl md:text-2xl leading-relaxed font-semibold transition-colors",
+            isRepeating ? "text-blue-400" : "text-foreground",
+          )}
+        >
           {renderTextWithBlanks(mainText)}
         </p>
       )}
-      
+
       {/* Traducción */}
       {translationText && (
-        <p className={cn(
-          "text-center text-base md:text-lg leading-relaxed italic transition-colors",
-          isRepeating ? "text-blue-300/80" : "text-muted-foreground/80"
-        )}>
+        <p
+          className={cn(
+            "text-center text-base md:text-lg leading-relaxed italic transition-colors",
+            isRepeating ? "text-blue-300/80" : "text-muted-foreground/80",
+          )}
+        >
           {renderTextWithBlanks(translationText)}
         </p>
       )}
