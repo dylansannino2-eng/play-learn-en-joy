@@ -55,7 +55,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
     }
 
     try {
-      // CORRECCIÓN: Usamos snake_case para coincidir con SubtitleConfig
       const configData = {
         name: configName.trim() || "Sin nombre",
         video_id: finalVideoId,
@@ -81,7 +80,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   const handleLoadConfig = async (id: string) => {
     const config = await loadConfig(id);
     if (config) {
-      // CORRECCIÓN: Leemos desde snake_case
       setVideoId(config.video_id || "");
       setStartTime(config.start_time || 0);
       setEndTime(config.end_time || 0);
@@ -170,6 +168,7 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                     startTime={startTime}
                     endTime={endTime}
                     onTimeUpdate={handleTimeUpdate}
+                    onReady={() => {}} // 👈 CORRECCIÓN: Añadido para cumplir con YouTubePlayerProps
                   />
                 )}
               </div>
