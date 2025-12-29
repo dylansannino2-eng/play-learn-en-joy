@@ -67,7 +67,6 @@ export default function GameLobby({
   );
   const [isEditingName, setIsEditingName] = useState(false);
 
-  // Estados para la lógica de "Join"
   const [isJoining, setIsJoining] = useState(false);
   const [inputCode, setInputCode] = useState("");
 
@@ -277,15 +276,7 @@ export default function GameLobby({
               <Play size={18} fill="currentColor" /> Play (Solo)
             </button>
 
-            <div className="grid grid-cols-2 gap-3">
-              {/* Create room */}
-              <button
-                onClick={handleCreateRoom}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold transition border border-white/10 flex items-center justify-center gap-2"
-              >
-                <Users size={18} /> Create Room
-              </button>
-
+            <div className="grid grid-cols-1 gap-3">
               {/* Join Button */}
               <button
                 onClick={() => setIsJoining(!isJoining)}
@@ -295,7 +286,15 @@ export default function GameLobby({
                     : "bg-white/5 hover:bg-white/10 text-white"
                 }`}
               >
-                <LogIn size={18} /> Join
+                <LogIn size={18} /> Join (Multijugador)
+              </button>
+
+              {/* Create room */}
+              <button
+                onClick={handleCreateRoom}
+                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold transition border border-white/10 flex items-center justify-center gap-2"
+              >
+                <Users size={18} /> Create Room
               </button>
             </div>
 
@@ -335,7 +334,7 @@ export default function GameLobby({
   }
 
   /* =========================
-        ROOM CREATED VIEW
+        ROOM CREATED VIEW (Host)
   ========================= */
 
   if (view === "room_created") {
@@ -443,7 +442,7 @@ export default function GameLobby({
   }
 
   /* =========================
-        WAITING ROOM VIEW
+        WAITING ROOM VIEW (Joiner)
   ========================= */
 
   return (
