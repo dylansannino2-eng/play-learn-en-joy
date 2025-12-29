@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { seoConfig, defaultSEO } from "@/src/seoConfig";
+import { seoConfig, defaultSEO } from "@/seoConfig";
 
 export const SEO = () => {
   const { pathname } = useLocation();
