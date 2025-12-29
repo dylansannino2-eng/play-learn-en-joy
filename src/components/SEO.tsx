@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { seoConfig, defaultSEO } from "@/config/seoConfig";
+import { seoConfig, defaultSEO } from "@/src/seoConfig";
 
 export const SEO = () => {
   const { pathname } = useLocation();
@@ -16,7 +16,7 @@ export const SEO = () => {
     if (metaDescription) {
       metaDescription.setAttribute("content", seo.description);
     } else {
-      const meta = document.createElement('meta');
+      const meta = document.createElement("meta");
       meta.name = "description";
       meta.content = seo.description;
       document.head.appendChild(meta);
