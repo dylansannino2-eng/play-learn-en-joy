@@ -5,13 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,7 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
           const isLong = clean.length > 7;
           const isMedium = clean.length >= 4 && clean.length <= 7;
 
+          // Guardamos referencia del inicio y fin del subtítulo actual
           if (difficulty === "easy" && !isLong)
             candidates.push({ si, wi, word: clean, start: sub.startTime, end: sub.endTime });
           else if (difficulty === "hard" && isLong)
@@ -76,12 +77,20 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
       const selected = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : null;
 
       if (selected) {
+        // Lógica actualizada:
+        // 1. Inicio: 2 subtítulos antes (si existen, sino el índice 0)
+        const startSubIndex = Math.max(0, selected.si - 2);
+        const startTimeCalculated = subtitles[startSubIndex].startTime;
+
+        // 2. Fin: Exactamente cuando termina el subtítulo de la palabra oculta
+        const endTimeCalculated = selected.end;
+
         onAutoSelect({
           si: selected.si,
           wi: selected.wi,
           word: selected.word,
-          start: Math.max(0, selected.start - 0.5),
-          end: selected.end + 0.5,
+          start: startTimeCalculated,
+          end: endTimeCalculated,
         });
         toast.success("Configuración generada con éxito");
       } else {
@@ -106,16 +115,7 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
 
 // --- Componente Principal ---
 const difficulties = ["easy", "medium", "hard"];
-const categories = ["comedy", "drama", "action", "documentary", "animation", "other"];
 const difficultyLabels: Record<string, string> = { easy: "Fácil", medium: "Medio", hard: "Difícil" };
-const categoryLabels: Record<string, string> = {
-  comedy: "Comedia",
-  drama: "Drama",
-  action: "Acción",
-  documentary: "Documental",
-  animation: "Animación",
-  other: "Otro",
-};
 
 export default function SubtitleConfigAdmin() {
   const navigate = useNavigate();
@@ -123,9 +123,11 @@ export default function SubtitleConfigAdmin() {
   const [configs, setConfigs] = useState<SubtitleConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // Estados para vista previa si los necesitas
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<SubtitleConfig | null>(null);
   const [previewConfig, setPreviewConfig] = useState<SubtitleConfig | null>(null);
+
+  const [editingConfig, setEditingConfig] = useState<SubtitleConfig | null>(null);
 
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number | null>(null);
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
@@ -398,7 +400,7 @@ export default function SubtitleConfigAdmin() {
           </DialogContent>
         </Dialog>
 
-        {/* --- TABLA DE CONFIGURACIONES (Sin cambios significativos) --- */}
+        {/* --- TABLA DE CONFIGURACIONES --- */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Clips Disponibles</CardTitle>
