@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 // Importación de tus componentes modales
 import { VideoImportModal } from "@/components/VideoImportModal";
-import { ClipPreviewModal } from "@/components/admin/ClipPreviewModal";
+import { ClipPreviewModal } from "@/components/ClipPreviewModal";
 
 // --- Interfaces ---
 interface SubtitleItem {
