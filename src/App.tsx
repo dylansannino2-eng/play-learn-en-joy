@@ -8,7 +8,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 
 // --- Imports de SEO ---
 import { SEO } from "@/components/SEO"; // El componente lógico
-import SEOManager from "@/pages/admin/SEOManager"; // La página de administración
+import SEOManager from "@/pages/SEOManager"; // La página de administración
 
 // --- Resto de Imports ---
 import Index from "./pages/Index";
