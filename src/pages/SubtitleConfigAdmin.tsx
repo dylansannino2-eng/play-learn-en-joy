@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, ArrowLeft, Film, Eye, Check, Sparkles } from "lucide-react";
@@ -100,8 +100,9 @@ export default function SubtitleConfigAdmin() {
       const parsed = (data || []).map((item) => ({
         ...item,
         subtitles: Array.isArray(item.subtitles) ? (item.subtitles as unknown as SubtitleItem[]) : null,
+        translations: Array.isArray(item.translations) ? (item.translations as unknown as SubtitleItem[]) : null,
       }));
-      setConfigs(parsed);
+      setConfigs(parsed as SubtitleConfig[]);
     }
     setIsLoadingConfigs(false);
   };
