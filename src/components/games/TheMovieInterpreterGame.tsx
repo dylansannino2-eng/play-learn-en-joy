@@ -7,6 +7,7 @@ import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import GameLobby from './shared/GameLobby';
+import MicroLesson from './shared/MicroLesson';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useMultiplayerGame } from '@/hooks/useMultiplayerGame';
 import { Button } from '@/components/ui/button';
@@ -116,7 +117,7 @@ function createBlankSubtitle(
   };
 }
 
-type GamePhase = 'waiting' | 'playing' | 'ranking';
+type GamePhase = 'waiting' | 'playing' | 'microlesson' | 'ranking';
 
 interface TheMovieInterpreterGameProps {
   roomCode?: string;
@@ -187,6 +188,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   const [showAnimation, setShowAnimation] = useState(false);
   const [animationWord, setAnimationWord] = useState('');
   const [animationPoints, setAnimationPoints] = useState(0);
+
+  // Microlesson state
+  const [microlessonWord, setMicrolessonWord] = useState('');
 
   // Preload sounds
   useEffect(() => {
@@ -416,11 +420,17 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   }, [getRandomDifficulty]);
 
   const endRound = useCallback(() => {
-    setGamePhase('ranking');
+    // Start microlesson phase with the hidden word
+    if (blankSubtitle?.hiddenWord) {
+      setMicrolessonWord(blankSubtitle.hiddenWord);
+      setGamePhase('microlesson');
+    } else {
+      setGamePhase('ranking');
+    }
     if (ytPlayerRef.current) {
       ytPlayerRef.current.pauseVideo();
     }
-  }, []);
+  }, [blankSubtitle]);
 
   // Check if all players answered correctly - auto advance round
   const hasAdvancedRef = useRef(false);
@@ -713,6 +723,17 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show microlesson between rounds
+  if (gamePhase === 'microlesson') {
+    return (
+      <MicroLesson
+        word={microlessonWord}
+        duration={10}
+        onComplete={() => setGamePhase('ranking')}
+      />
     );
   }
 
