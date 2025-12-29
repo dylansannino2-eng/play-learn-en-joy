@@ -33,10 +33,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   const playerRef = useRef<YouTubePlayerRef>(null);
   const { configs, isLoading, saveConfig, loadConfig, deleteConfig } = useSubtitleConfig();
 
-  const handleClose = () => {
-    onOpenChange(false);
-  };
-
   const extractVideoId = (input: string) => {
     const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = input.match(regExp);
@@ -53,68 +49,54 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
 
   const handleSave = async () => {
     const finalVideoId = extractVideoId(videoId);
-
     if (!finalVideoId) {
-      toast.error("Debes ingresar un ID de video de YouTube");
+      toast.error("Debes ingresar un ID de video");
       return;
     }
 
     try {
-      /**
-       * CORRECCIÓN 1: Mapeo de nombres de propiedades.
-       * Si tu interfaz/DB pide videoId (camelCase), úsalo.
-       * Si pide video_id (snake_case), asegúrate de que el tipo coincida.
-       * Aquí lo ajusto según el error TS2739 que mencionaste.
-       */
+      // CORRECCIÓN: Usamos snake_case para coincidir con SubtitleConfig
       const configData = {
         name: configName.trim() || "Sin nombre",
-        videoId: finalVideoId, // Antes video_id
-        startTime: startTime, // Antes start_time
-        endTime: endTime, // Antes end_time
+        video_id: finalVideoId,
+        start_time: startTime,
+        end_time: endTime,
         subtitles: subtitles,
         translations: translations,
-        // Agrupamos la repetición en el objeto que espera el tipo
-        repeatConfig: {
-          enabled: repeatConfig?.enabled || false,
-          startTime: repeatConfig?.startTime || 0,
-          endTime: repeatConfig?.endTime || 0,
-          count: repeatConfig?.repeatCount || 0,
-        },
+        repeat_enabled: repeatConfig?.enabled || false,
+        repeat_start_time: repeatConfig?.startTime || 0,
+        repeat_end_time: repeatConfig?.endTime || 0,
+        repeat_count: repeatConfig?.repeatCount || 0,
       };
 
-      await saveConfig(configData as any); // Usamos any temporalmente si la interfaz de saveConfig aún es vieja
+      await saveConfig(configData as any);
       toast.success("¡Configuración guardada!");
-
-      setConfigName("");
       onSuccess();
-      handleClose();
+      onOpenChange(false);
     } catch (error) {
-      console.error("Error al guardar:", error);
-      toast.error("Error al guardar la configuración");
+      toast.error("Error al guardar");
     }
   };
 
   const handleLoadConfig = async (id: string) => {
     const config = await loadConfig(id);
     if (config) {
-      // Ajustar estas lecturas según cómo devuelva los datos tu hook
-      setVideoId(config.videoId || config.video_id);
-      setStartTime(config.startTime || config.start_time);
-      setEndTime(config.endTime || config.end_time);
+      // CORRECCIÓN: Leemos desde snake_case
+      setVideoId(config.video_id || "");
+      setStartTime(config.start_time || 0);
+      setEndTime(config.end_time || 0);
       setSubtitles(config.subtitles || []);
       setTranslations(config.translations || []);
-      setConfigName(config.name);
+      setConfigName(config.name || "");
 
-      const r = config.repeatConfig;
-      if (r || config.repeat_enabled) {
+      if (config.repeat_enabled) {
         setRepeatConfig({
-          enabled: r?.enabled ?? config.repeat_enabled,
-          startTime: r?.startTime ?? config.repeat_start_time,
-          endTime: r?.endTime ?? config.repeat_end_time,
-          repeatCount: r?.count ?? config.repeat_count,
+          enabled: true,
+          startTime: config.repeat_start_time || 0,
+          endTime: config.repeat_end_time || 0,
+          repeatCount: config.repeat_count || 0,
         });
       }
-      toast.success("Configuración cargada para edición");
     }
   };
 
@@ -123,34 +105,36 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0 gap-0 bg-background overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between bg-muted/30">
+      <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0 bg-background overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b bg-muted/30">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Film className="w-5 h-5 text-primary" />
-            Importador de Video y Subtítulos
+            Importador de Video
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <div className="grid lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-6">
             <div className="space-y-6">
-              <Tabs defaultValue="new" className="w-full">
-                <TabsList className="w-full grid grid-cols-2">
-                  <TabsTrigger value="new">Nueva Importación</TabsTrigger>
-                  <TabsTrigger value="saved">Existentes ({configs.length})</TabsTrigger>
+              <Tabs defaultValue="new">
+                <TabsList className="w-full">
+                  <TabsTrigger value="new" className="flex-1">
+                    Nueva Importación
+                  </TabsTrigger>
+                  <TabsTrigger value="saved" className="flex-1">
+                    Existentes ({configs.length})
+                  </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="new" className="space-y-4 mt-4">
+                <TabsContent value="new" className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="config-name">Nombre de la lección</Label>
+                    <Label>Nombre de la lección</Label>
                     <Input
-                      id="config-name"
-                      placeholder="Ej: Matrix - Escena Lobby"
+                      placeholder="Ej: Matrix Scene"
                       value={configName}
                       onChange={(e) => setConfigName(e.target.value)}
                     />
                   </div>
-
                   <ConfigPanel
                     onVideoChange={(val) => setVideoId(extractVideoId(val))}
                     onTimeRangeChange={(start, end) => {
@@ -161,14 +145,12 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                     onTranslationLoad={(content) => setTranslations(parseSRT(content))}
                     onRepeatConfigChange={setRepeatConfig}
                   />
-
-                  <Button onClick={handleSave} className="w-full gap-2 mt-4" size="lg">
-                    <Save className="w-4 h-4" />
-                    Guardar e Importar al Panel
+                  <Button onClick={handleSave} className="w-full gap-2">
+                    <Save className="w-4 h-4" /> Guardar
                   </Button>
                 </TabsContent>
 
-                <TabsContent value="saved" className="mt-4">
+                <TabsContent value="saved" className="pt-4">
                   <SavedConfigsList
                     configs={configs}
                     isLoading={isLoading}
@@ -180,38 +162,23 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
             </div>
 
             <div className="space-y-4">
-              {videoId ? (
-                <div className="rounded-xl overflow-hidden border border-border shadow-lg bg-black">
+              <div className="rounded-xl overflow-hidden border bg-black aspect-video">
+                {videoId && (
                   <YouTubePlayer
                     ref={playerRef}
                     videoId={videoId}
                     startTime={startTime}
                     endTime={endTime}
                     onTimeUpdate={handleTimeUpdate}
-                    onReady={() => {}}
                   />
-                </div>
-              ) : (
-                <div className="aspect-video bg-muted/50 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-border text-muted-foreground gap-2">
-                  <Film className="w-10 h-10 opacity-20" />
-                  <p className="text-sm">Ingresa un ID de YouTube para previsualizar</p>
-                </div>
-              )}
-
+                )}
+              </div>
               {subtitles.length > 0 && (
-                <>
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                    <SubtitleDisplay currentSubtitle={currentSubtitle} currentTranslation={currentTranslation} />
-                  </div>
-
-                  <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[300px]">
-                    <div className="p-3 border-b border-border bg-muted/30">
-                      <h3 className="text-sm font-semibold">Línea de tiempo</h3>
-                    </div>
+                <div className="space-y-4">
+                  <SubtitleDisplay currentSubtitle={currentSubtitle} currentTranslation={currentTranslation} />
+                  <div className="border rounded-xl h-[300px] overflow-hidden flex flex-col">
+                    <div className="p-2 bg-muted border-b text-sm font-bold">Línea de Tiempo</div>
                     <div className="flex-1 overflow-y-auto">
-                      {/* CORRECCIÓN 2: Si SubtitleList da error, asegúrate de 
-                        que su archivo acepte la prop onSubtitleClick.
-                      */}
                       <SubtitleList
                         subtitles={subtitles}
                         currentTime={currentTime}
@@ -219,7 +186,7 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                       />
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
