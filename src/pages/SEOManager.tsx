@@ -1,6 +1,6 @@
 import { useState } from "react";
 // Usamos ruta relativa para asegurar compatibilidad total
-import { seoConfig } from "../../seoConfig";
+import { seoConfig } from "../seoConfig";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
