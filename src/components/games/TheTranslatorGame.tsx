@@ -4,6 +4,7 @@ import { Trophy, Clock, Zap, Users, Wifi, WifiOff, Languages, Check } from 'luci
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
+import MicroLesson from './shared/MicroLesson';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import GameLobby from './shared/GameLobby';
@@ -38,7 +39,7 @@ interface TranslatorPhrase {
   gif: string | null;
 }
 
-type GamePhase = 'waiting' | 'playing' | 'reveal' | 'ranking';
+type GamePhase = 'waiting' | 'playing' | 'reveal' | 'microlesson' | 'ranking';
 
 interface TheTranslatorGameProps {
   roomCode?: string;
@@ -101,6 +102,9 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
   const [showAnimation, setShowAnimation] = useState(false);
   const [animationWord, setAnimationWord] = useState('');
   const [animationPoints, setAnimationPoints] = useState(0);
+
+  // Microlesson state
+  const [microlessonWord, setMicrolessonWord] = useState<string | null>(null);
 
   // Helper to pick a random difficulty from selected ones
   const getRandomDifficulty = useCallback(() => {
@@ -351,16 +355,30 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     }
   }, [gamePhase, players, playerCount, round, hasAnsweredCorrectly, playSound, isHostInRoom, broadcastGameEvent]);
 
-  // Auto transition from reveal to ranking
+  // Auto transition from reveal to microlesson or ranking
   useEffect(() => {
     if (gamePhase !== 'reveal') return;
 
     const timer = setTimeout(() => {
+      // Show microlesson with a word from the phrase
+      if (currentPhrase) {
+        // Extract a key word from the English translation
+        const words = currentPhrase.english_translation.split(/\s+/).filter(w => w.length >= 3);
+        if (words.length > 0) {
+          // Pick a meaningful word (prefer longer words)
+          const meaningfulWords = words.filter(w => w.replace(/[.,!?'"()]/g, '').length >= 4);
+          const wordPool = meaningfulWords.length > 0 ? meaningfulWords : words;
+          const randomWord = wordPool[Math.floor(Math.random() * wordPool.length)].replace(/[.,!?'"()]/g, '');
+          setMicrolessonWord(randomWord);
+          setGamePhase('microlesson');
+          return;
+        }
+      }
       setGamePhase('ranking');
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [gamePhase]);
+  }, [gamePhase, currentPhrase]);
 
   // Handle return to lobby event from host
   useEffect(() => {
@@ -768,6 +786,20 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
           </div>
         </div>
       </>
+    );
+  }
+
+  // Show microlesson between reveal and ranking
+  if (gamePhase === 'microlesson' && microlessonWord) {
+    return (
+      <MicroLesson
+        word={microlessonWord}
+        duration={10}
+        onComplete={() => {
+          setMicrolessonWord(null);
+          setGamePhase('ranking');
+        }}
+      />
     );
   }
 

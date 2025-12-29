@@ -134,6 +134,42 @@ export type Database = {
         }
         Relationships: []
       }
+      microlessons: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          difficulty: string | null
+          examples: string[]
+          id: string
+          is_active: boolean | null
+          meaning: string
+          updated_at: string | null
+          word: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          examples?: string[]
+          id?: string
+          is_active?: boolean | null
+          meaning: string
+          updated_at?: string | null
+          word: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          examples?: string[]
+          id?: string
+          is_active?: boolean | null
+          meaning?: string
+          updated_at?: string | null
+          word?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           content: string

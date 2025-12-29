@@ -4,6 +4,7 @@ import { Trophy, Clock, Zap, Users, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CorrectAnswerAnimation from './shared/CorrectAnswerAnimation';
+import MicroLesson from './shared/MicroLesson';
 import ParticipationChat, { ChatMessage } from './shared/ParticipationChat';
 import RoundRanking from './shared/RoundRanking';
 import GameLobby from './shared/GameLobby';
@@ -23,7 +24,7 @@ interface WordBattleCard {
   difficulty: string;
 }
 
-type GamePhase = 'waiting' | 'playing' | 'ranking';
+type GamePhase = 'waiting' | 'playing' | 'microlesson' | 'ranking';
 
 interface WordBattleGameProps {
   roomCode?: string;
@@ -89,6 +90,9 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   const [animationWord, setAnimationWord] = useState('');
   const [animationPoints, setAnimationPoints] = useState(0);
 
+  // Microlesson state
+  const [microlessonWord, setMicrolessonWord] = useState<string | null>(null);
+
   // Preload sounds on mount
   useEffect(() => {
     preloadSounds();
@@ -153,8 +157,16 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   // Removed auto-fetch on mount - now starts from lobby
 
   const endRound = useCallback(() => {
-    setGamePhase('ranking');
-  }, []);
+    // Show microlesson with a word from the current card
+    if (currentCard && currentCard.correct_answers.length > 0) {
+      // Pick a random correct answer as the microlesson word
+      const randomAnswer = currentCard.correct_answers[Math.floor(Math.random() * currentCard.correct_answers.length)];
+      setMicrolessonWord(randomAnswer);
+      setGamePhase('microlesson');
+    } else {
+      setGamePhase('ranking');
+    }
+  }, [currentCard]);
 
   // Timer (uses an absolute end timestamp so it doesn't "pause" when the tab is inactive)
   useEffect(() => {
@@ -419,6 +431,20 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show microlesson between rounds
+  if (gamePhase === 'microlesson' && microlessonWord) {
+    return (
+      <MicroLesson
+        word={microlessonWord}
+        duration={10}
+        onComplete={() => {
+          setMicrolessonWord(null);
+          setGamePhase('ranking');
+        }}
+      />
     );
   }
 

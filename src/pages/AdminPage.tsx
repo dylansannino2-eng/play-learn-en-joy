@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2, Film } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Gamepad2, Film, BookOpen } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "react-router-dom";
 
@@ -216,6 +216,12 @@ export default function AdminPage() {
               <Link to="/admin/subtitle-configs">
                 <Film className="h-4 w-4 mr-2" />
                 Movie Interpreter
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/admin/microlessons">
+                <BookOpen className="h-4 w-4 mr-2" />
+                Microlecciones
               </Link>
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
