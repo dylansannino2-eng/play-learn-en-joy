@@ -1,34 +1,35 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
-import { Gamepad2, Mail, Lock, User } from 'lucide-react';
-import { z } from 'zod';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { Gamepad2, Mail, Lock, User } from "lucide-react";
+import { z } from "zod";
 
-const emailSchema = z.string().email('Email inválido');
-const passwordSchema = z.string().min(6, 'La contraseña debe tener al menos 6 caracteres');
+const emailSchema = z.string().email("Email inválido");
+const passwordSchema = z.string().min(6, "La contraseña debe tener al menos 6 caracteres");
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, isLoading, signIn, signUp } = useAuth();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  // Asumiendo que signInWithGoogle existe en tu useAuth
+  const { user, isLoading, signIn, signUp, signInWithGoogle } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && user) {
-      navigate('/');
+      navigate("/");
     }
   }, [user, isLoading, navigate]);
 
-  const validateForm = (includeDisplayName = false) => {
+  const validateForm = () => {
     try {
       emailSchema.parse(email);
       passwordSchema.parse(password);
@@ -44,39 +45,44 @@ export default function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
     const { error } = await signIn(email, password);
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        toast.error('Credenciales incorrectas');
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message.includes("Invalid login credentials") ? "Credenciales incorrectas" : error.message);
     } else {
-      toast.success('¡Bienvenido!');
-      navigate('/');
+      toast.success("¡Bienvenido!");
+      navigate("/");
     }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
     const { error } = await signUp(email, password, displayName);
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error('Este email ya está registrado');
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message.includes("already registered") ? "Este email ya está registrado" : error.message);
     } else {
-      toast.success('¡Cuenta creada! Revisa tu email para confirmar.');
+      toast.success("¡Cuenta creada! Revisa tu email para confirmar.");
+    }
+  };
+
+  // NUEVA FUNCIÓN PARA GOOGLE
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsSubmitting(true);
+      const { error } = await signInWithGoogle();
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || "Error al conectar con Google");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -100,13 +106,13 @@ export default function AuthPage() {
             <CardDescription>Aprende inglés jugando</CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
               <TabsTrigger value="signup">Registrarse</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
@@ -140,11 +146,11 @@ export default function AuthPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Iniciando...' : 'Iniciar Sesión'}
+                  {isSubmitting ? "Iniciando..." : "Iniciar Sesión"}
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -192,11 +198,46 @@ export default function AuthPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Creando cuenta...' : 'Crear Cuenta'}
+                  {isSubmitting ? "Creando cuenta..." : "Crear Cuenta"}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
+
+          {/* DIVISOR Y BOTÓN DE GOOGLE */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">O continúa con</span>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            type="button"
+            className="w-full gap-2"
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
+          >
+            <svg
+              className="h-4 w-4"
+              aria-hidden="true"
+              focusable="false"
+              data-prefix="fab"
+              data-icon="google"
+              role="img"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 488 512"
+            >
+              <path
+                fill="currentColor"
+                d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+              ></path>
+            </svg>
+            Google
+          </Button>
         </CardContent>
       </Card>
     </div>
