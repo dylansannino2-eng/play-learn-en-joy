@@ -15,7 +15,7 @@ import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lu
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 // Asegúrate de que este componente exista en la ruta correcta
-import { VideoImportModal } from "@/components/admin/VideoImportModal";
+import { VideoImportModal } from "@/components/VideoImportModal";
 
 // --- Interfaces ---
 interface SubtitleItem {
