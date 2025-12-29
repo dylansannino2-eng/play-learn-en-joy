@@ -12,6 +12,7 @@ import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import AIGameCreator from "./pages/AIGameCreator";
 import SubtitleConfigAdmin from "./pages/SubtitleConfigAdmin";
+import MicrolessonsAdmin from "./pages/MicrolessonsAdmin";
 import NotFound from "./pages/NotFound";
 import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/subtitle-configs" element={<SubtitleConfigAdmin />} />
+            <Route path="/admin/microlessons" element={<MicrolessonsAdmin />} />
             <Route path="/ai-creator" element={<AIGameCreator />} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

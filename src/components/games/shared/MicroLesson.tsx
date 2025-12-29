@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Lightbulb, Clock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MicroLessonProps {
   word: string;
@@ -8,9 +9,13 @@ interface MicroLessonProps {
   onComplete: () => void;
 }
 
-// Diccionario de definiciones y usos comunes
-const wordDefinitions: Record<string, { meaning: string; examples: string[] }> = {
-  // Common words - expandable
+interface MicroLessonData {
+  meaning: string;
+  examples: string[];
+}
+
+// Fallback definitions for common words (used when DB has no match)
+const fallbackDefinitions: Record<string, MicroLessonData> = {
   "can't": {
     meaning: "Contracción de 'cannot'. Expresa incapacidad o prohibición.",
     examples: ["I can't swim. (No puedo nadar)", "You can't park here. (No puedes estacionar aquí)"]
@@ -23,90 +28,10 @@ const wordDefinitions: Record<string, { meaning: string; examples: string[] }> =
     meaning: "Contracción de 'will not'. Expresa negación en futuro.",
     examples: ["It won't rain today. (No lloverá hoy)", "I won't forget. (No olvidaré)"]
   },
-  "i'm": {
-    meaning: "Contracción de 'I am'. Primera persona del verbo 'to be'.",
-    examples: ["I'm happy. (Estoy feliz)", "I'm learning English. (Estoy aprendiendo inglés)"]
-  },
-  "you're": {
-    meaning: "Contracción de 'you are'. Segunda persona del verbo 'to be'.",
-    examples: ["You're amazing! (¡Eres increíble!)", "You're welcome. (De nada)"]
-  },
-  "it's": {
-    meaning: "Contracción de 'it is'. Tercera persona para cosas/situaciones.",
-    examples: ["It's raining. (Está lloviendo)", "It's a great idea! (¡Es una gran idea!)"]
-  },
-  "they're": {
-    meaning: "Contracción de 'they are'. Tercera persona plural del verbo 'to be'.",
-    examples: ["They're coming. (Están viniendo)", "They're my friends. (Son mis amigos)"]
-  },
-  "we're": {
-    meaning: "Contracción de 'we are'. Primera persona plural del verbo 'to be'.",
-    examples: ["We're ready! (¡Estamos listos!)", "We're going home. (Vamos a casa)"]
-  },
-  "that's": {
-    meaning: "Contracción de 'that is'. Se usa para señalar o explicar.",
-    examples: ["That's correct. (Eso es correcto)", "That's my car. (Ese es mi carro)"]
-  },
-  "what's": {
-    meaning: "Contracción de 'what is'. Se usa para preguntar.",
-    examples: ["What's your name? (¿Cuál es tu nombre?)", "What's happening? (¿Qué está pasando?)"]
-  },
-  "there's": {
-    meaning: "Contracción de 'there is'. Indica existencia de algo.",
-    examples: ["There's a problem. (Hay un problema)", "There's hope. (Hay esperanza)"]
-  },
-  "here's": {
-    meaning: "Contracción de 'here is'. Se usa para presentar algo.",
-    examples: ["Here's your coffee. (Aquí está tu café)", "Here's the plan. (Aquí está el plan)"]
-  },
-  "let's": {
-    meaning: "Contracción de 'let us'. Se usa para hacer sugerencias.",
-    examples: ["Let's go! (¡Vamos!)", "Let's try again. (Intentemos de nuevo)"]
-  },
-  "couldn't": {
-    meaning: "Contracción de 'could not'. Expresa incapacidad en pasado.",
-    examples: ["I couldn't sleep. (No pude dormir)", "She couldn't find it. (No pudo encontrarlo)"]
-  },
-  "wouldn't": {
-    meaning: "Contracción de 'would not'. Expresa negación condicional.",
-    examples: ["He wouldn't listen. (Él no escucharía)", "I wouldn't do that. (Yo no haría eso)"]
-  },
-  "shouldn't": {
-    meaning: "Contracción de 'should not'. Expresa consejo negativo.",
-    examples: ["You shouldn't worry. (No deberías preocuparte)", "We shouldn't be late. (No deberíamos llegar tarde)"]
-  },
-  "haven't": {
-    meaning: "Contracción de 'have not'. Se usa en tiempos perfectos.",
-    examples: ["I haven't finished. (No he terminado)", "They haven't arrived. (No han llegado)"]
-  },
-  "hasn't": {
-    meaning: "Contracción de 'has not'. Tercera persona en tiempo perfecto.",
-    examples: ["She hasn't called. (Ella no ha llamado)", "It hasn't stopped. (No ha parado)"]
-  },
-  "didn't": {
-    meaning: "Contracción de 'did not'. Negación en pasado simple.",
-    examples: ["I didn't know. (No sabía)", "They didn't come. (No vinieron)"]
-  },
-  "isn't": {
-    meaning: "Contracción de 'is not'. Negación del verbo 'to be'.",
-    examples: ["It isn't true. (No es verdad)", "She isn't here. (Ella no está aquí)"]
-  },
-  "aren't": {
-    meaning: "Contracción de 'are not'. Plural de 'is not'.",
-    examples: ["They aren't ready. (No están listos)", "We aren't sure. (No estamos seguros)"]
-  },
-  "wasn't": {
-    meaning: "Contracción de 'was not'. Negación en pasado.",
-    examples: ["It wasn't me. (No fui yo)", "She wasn't there. (Ella no estaba ahí)"]
-  },
-  "weren't": {
-    meaning: "Contracción de 'were not'. Plural de 'was not'.",
-    examples: ["They weren't happy. (No estaban felices)", "We weren't invited. (No fuimos invitados)"]
-  },
 };
 
 // Genera una definición genérica para palabras no en el diccionario
-function getGenericDefinition(word: string): { meaning: string; examples: string[] } {
+function getGenericDefinition(word: string): MicroLessonData {
   const vowels = ['a', 'e', 'i', 'o', 'u'];
   const startsWithVowel = vowels.includes(word.charAt(0).toLowerCase());
   const article = startsWithVowel ? 'an' : 'a';
@@ -123,11 +48,49 @@ function getGenericDefinition(word: string): { meaning: string; examples: string
 export default function MicroLesson({ word, duration = 10, onComplete }: MicroLessonProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isVisible, setIsVisible] = useState(true);
+  const [definition, setDefinition] = useState<MicroLessonData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const normalizedWord = word.toLowerCase().trim();
-  const definition = wordDefinitions[normalizedWord] || getGenericDefinition(word);
+
+  // Fetch definition from database
+  useEffect(() => {
+    const fetchDefinition = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from('microlessons')
+          .select('meaning, examples')
+          .eq('word', normalizedWord)
+          .eq('is_active', true)
+          .single();
+
+        if (data && !error) {
+          setDefinition({
+            meaning: data.meaning,
+            examples: data.examples || []
+          });
+        } else {
+          // Fallback to local dictionary
+          const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
+          setDefinition(fallback);
+        }
+      } catch (err) {
+        // On error, use fallback
+        const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
+        setDefinition(fallback);
+      }
+      
+      setIsLoading(false);
+    };
+
+    fetchDefinition();
+  }, [normalizedWord, word]);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -141,7 +104,15 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, [onComplete, isLoading]);
+
+  if (isLoading || !definition) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence>
