@@ -14,8 +14,10 @@ import { toast } from "sonner";
 import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-// Asegúrate de que este componente exista en la ruta correcta
+
+// Importación de tus componentes modales
 import { VideoImportModal } from "@/components/VideoImportModal";
+import { ClipPreviewModal } from "@/components/admin/ClipPreviewModal";
 
 // --- Interfaces ---
 interface SubtitleItem {
@@ -66,7 +68,6 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
           const isLong = clean.length > 7;
           const isMedium = clean.length >= 4 && clean.length <= 7;
 
-          // Guardamos referencia del inicio y fin del subtítulo actual
           if (difficulty === "easy" && !isLong)
             candidates.push({ si, wi, word: clean, start: sub.startTime, end: sub.endTime });
           else if (difficulty === "hard" && isLong)
@@ -79,12 +80,8 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
       const selected = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : null;
 
       if (selected) {
-        // Lógica actualizada:
-        // 1. Inicio: 2 subtítulos antes (si existen, sino el índice 0)
         const startSubIndex = Math.max(0, selected.si - 2);
         const startTimeCalculated = subtitles[startSubIndex].startTime;
-
-        // 2. Fin: Exactamente cuando termina el subtítulo de la palabra oculta
         const endTimeCalculated = selected.end;
 
         onAutoSelect({
@@ -125,12 +122,9 @@ export default function SubtitleConfigAdmin() {
   const [configs, setConfigs] = useState<SubtitleConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
 
-  // Estado para el diálogo de edición
+  // Estados de Diálogos
   const [dialogOpen, setDialogOpen] = useState(false);
-  // Estado para el modal de importación (NUEVO)
   const [importModalOpen, setImportModalOpen] = useState(false);
-
-  // Estados para vista previa
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<SubtitleConfig | null>(null);
 
@@ -286,7 +280,6 @@ export default function SubtitleConfigAdmin() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* COLUMNA IZQUIERDA: CONFIG BÁSICA */}
                 <div className="lg:col-span-4 space-y-4">
                   <div className="space-y-4 p-4 border rounded-xl bg-muted/10">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-primary">Ajustes del Clip</h3>
@@ -337,14 +330,12 @@ export default function SubtitleConfigAdmin() {
                     </div>
                   </div>
 
-                  {/* SECCIÓN AUTO-SELECTOR */}
                   <div className="p-4 border-2 border-primary/20 rounded-xl bg-primary/5 space-y-3">
                     <div className="flex items-center gap-2 text-primary font-bold text-sm">
                       <Sparkles className="w-4 h-4" /> ASISTENTE MÁGICO
                     </div>
                     <p className="text-xs text-muted-foreground italic">
-                      Analiza los subtítulos y configura automáticamente los tiempos y la palabra oculta según la
-                      dificultad.
+                      Analiza los subtítulos y configura automáticamente los tiempos y la palabra oculta.
                     </p>
                     <AutoWordSelector
                       subtitles={editingConfig?.subtitles || []}
@@ -364,7 +355,6 @@ export default function SubtitleConfigAdmin() {
                   </div>
                 </div>
 
-                {/* COLUMNA DERECHA: SELECCIÓN MANUAL */}
                 <div className="lg:col-span-8 space-y-4">
                   <Card className="border-none shadow-none bg-muted/20">
                     <CardHeader className="pb-2">
@@ -412,7 +402,6 @@ export default function SubtitleConfigAdmin() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Clips Disponibles</CardTitle>
-            {/* BOTÓN ACTUALIZADO PARA ABRIR MODAL DE IMPORTACIÓN */}
             <Button onClick={() => setImportModalOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Importar desde Video
             </Button>
@@ -471,6 +460,9 @@ export default function SubtitleConfigAdmin() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* --- MODAL DE VISTA PREVIA --- */}
+        <ClipPreviewModal open={previewOpen} onOpenChange={setPreviewOpen} config={previewConfig} />
 
         {/* --- MODAL DE IMPORTACIÓN --- */}
         <VideoImportModal open={importModalOpen} onOpenChange={setImportModalOpen} onSuccess={fetchConfigs} />
