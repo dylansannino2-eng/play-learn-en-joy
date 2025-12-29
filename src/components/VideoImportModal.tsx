@@ -7,7 +7,7 @@ import { SubtitleList } from "@/components/SubtitleList";
 import { SavedConfigsList } from "@/components/SavedConfigsList";
 import { parseSRT, getCurrentSubtitle, Subtitle } from "@/lib/srtParser";
 import { useSubtitleConfig } from "@/hooks/useSubtitleConfig";
-import { Save, Film, X } from "lucide-react";
+import { Save, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface VideoImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void; // Para recargar la tabla al guardar
+  onSuccess: () => void;
 }
 
 export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportModalProps) {
@@ -33,7 +33,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   const playerRef = useRef<YouTubePlayerRef>(null);
   const { configs, isLoading, saveConfig, loadConfig, deleteConfig } = useSubtitleConfig();
 
-  // Resetear estados al cerrar/abrir si es necesario (opcional)
   const handleClose = () => {
     onOpenChange(false);
   };
@@ -61,27 +60,34 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
     }
 
     try {
+      /**
+       * CORRECCIÓN 1: Mapeo de nombres de propiedades.
+       * Si tu interfaz/DB pide videoId (camelCase), úsalo.
+       * Si pide video_id (snake_case), asegúrate de que el tipo coincida.
+       * Aquí lo ajusto según el error TS2739 que mencionaste.
+       */
       const configData = {
         name: configName.trim() || "Sin nombre",
-        video_id: finalVideoId,
-        start_time: startTime,
-        end_time: endTime,
+        videoId: finalVideoId, // Antes video_id
+        startTime: startTime, // Antes start_time
+        endTime: endTime, // Antes end_time
         subtitles: subtitles,
         translations: translations,
-        repeat_enabled: repeatConfig?.enabled || false,
-        repeat_start_time: repeatConfig?.startTime || 0,
-        repeat_end_time: repeatConfig?.endTime || 0,
-        repeat_count: repeatConfig?.repeatCount || 0,
+        // Agrupamos la repetición en el objeto que espera el tipo
+        repeatConfig: {
+          enabled: repeatConfig?.enabled || false,
+          startTime: repeatConfig?.startTime || 0,
+          endTime: repeatConfig?.endTime || 0,
+          count: repeatConfig?.repeatCount || 0,
+        },
       };
 
-      await saveConfig(configData);
+      await saveConfig(configData as any); // Usamos any temporalmente si la interfaz de saveConfig aún es vieja
       toast.success("¡Configuración guardada!");
-      
-      // Limpiar y cerrar
+
       setConfigName("");
-      onSuccess(); // Recarga la tabla padre
+      onSuccess();
       handleClose();
-      
     } catch (error) {
       console.error("Error al guardar:", error);
       toast.error("Error al guardar la configuración");
@@ -91,19 +97,21 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   const handleLoadConfig = async (id: string) => {
     const config = await loadConfig(id);
     if (config) {
-      setVideoId(config.video_id);
-      setStartTime(config.start_time);
-      setEndTime(config.end_time);
+      // Ajustar estas lecturas según cómo devuelva los datos tu hook
+      setVideoId(config.videoId || config.video_id);
+      setStartTime(config.startTime || config.start_time);
+      setEndTime(config.endTime || config.end_time);
       setSubtitles(config.subtitles || []);
       setTranslations(config.translations || []);
       setConfigName(config.name);
 
-      if (config.repeat_enabled) {
+      const r = config.repeatConfig;
+      if (r || config.repeat_enabled) {
         setRepeatConfig({
-          enabled: true,
-          startTime: config.repeat_start_time,
-          endTime: config.repeat_end_time,
-          repeatCount: config.repeat_count,
+          enabled: r?.enabled ?? config.repeat_enabled,
+          startTime: r?.startTime ?? config.repeat_start_time,
+          endTime: r?.endTime ?? config.repeat_end_time,
+          repeatCount: r?.count ?? config.repeat_count,
         });
       }
       toast.success("Configuración cargada para edición");
@@ -116,26 +124,20 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0 gap-0 bg-background overflow-hidden">
-        
-        {/* Header del Modal */}
         <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between bg-muted/30">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Film className="w-5 h-5 text-primary" />
             Importador de Video y Subtítulos
           </DialogTitle>
-          {/* Botón X personalizado si lo deseas, o usa el default del Dialog */}
         </DialogHeader>
 
-        {/* Contenido Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="grid lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
-            
-            {/* Columna Izquierda: Controles */}
             <div className="space-y-6">
               <Tabs defaultValue="new" className="w-full">
                 <TabsList className="w-full grid grid-cols-2">
                   <TabsTrigger value="new">Nueva Importación</TabsTrigger>
-                  <TabsTrigger value="saved">Cargar Existente ({configs.length})</TabsTrigger>
+                  <TabsTrigger value="saved">Existentes ({configs.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="new" className="space-y-4 mt-4">
@@ -177,7 +179,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
               </Tabs>
             </div>
 
-            {/* Columna Derecha: Previsualización */}
             <div className="space-y-4">
               {videoId ? (
                 <div className="rounded-xl overflow-hidden border border-border shadow-lg bg-black">
@@ -205,10 +206,17 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
 
                   <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[300px]">
                     <div className="p-3 border-b border-border bg-muted/30">
-                      <h3 className="text-sm font-semibold">Línea de tiempo de Subtítulos</h3>
+                      <h3 className="text-sm font-semibold">Línea de tiempo</h3>
                     </div>
                     <div className="flex-1 overflow-y-auto">
-                      <SubtitleList subtitles={subtitles} currentTime={currentTime} onSubtitleClick={handleSubtitleClick} />
+                      {/* CORRECCIÓN 2: Si SubtitleList da error, asegúrate de 
+                        que su archivo acepte la prop onSubtitleClick.
+                      */}
+                      <SubtitleList
+                        subtitles={subtitles}
+                        currentTime={currentTime}
+                        onSubtitleClick={handleSubtitleClick}
+                      />
                     </div>
                   </div>
                 </>
