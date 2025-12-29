@@ -5,7 +5,7 @@ export interface Subtitle {
   text: string;
 }
 
-export function parseSrt(srtContent: string): Subtitle[] {
+export function parseSRT(srtContent: string): Subtitle[] {
   const subtitles: Subtitle[] = [];
   const blocks = srtContent.trim().split(/\n\s*\n/);
 
@@ -14,11 +14,13 @@ export function parseSrt(srtContent: string): Subtitle[] {
     if (lines.length < 3) continue;
 
     const id = parseInt(lines[0], 10);
-    if (isNaN(id)) continue;
+    const timeLine = lines[1];
+    const text = lines.slice(2).join('\n');
 
-    const timeMatch = lines[1].match(
+    const timeMatch = timeLine.match(
       /(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/
     );
+
     if (!timeMatch) continue;
 
     const startTime =
@@ -33,16 +35,28 @@ export function parseSrt(srtContent: string): Subtitle[] {
       parseInt(timeMatch[7]) +
       parseInt(timeMatch[8]) / 1000;
 
-    const text = lines.slice(2).join('\n');
-
     subtitles.push({ id, startTime, endTime, text });
   }
 
   return subtitles;
 }
 
-export function findSubtitleAtTime(subtitles: Subtitle[], currentTime: number): Subtitle | null {
+export function getCurrentSubtitle(subtitles: Subtitle[], currentTime: number): Subtitle | null {
   return subtitles.find(
     (sub) => currentTime >= sub.startTime && currentTime <= sub.endTime
   ) || null;
+}
+
+export function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+export function parseTimeInput(value: string): number {
+  const parts = value.split(':');
+  if (parts.length === 2) {
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  }
+  return 0;
 }
