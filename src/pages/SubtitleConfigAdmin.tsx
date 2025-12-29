@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+// Asegúrate de que este componente exista en la ruta correcta
+import { VideoImportModal } from "@/components/admin/VideoImportModal";
 
 // --- Interfaces ---
 interface SubtitleItem {
@@ -122,8 +124,13 @@ export default function SubtitleConfigAdmin() {
   const { user, isAdmin, isLoading } = useAuth();
   const [configs, setConfigs] = useState<SubtitleConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
+
+  // Estado para el diálogo de edición
   const [dialogOpen, setDialogOpen] = useState(false);
-  // Estados para vista previa si los necesitas
+  // Estado para el modal de importación (NUEVO)
+  const [importModalOpen, setImportModalOpen] = useState(false);
+
+  // Estados para vista previa
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<SubtitleConfig | null>(null);
 
@@ -268,6 +275,7 @@ export default function SubtitleConfigAdmin() {
           </div>
         </div>
 
+        {/* DIALOGO DE EDICIÓN */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-5xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
@@ -329,7 +337,7 @@ export default function SubtitleConfigAdmin() {
                     </div>
                   </div>
 
-                  {/* SECCIÓN AUTO-SELECTOR (NUEVA) */}
+                  {/* SECCIÓN AUTO-SELECTOR */}
                   <div className="p-4 border-2 border-primary/20 rounded-xl bg-primary/5 space-y-3">
                     <div className="flex items-center gap-2 text-primary font-bold text-sm">
                       <Sparkles className="w-4 h-4" /> ASISTENTE MÁGICO
@@ -404,7 +412,8 @@ export default function SubtitleConfigAdmin() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Clips Disponibles</CardTitle>
-            <Button disabled>
+            {/* BOTÓN ACTUALIZADO PARA ABRIR MODAL DE IMPORTACIÓN */}
+            <Button onClick={() => setImportModalOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Importar desde Video
             </Button>
           </CardHeader>
@@ -462,6 +471,9 @@ export default function SubtitleConfigAdmin() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* --- MODAL DE IMPORTACIÓN --- */}
+        <VideoImportModal open={importModalOpen} onOpenChange={setImportModalOpen} onSuccess={fetchConfigs} />
       </div>
     </div>
   );
