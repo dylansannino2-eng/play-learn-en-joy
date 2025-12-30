@@ -15,6 +15,7 @@ interface Game {
   slug: string | null;
   description: string | null;
   uses_chat: boolean;
+  microlessons_enabled: boolean;
 }
 
 const GamePageMobile = () => {
@@ -36,7 +37,7 @@ const GamePageMobile = () => {
 
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, description, uses_chat")
+        .select("id, title, image, slug, description, uses_chat, microlessons_enabled")
         .eq("slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -53,13 +54,15 @@ const GamePageMobile = () => {
   const renderGameComponent = () => {
     if (!game?.slug) return null;
 
+    const microlessonsEnabled = game.microlessons_enabled ?? true;
+
     switch (game.slug) {
       case "word-battle":
-        return <WordBattleGame roomCode={roomCode} />;
+        return <WordBattleGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
       case "the-translator":
-        return <TheTranslatorGame roomCode={roomCode} />;
+        return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
       case "the-movie-interpreter":
-        return <TheMovieInterpreterGame roomCode={roomCode} />;
+        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[300px]">

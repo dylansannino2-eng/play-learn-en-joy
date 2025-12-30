@@ -122,9 +122,10 @@ type GamePhase = 'waiting' | 'playing' | 'microlesson' | 'ranking';
 interface TheMovieInterpreterGameProps {
   roomCode?: string;
   onBack?: () => void;
+  microlessonsEnabled?: boolean;
 }
 
-export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieInterpreterGameProps) {
+export default function TheMovieInterpreterGame({ roomCode, onBack, microlessonsEnabled = true }: TheMovieInterpreterGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -441,9 +442,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   }, [getRandomDifficulty, gameRoomCode, isHostInRoom, broadcastGameEvent, round, applyConfig]);
 
   const endRound = useCallback(async () => {
-    // Start microlesson phase with the hidden word
+    // Start microlesson phase with the hidden word (if enabled)
     const word = blankSubtitle?.hiddenWord || '';
-    if (word) {
+    if (microlessonsEnabled && word) {
       setMicrolessonWord(word);
       setGamePhase('microlesson');
       
@@ -457,7 +458,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     if (ytPlayerRef.current) {
       ytPlayerRef.current.pauseVideo();
     }
-  }, [blankSubtitle, gameRoomCode, isHostInRoom, broadcastGameEvent]);
+  }, [blankSubtitle, gameRoomCode, isHostInRoom, broadcastGameEvent, microlessonsEnabled]);
 
   // Listen for sync events from host (joiners)
   useEffect(() => {
