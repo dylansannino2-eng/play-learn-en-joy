@@ -21,7 +21,7 @@ interface Game {
 }
 
 const GamePage = () => {
-  const { slug } = useParams();
+  const { slug, category } = useParams();
   const [searchParams] = useSearchParams();
 
   const [game, setGame] = useState<Game | null>(null);
@@ -63,7 +63,7 @@ const GamePage = () => {
       case "the-translator":
         return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
       case "the-movie-interpreter":
-        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
+        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={category} />;
       case "word-search":
         return <WordSearchGame roomCode={roomCode} />;
       // CASO AÑADIDO:

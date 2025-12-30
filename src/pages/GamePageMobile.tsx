@@ -19,7 +19,7 @@ interface Game {
 }
 
 const GamePageMobile = () => {
-  const { slug } = useParams();
+  const { slug, category } = useParams();
   const [searchParams] = useSearchParams();
 
   const [game, setGame] = useState<Game | null>(null);
@@ -62,7 +62,7 @@ const GamePageMobile = () => {
       case "the-translator":
         return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
       case "the-movie-interpreter":
-        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
+        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={category} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[300px]">
