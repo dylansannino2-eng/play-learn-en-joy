@@ -162,6 +162,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
   // Video state
   const [isPlaying, setIsPlaying] = useState(false);
+  const [needsUserPlay, setNeedsUserPlay] = useState(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [isPausedOnTarget, setIsPausedOnTarget] = useState(false);
   const [repeatCount, setRepeatCount] = useState(0);
@@ -262,6 +263,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       }
 
       const startTime = subtitleConfig.start_time ?? 0;
+      const shouldForceMuteForAutoplay = !!gameRoomCode && !isHostInRoom;
 
       ytPlayerRef.current = new (window as any).YT.Player('yt-player', {
         height: '100%',
@@ -282,14 +284,47 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         },
         events: {
           onReady: (event: any) => {
-            event.target.seekTo(startTime, true);
-            event.target.playVideo();
-            setIsPlaying(true);
+            setNeedsUserPlay(false);
+
+            try {
+              event.target.seekTo(startTime, true);
+            } catch {
+              // ignore
+            }
+
+            // Autoplay is often blocked on joiners because of browser policies + our click-blocking overlay.
+            // Start muted for joiners to maximize autoplay success.
+            if (shouldForceMuteForAutoplay) {
+              try {
+                event.target.mute?.();
+              } catch {
+                // ignore
+              }
+            }
+
+            try {
+              event.target.playVideo?.();
+            } catch {
+              // ignore
+            }
+
+            window.setTimeout(() => {
+              const YT = (window as any).YT;
+              const state = event.target.getPlayerState?.();
+              if (state !== YT?.PlayerState?.PLAYING) {
+                setIsPlaying(false);
+                setNeedsUserPlay(true);
+              }
+            }, 900);
           },
           onStateChange: (event: any) => {
-            if (event.data === (window as any).YT.PlayerState.PLAYING) {
+            const YT = (window as any).YT;
+            if (event.data === YT?.PlayerState?.PLAYING) {
               setIsPlaying(true);
-            } else if (event.data === (window as any).YT.PlayerState.PAUSED) {
+              setNeedsUserPlay(false);
+            } else if (event.data === YT?.PlayerState?.PAUSED) {
+              setIsPlaying(false);
+            } else if (event.data === YT?.PlayerState?.UNSTARTED || event.data === YT?.PlayerState?.CUED) {
               setIsPlaying(false);
             }
           },
@@ -309,7 +344,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         ytPlayerRef.current = null;
       }
     };
-  }, [subtitleConfig?.video_id, subtitleConfig?.start_time, gamePhase]);
+  }, [subtitleConfig?.video_id, subtitleConfig?.start_time, gamePhase, gameRoomCode, isHostInRoom]);
 
   // Track video time and update subtitle
   useEffect(() => {
@@ -401,8 +436,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
     setIsLoading(true);
     const targetDifficulty = difficulty || getRandomDifficulty();
-    
-    console.log('[MovieInterpreter] Fetching config with difficulty:', targetDifficulty, 'selectedDifficulties:', selectedDifficulties);
 
     // First try to get configs matching the difficulty
     let { data, error } = await supabase
@@ -410,12 +443,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       .select('*')
       .not('hidden_word', 'is', null)
       .eq('difficulty', targetDifficulty);
-    
-    console.log('[MovieInterpreter] Query result for difficulty', targetDifficulty, ':', data?.length, 'configs found');
 
     // Fallback to any config if no matches
     if (error || !data || data.length === 0) {
-      console.log('[MovieInterpreter] Fallback to any difficulty');
       const fallback = await supabase
         .from('subtitle_configs')
         .select('*')
@@ -1009,6 +1039,32 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
             <div id="yt-player" className="absolute inset-0" />
             {/* Overlay to prevent clicking on video */}
             <div className="absolute inset-0 z-10" />
+
+            {needsUserPlay && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/40 backdrop-blur-sm">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setNeedsUserPlay(false);
+                    try {
+                      ytPlayerRef.current?.unMute?.();
+                    } catch {
+                      // ignore
+                    }
+                    try {
+                      ytPlayerRef.current?.playVideo?.();
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Tocar para reproducir
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Subtitle Display */}
