@@ -117,7 +117,7 @@ function createBlankSubtitle(
   };
 }
 
-type GamePhase = 'waiting' | 'playing' | 'microlesson' | 'ranking';
+type GamePhase = 'waiting' | 'ready' | 'playing' | 'microlesson' | 'ranking';
 
 interface TheMovieInterpreterGameProps {
   roomCode?: string;
@@ -169,6 +169,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
   const MAX_REPEATS = 3;
   const playerRef = useRef<HTMLIFrameElement>(null);
   const ytPlayerRef = useRef<any>(null);
+
+  // Pending start payload for joiners (saved during 'ready' phase)
+  const pendingStartRef = useRef<{ difficulties: Difficulty[]; roomCode?: string; startPayload?: unknown; playerName: string } | null>(null);
 
   const startRoundTimer = useCallback((endsAt?: number) => {
     const nextEndsAt = endsAt ?? Date.now() + ROUND_SECONDS * 1000;
@@ -263,7 +266,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       }
 
       const startTime = subtitleConfig.start_time ?? 0;
-      const shouldForceMuteForAutoplay = !!gameRoomCode && !isHostInRoom;
 
       ytPlayerRef.current = new (window as any).YT.Player('yt-player', {
         height: '100%',
@@ -290,16 +292,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
               event.target.seekTo(startTime, true);
             } catch {
               // ignore
-            }
-
-            // Autoplay is often blocked on joiners because of browser policies + our click-blocking overlay.
-            // Start muted for joiners to maximize autoplay success.
-            if (shouldForceMuteForAutoplay) {
-              try {
-                event.target.mute?.();
-              } catch {
-                // ignore
-              }
             }
 
             try {
@@ -344,7 +336,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         ytPlayerRef.current = null;
       }
     };
-  }, [subtitleConfig?.video_id, subtitleConfig?.start_time, gamePhase, gameRoomCode, isHostInRoom]);
+  }, [subtitleConfig?.video_id, subtitleConfig?.start_time, gamePhase]);
 
   // Track video time and update subtitle
   useEffect(() => {
@@ -752,6 +744,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     playSound('gameStart', 0.5);
   }, [gameEvent, isHostInRoom, gameRoomCode, startRoundTimer, playSound]);
 
+  // Called by GameLobby when game starts (host clicks Start, or joiner receives broadcast)
   const handleLobbyStart = useCallback(
     async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
       const normalizedRoom = payload.roomCode?.toUpperCase();
@@ -762,12 +755,32 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       setSelectedDifficulties(payload.difficulties);
       setUsedConfigIds(new Set());
 
-      // Pick a random difficulty from selected for first round
-      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
+      // For joiners: show "ready" screen so they click → provides user gesture for autoplay with sound
+      if (!payload.isHost && normalizedRoom) {
+        pendingStartRef.current = {
+          difficulties: payload.difficulties,
+          roomCode: normalizedRoom,
+          startPayload: payload.startPayload,
+          playerName: payload.playerName,
+        };
+        setGamePhase('ready');
+        return;
+      }
+
+      // Host starts immediately (they just clicked, so gesture is fresh)
+      await startGamePlay(payload.difficulties, payload.startPayload);
+    },
+    []
+  );
+
+  // Actually starts playing (called after user gesture is guaranteed)
+  const startGamePlay = useCallback(
+    async (difficulties: Difficulty[], startPayload?: unknown) => {
+      const firstDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
 
       playSound('gameStart', 0.6);
       setGamePhase('playing');
-      startRoundTimer((payload.startPayload as any)?.roundEndsAt);
+      startRoundTimer((startPayload as any)?.roundEndsAt);
       setScore(0);
       setCorrectAnswers(0);
       setStreak(0);
@@ -787,6 +800,14 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     },
     [playSound, fetchRandomConfig, startRoundTimer]
   );
+
+  // Joiner clicks "Start" on ready screen → triggers user gesture → start with sound
+  const handleReadyClick = useCallback(async () => {
+    const pending = pendingStartRef.current;
+    if (!pending) return;
+    pendingStartRef.current = null;
+    await startGamePlay(pending.difficulties, pending.startPayload);
+  }, [startGamePlay]);
 
   const handleSendMessage = async (message: string) => {
     if (!blankSubtitle || gamePhase !== 'playing') return;
@@ -967,6 +988,30 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
           </div>
         </div>
       </>
+    );
+  }
+
+  // Ready phase (joiner clicks to start with sound)
+  if (gamePhase === 'ready') {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl text-center"
+        >
+          <h1 className="text-3xl font-black text-white mb-4">¡Listo para jugar!</h1>
+          <p className="text-white/60 mb-8">Toca el botón para iniciar con sonido</p>
+          <Button
+            onClick={handleReadyClick}
+            size="lg"
+            className="px-8 py-6 text-lg gap-2"
+          >
+            <Zap className="h-5 w-5" />
+            ¡Empezar!
+          </Button>
+        </motion.div>
+      </div>
     );
   }
 
