@@ -123,9 +123,10 @@ interface TheMovieInterpreterGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  category?: string;
 }
 
-export default function TheMovieInterpreterGame({ roomCode, onBack, microlessonsEnabled = true }: TheMovieInterpreterGameProps) {
+export default function TheMovieInterpreterGame({ roomCode, onBack, microlessonsEnabled = true, category }: TheMovieInterpreterGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -429,21 +430,44 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     setIsLoading(true);
     const targetDifficulty = difficulty || getRandomDifficulty();
 
-    // First try to get configs matching the difficulty
-    let { data, error } = await supabase
+    // Build query with category filter if provided
+    let query = supabase
       .from('subtitle_configs')
       .select('*')
       .not('hidden_word', 'is', null)
       .eq('difficulty', targetDifficulty);
+    
+    // Apply category filter if specified
+    if (category) {
+      query = query.eq('category', category);
+    }
 
-    // Fallback to any config if no matches
+    let { data, error } = await query;
+
+    // Fallback to any config matching category if no difficulty matches
     if (error || !data || data.length === 0) {
-      const fallback = await supabase
+      let fallbackQuery = supabase
         .from('subtitle_configs')
         .select('*')
         .not('hidden_word', 'is', null);
+      
+      if (category) {
+        fallbackQuery = fallbackQuery.eq('category', category);
+      }
+      
+      const fallback = await fallbackQuery;
       data = fallback.data;
       error = fallback.error;
+    }
+    
+    // Final fallback: any config (without category filter)
+    if (error || !data || data.length === 0) {
+      const finalFallback = await supabase
+        .from('subtitle_configs')
+        .select('*')
+        .not('hidden_word', 'is', null);
+      data = finalFallback.data;
+      error = finalFallback.error;
     }
 
     if (error || !data || data.length === 0) {
@@ -485,7 +509,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     if (gameRoomCode && isHostInRoom) {
       await broadcastGameEvent('sync_config', { config, round, roundEndsAt, phase: gamePhase });
     }
-  }, [getRandomDifficulty, selectedDifficulties, gameRoomCode, isHostInRoom, broadcastGameEvent, round, roundEndsAt, gamePhase, applyConfig]);
+  }, [getRandomDifficulty, selectedDifficulties, gameRoomCode, isHostInRoom, broadcastGameEvent, round, roundEndsAt, gamePhase, applyConfig, category]);
 
   const endRound = useCallback(async () => {
     // Start microlesson phase with the hidden word (if enabled)
