@@ -192,6 +192,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
   // Microlesson state
   const [microlessonWord, setMicrolessonWord] = useState('');
 
+  // Sync ref to prevent joiners from fetching their own config
+  const lastSyncedConfigRef = useRef<string | null>(null);
+
   // Preload sounds
   useEffect(() => {
     preloadSounds();
@@ -355,7 +358,27 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     return selectedDifficulties[Math.floor(Math.random() * selectedDifficulties.length)];
   }, [selectedDifficulties]);
 
+  // Apply a config (used by both host and joiners)
+  const applyConfig = useCallback((config: SubtitleConfig) => {
+    lastSyncedConfigRef.current = config.id;
+    setSubtitleConfig(config);
+    setUsedConfigIds(prev => new Set(prev).add(config.id));
+    setCurrentSubtitleIndex(-1); // Start at -1 so first subtitle triggers update
+    setBlankSubtitle(null);
+    setIsPausedOnTarget(false);
+    setRepeatCount(0);
+    setHasAnsweredThisRound(false);
+    setIsLoading(false);
+  }, []);
+
   const fetchRandomConfig = useCallback(async (excludeIds: Set<string>, difficulty?: Difficulty) => {
+    // Only host fetches config in multiplayer
+    if (gameRoomCode && !isHostInRoom) {
+      // Joiners wait for host to broadcast
+      setIsLoading(true);
+      return;
+    }
+
     setIsLoading(true);
     const targetDifficulty = difficulty || getRandomDifficulty();
 
@@ -409,28 +432,57 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
       hidden_word_index: randomConfig.hidden_word_index,
     };
 
-    setSubtitleConfig(config);
-    setUsedConfigIds(prev => new Set(prev).add(config.id));
-    setCurrentSubtitleIndex(-1); // Start at -1 so first subtitle triggers update
-    setBlankSubtitle(null);
-    setIsPausedOnTarget(false);
+    applyConfig(config);
 
-    setHasAnsweredThisRound(false);
-    setIsLoading(false);
-  }, [getRandomDifficulty]);
+    // Broadcast config to other players in the room
+    if (gameRoomCode && isHostInRoom) {
+      await broadcastGameEvent('sync_config', { config, round });
+    }
+  }, [getRandomDifficulty, gameRoomCode, isHostInRoom, broadcastGameEvent, round, applyConfig]);
 
-  const endRound = useCallback(() => {
+  const endRound = useCallback(async () => {
     // Start microlesson phase with the hidden word
-    if (blankSubtitle?.hiddenWord) {
-      setMicrolessonWord(blankSubtitle.hiddenWord);
+    const word = blankSubtitle?.hiddenWord || '';
+    if (word) {
+      setMicrolessonWord(word);
       setGamePhase('microlesson');
+      
+      // Host broadcasts microlesson phase
+      if (gameRoomCode && isHostInRoom) {
+        await broadcastGameEvent('sync_microlesson', { word });
+      }
     } else {
       setGamePhase('ranking');
     }
     if (ytPlayerRef.current) {
       ytPlayerRef.current.pauseVideo();
     }
-  }, [blankSubtitle]);
+  }, [blankSubtitle, gameRoomCode, isHostInRoom, broadcastGameEvent]);
+
+  // Listen for sync events from host (joiners)
+  useEffect(() => {
+    if (!gameEvent) return;
+    
+    // Sync config from host
+    if (gameEvent.type === 'sync_config' && !isHostInRoom && gameRoomCode) {
+      const payload = gameEvent.payload as { config: SubtitleConfig; round: number };
+      if (payload.config && payload.config.id !== lastSyncedConfigRef.current) {
+        applyConfig(payload.config);
+      }
+    }
+    
+    // Sync microlesson from host
+    if (gameEvent.type === 'sync_microlesson' && !isHostInRoom && gameRoomCode) {
+      const payload = gameEvent.payload as { word: string };
+      if (payload.word) {
+        setMicrolessonWord(payload.word);
+        setGamePhase('microlesson');
+        if (ytPlayerRef.current) {
+          ytPlayerRef.current.pauseVideo();
+        }
+      }
+    }
+  }, [gameEvent, isHostInRoom, gameRoomCode, applyConfig]);
 
   // Check if all players answered correctly - auto advance round
   const hasAdvancedRef = useRef(false);
@@ -537,21 +589,46 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     setUsedConfigIds(new Set());
   }, [gameRoomCode, isHostInRoom, broadcastGameEvent, playSound]);
 
-  const nextRound = useCallback(() => {
+  const nextRound = useCallback(async () => {
     if (round >= totalRounds) {
       return;
     }
 
-    setRound((r) => r + 1);
-    startRoundTimer();
+    const newRound = round + 1;
+    const newRoundEndsAt = startRoundTimer();
+    
+    setRound(newRound);
     setHasAnsweredThisRound(false);
     setChatMessages([]);
     setRepeatCount(0);
     setShowAnimation(false); // Reset animation state
     setGamePhase('playing');
     playSound('gameStart', 0.5);
+    
+    // Broadcast next round for joiners (host broadcasts)
+    if (gameRoomCode && isHostInRoom) {
+      await broadcastGameEvent('next_round', { round: newRound, roundEndsAt: newRoundEndsAt });
+    }
+    
     fetchRandomConfig(usedConfigIds);
-  }, [round, totalRounds, fetchRandomConfig, playSound, usedConfigIds, startRoundTimer]);
+  }, [round, totalRounds, fetchRandomConfig, playSound, usedConfigIds, startRoundTimer, gameRoomCode, isHostInRoom, broadcastGameEvent]);
+  
+  // Listen for next_round from host (joiners)
+  useEffect(() => {
+    if (isHostInRoom) return;
+    if (!gameRoomCode) return;
+    if (!gameEvent || gameEvent.type !== 'next_round') return;
+    
+    const payload = gameEvent.payload as { round: number; roundEndsAt: number };
+    setRound(payload.round);
+    startRoundTimer(payload.roundEndsAt);
+    setHasAnsweredThisRound(false);
+    setChatMessages([]);
+    setRepeatCount(0);
+    setShowAnimation(false);
+    setGamePhase('playing');
+    playSound('gameStart', 0.5);
+  }, [gameEvent, isHostInRoom, gameRoomCode, startRoundTimer, playSound]);
 
   const handleLobbyStart = useCallback(
     async (payload: { difficulties: Difficulty[]; roomCode?: string; isHost: boolean; startPayload?: unknown; playerName: string }) => {
@@ -791,7 +868,6 @@ export default function TheMovieInterpreterGame({ roomCode, onBack }: TheMovieIn
     <>
       {/* Correct answer animation */}
       <CorrectAnswerAnimation
-        word={animationWord}
         points={animationPoints}
         isVisible={showAnimation}
         onComplete={() => setShowAnimation(false)}

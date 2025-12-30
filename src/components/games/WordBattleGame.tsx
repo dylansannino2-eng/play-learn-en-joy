@@ -490,7 +490,6 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     <>
       {/* Correct answer animation */}
       <CorrectAnswerAnimation
-        word={animationWord}
         points={animationPoints}
         isVisible={showAnimation}
         onComplete={() => setShowAnimation(false)}
