@@ -193,8 +193,27 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
   // Microlesson state
   const [microlessonWord, setMicrolessonWord] = useState('');
 
-  // Sync ref to prevent joiners from fetching their own config
+  // Sync refs (multiplayer)
   const lastSyncedConfigRef = useRef<string | null>(null);
+  const hasRequestedSyncRef = useRef(false);
+
+  // Reset sync request when room/role changes
+  useEffect(() => {
+    hasRequestedSyncRef.current = false;
+  }, [gameRoomCode, isHostInRoom]);
+
+  // If a player joins mid-game they won't receive earlier broadcasts; request a full sync from host.
+  useEffect(() => {
+    if (!gameRoomCode) return;
+    if (isHostInRoom) return;
+    if (!isConnected) return;
+    if (subtitleConfig) return;
+    if (hasRequestedSyncRef.current) return;
+
+    hasRequestedSyncRef.current = true;
+    setIsLoading(true);
+    void broadcastGameEvent('request_sync', { at: Date.now() });
+  }, [gameRoomCode, isHostInRoom, isConnected, subtitleConfig, broadcastGameEvent]);
 
   // Preload sounds
   useEffect(() => {
@@ -437,9 +456,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
     // Broadcast config to other players in the room
     if (gameRoomCode && isHostInRoom) {
-      await broadcastGameEvent('sync_config', { config, round });
+      await broadcastGameEvent('sync_config', { config, round, roundEndsAt, phase: gamePhase });
     }
-  }, [getRandomDifficulty, gameRoomCode, isHostInRoom, broadcastGameEvent, round, applyConfig]);
+  }, [getRandomDifficulty, gameRoomCode, isHostInRoom, broadcastGameEvent, round, roundEndsAt, gamePhase, applyConfig]);
 
   const endRound = useCallback(async () => {
     // Start microlesson phase with the hidden word (if enabled)
@@ -460,18 +479,73 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     }
   }, [blankSubtitle, gameRoomCode, isHostInRoom, broadcastGameEvent, microlessonsEnabled]);
 
-  // Listen for sync events from host (joiners)
+  // Listen for sync events (host <-> joiners)
   useEffect(() => {
     if (!gameEvent) return;
-    
+
+    // Joiner asks host for a full snapshot (handles mid-game joins / refresh)
+    if (gameEvent.type === 'request_sync' && isHostInRoom && gameRoomCode) {
+      // If host hasn't loaded a config yet, there's nothing to sync.
+      if (!subtitleConfig) return;
+
+      void (async () => {
+        await broadcastGameEvent('sync_state', {
+          config: subtitleConfig,
+          round,
+          roundEndsAt,
+          phase: gamePhase,
+          microlessonWord,
+        });
+      })();
+      return;
+    }
+
     // Sync config from host
     if (gameEvent.type === 'sync_config' && !isHostInRoom && gameRoomCode) {
-      const payload = gameEvent.payload as { config: SubtitleConfig; round: number };
+      const payload = gameEvent.payload as {
+        config: SubtitleConfig;
+        round?: number;
+        roundEndsAt?: number | null;
+        phase?: GamePhase;
+      };
+
+      if (typeof payload.round === 'number') setRound(payload.round);
+      if (typeof payload.roundEndsAt === 'number') startRoundTimer(payload.roundEndsAt);
+      if (payload.phase) setGamePhase(payload.phase);
+
       if (payload.config && payload.config.id !== lastSyncedConfigRef.current) {
         applyConfig(payload.config);
       }
+      return;
     }
-    
+
+    // Full state sync (response to request_sync)
+    if (gameEvent.type === 'sync_state' && !isHostInRoom && gameRoomCode) {
+      const payload = gameEvent.payload as {
+        config: SubtitleConfig | null;
+        round: number;
+        roundEndsAt: number | null;
+        phase: GamePhase;
+        microlessonWord: string;
+      };
+
+      setRound(payload.round);
+      if (typeof payload.roundEndsAt === 'number') startRoundTimer(payload.roundEndsAt);
+      setGamePhase(payload.phase);
+      setMicrolessonWord(payload.microlessonWord || '');
+
+      if (payload.config && payload.config.id !== lastSyncedConfigRef.current) {
+        applyConfig(payload.config);
+      } else {
+        setIsLoading(false);
+      }
+
+      if (payload.phase !== 'playing' && ytPlayerRef.current) {
+        ytPlayerRef.current.pauseVideo();
+      }
+      return;
+    }
+
     // Sync microlesson from host
     if (gameEvent.type === 'sync_microlesson' && !isHostInRoom && gameRoomCode) {
       const payload = gameEvent.payload as { word: string };
@@ -483,7 +557,19 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         }
       }
     }
-  }, [gameEvent, isHostInRoom, gameRoomCode, applyConfig]);
+  }, [
+    gameEvent,
+    isHostInRoom,
+    gameRoomCode,
+    applyConfig,
+    broadcastGameEvent,
+    subtitleConfig,
+    round,
+    roundEndsAt,
+    gamePhase,
+    microlessonWord,
+    startRoundTimer,
+  ]);
 
   // Check if all players answered correctly - auto advance round
   const hasAdvancedRef = useRef(false);
