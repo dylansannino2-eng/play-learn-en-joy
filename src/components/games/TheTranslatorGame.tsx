@@ -867,7 +867,6 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     <>
       {/* Correct answer animation */}
       <CorrectAnswerAnimation
-        word={animationWord}
         points={animationPoints}
         isVisible={showAnimation}
         onComplete={() => setShowAnimation(false)}
