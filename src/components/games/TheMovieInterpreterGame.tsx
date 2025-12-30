@@ -500,6 +500,11 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       }
     } else {
       setGamePhase('ranking');
+      
+      // Host broadcasts ranking phase
+      if (gameRoomCode && isHostInRoom) {
+        await broadcastGameEvent('sync_ranking', {});
+      }
     }
     if (ytPlayerRef.current) {
       ytPlayerRef.current.pauseVideo();
@@ -584,6 +589,14 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         }
       }
     }
+
+    // Sync ranking phase from host
+    if (gameEvent.type === 'sync_ranking' && !isHostInRoom && gameRoomCode) {
+      setGamePhase('ranking');
+      if (ytPlayerRef.current) {
+        ytPlayerRef.current.pauseVideo();
+      }
+    }
   }, [
     gameEvent,
     isHostInRoom,
@@ -597,6 +610,42 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     microlessonWord,
     startRoundTimer,
   ]);
+
+  // Host broadcasts periodic sync to keep all players aligned (every 5 seconds during playing)
+  useEffect(() => {
+    if (!isHostInRoom || !gameRoomCode) return;
+    if (gamePhase !== 'playing') return;
+    if (!subtitleConfig) return;
+
+    const interval = window.setInterval(() => {
+      void broadcastGameEvent('sync_state', {
+        config: subtitleConfig,
+        round,
+        roundEndsAt,
+        phase: gamePhase,
+        microlessonWord,
+      });
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [isHostInRoom, gameRoomCode, gamePhase, subtitleConfig, round, roundEndsAt, microlessonWord, broadcastGameEvent]);
+
+  // Joiners request sync when their tab becomes visible again
+  useEffect(() => {
+    if (isHostInRoom) return;
+    if (!gameRoomCode) return;
+    if (!isConnected) return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void broadcastGameEvent('request_sync', { at: Date.now() });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isHostInRoom, gameRoomCode, isConnected, broadcastGameEvent]);
+
 
   // Check if all players answered correctly - auto advance round
   const hasAdvancedRef = useRef(false);
@@ -645,7 +694,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     endRound();
   }, [gameEvent, isHostInRoom, gameRoomCode, playSound, endRound]);
 
-  // Timer
+  // Timer - uses roundEndsAt (absolute timestamp) to stay synced across tabs
   useEffect(() => {
     if (gamePhase !== 'playing') return;
     if (!roundEndsAt) {
@@ -653,26 +702,49 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       return;
     }
 
-    const timer = window.setInterval(() => {
+    // Recalculate immediately on mount/visibility (handles tab coming back active)
+    const recalculate = () => {
       const remainingMs = roundEndsAt - Date.now();
       const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
 
+      // Time already expired while tab was inactive
+      if (remainingSec <= 0 && lastTimerSecondRef.current > 0) {
+        lastTimerSecondRef.current = 0;
+        setTimeLeft(0);
+        playSound('roundEnd', 0.6);
+        endRound();
+        return true; // ended
+      }
+
       if (remainingSec !== lastTimerSecondRef.current) {
-        if (remainingSec <= 6 && remainingSec > 1) {
+        if (remainingSec <= 6 && remainingSec > 1 && lastTimerSecondRef.current > remainingSec) {
           playSound('tick', 0.3);
         }
-
-        if (remainingSec <= 0 && lastTimerSecondRef.current > 0) {
-          playSound('roundEnd', 0.6);
-          endRound();
-        }
-
         lastTimerSecondRef.current = remainingSec;
         setTimeLeft(remainingSec);
       }
+      return false;
+    };
+
+    // Initial recalculation
+    if (recalculate()) return;
+
+    const timer = window.setInterval(() => {
+      recalculate();
     }, 250);
 
-    return () => window.clearInterval(timer);
+    // Handle visibility change - resync timer when tab becomes active
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        recalculate();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [gamePhase, roundEndsAt, playSound, endRound, startRoundTimer]);
 
   // Handle return to lobby event
