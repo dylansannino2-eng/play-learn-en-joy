@@ -401,6 +401,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
     setIsLoading(true);
     const targetDifficulty = difficulty || getRandomDifficulty();
+    
+    console.log('[MovieInterpreter] Fetching config with difficulty:', targetDifficulty, 'selectedDifficulties:', selectedDifficulties);
 
     // First try to get configs matching the difficulty
     let { data, error } = await supabase
@@ -408,9 +410,12 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       .select('*')
       .not('hidden_word', 'is', null)
       .eq('difficulty', targetDifficulty);
+    
+    console.log('[MovieInterpreter] Query result for difficulty', targetDifficulty, ':', data?.length, 'configs found');
 
     // Fallback to any config if no matches
     if (error || !data || data.length === 0) {
+      console.log('[MovieInterpreter] Fallback to any difficulty');
       const fallback = await supabase
         .from('subtitle_configs')
         .select('*')
@@ -458,7 +463,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     if (gameRoomCode && isHostInRoom) {
       await broadcastGameEvent('sync_config', { config, round, roundEndsAt, phase: gamePhase });
     }
-  }, [getRandomDifficulty, gameRoomCode, isHostInRoom, broadcastGameEvent, round, roundEndsAt, gamePhase, applyConfig]);
+  }, [getRandomDifficulty, selectedDifficulties, gameRoomCode, isHostInRoom, broadcastGameEvent, round, roundEndsAt, gamePhase, applyConfig]);
 
   const endRound = useCallback(async () => {
     // Start microlesson phase with the hidden word (if enabled)
