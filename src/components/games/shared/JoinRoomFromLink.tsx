@@ -41,9 +41,9 @@ export default function JoinRoomFromLink({
   onCancel 
 }: JoinRoomFromLinkProps) {
   const { user } = useAuth();
-  const defaultUsername = user?.email?.split('@')[0] || 'Jugador';
   
-  const [playerName, setPlayerName] = useState(defaultUsername);
+  // Start with empty string to force user to enter a name
+  const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [roomData, setRoomData] = useState<RoomData | null>(null);
@@ -328,18 +328,26 @@ export default function JoinRoomFromLink({
           ))}
         </div>
 
-        {/* Player Name Input */}
+        {/* Player Name Input - Required */}
         <div className="mb-6">
           <label className="block text-sm text-muted-foreground mb-2">
-            Tu nombre
+            Tu nombre <span className="text-destructive">*</span>
           </label>
           <Input
-            placeholder="Ingresa tu nombre"
+            placeholder="Ingresa tu nombre para unirte"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value.slice(0, 15))}
             maxLength={15}
-            className="text-center text-lg font-bold bg-background border-border"
+            className={`text-center text-lg font-bold bg-background border-border ${
+              playerName.trim() === '' ? 'border-destructive/50 focus:border-destructive' : ''
+            }`}
+            autoFocus
           />
+          {playerName.trim() === '' && (
+            <p className="text-xs text-destructive mt-1 text-center">
+              Debes ingresar un nombre para unirte
+            </p>
+          )}
         </div>
 
         <div className="space-y-3">
