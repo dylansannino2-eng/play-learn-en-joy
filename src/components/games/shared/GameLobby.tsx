@@ -3,10 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Play, Copy, Check, Users, Wifi, WifiOff, Pencil, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
-import { toast } from "sonner";
+
+/* =======================
+    TYPES
+======================= */
 
 type View = "menu" | "room_created" | "waiting_room";
 type Difficulty = "easy" | "medium" | "hard";
+
+type StartPayloadBuilder = (args: { difficulties: Difficulty[]; roomCode: string }) => Promise<unknown> | unknown;
 
 interface Player {
   odId: string;
@@ -29,8 +34,12 @@ interface GameLobbyProps {
   isHostReturning?: boolean;
   initialPlayerName?: string;
   onStartGame: (payload: GameLobbyStartParams) => void;
-  buildStartPayload?: (args: { difficulties: Difficulty[]; roomCode: string }) => Promise<unknown> | unknown;
+  buildStartPayload?: StartPayloadBuilder;
 }
+
+/* =======================
+    COMPONENT
+======================= */
 
 export default function GameLobby({
   gameSlug,
@@ -47,7 +56,6 @@ export default function GameLobby({
   const [view, setView] = useState<View>(
     returningRoom ? (isHostReturning ? "room_created" : "waiting_room") : joiningRoom ? "waiting_room" : "menu",
   );
-
   const [difficulties, setDifficulties] = useState<Difficulty[]>(["medium"]);
   const [roomCode, setRoomCode] = useState<string | null>(returningRoom || joiningRoom || null);
   const [isHost, setIsHost] = useState(isHostReturning ?? !initialRoomCode);
@@ -59,88 +67,21 @@ export default function GameLobby({
   );
   const [isEditingName, setIsEditingName] = useState(false);
 
-  // Nuevo estado: nombre confirmado antes de conectar a Supabase
-  const [confirmedName, setConfirmedName] = useState<string | null>(null);
-
-  // Join logic
+  // Estados para la lógica de "Join"
   const [isJoining, setIsJoining] = useState(false);
   const [inputCode, setInputCode] = useState("");
 
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const odId = useRef(`player_${Math.random().toString(36).slice(2, 10)}`);
+  const oderId = useRef(`player_${Math.random().toString(36).slice(2, 10)}`);
 
-  const generateRoomCode = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    return Array.from({ length: 4 })
-      .map(() => chars[Math.floor(Math.random() * chars.length)])
-      .join("");
-  };
-
-  const copyLink = () => {
-    if (!roomCode) return;
-    const link = `${window.location.origin}/game/${gameSlug}?room=${roomCode}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleQuickPlay = () => {
-    const name = playerName.trim();
-    if (name.length < 2) {
-      toast.error("El username debe tener al menos 2 caracteres");
-      return;
-    }
-    onStartGame({ difficulties, isHost: true, playerName: name });
-  };
-
-  const handleCreateRoom = () => {
-    const name = playerName.trim();
-    if (name.length < 2) {
-      toast.error("El username debe tener al menos 2 caracteres");
-      return;
-    }
-    const code = generateRoomCode();
-    setRoomCode(code);
-    setIsHost(true);
-    setConfirmedName(name);
-    setView("room_created");
-  };
-
-  const handleJoinRoom = () => {
-    const name = playerName.trim();
-    if (name.length < 2) {
-      toast.error("El username debe tener al menos 2 caracteres");
-      return;
-    }
-    if (inputCode.length === 4) {
-      setRoomCode(inputCode.toUpperCase());
-      setIsHost(false);
-      setConfirmedName(name);
-      setView("waiting_room");
-    }
-  };
-
-  const handleStartRoomGame = async () => {
-    if (!roomCode || !confirmedName) return;
-    const startPayload = buildStartPayload ? await buildStartPayload({ difficulties, roomCode }) : undefined;
-
-    if (channelRef.current) {
-      await channelRef.current.send({
-        type: "broadcast",
-        event: "game_start",
-        payload: { difficulties, roomCode, startPayload },
-      });
-    }
-
-    onStartGame({ difficulties, roomCode, isHost: true, startPayload, playerName: confirmedName });
-  };
+  /* ---------------- Realtime channel for lobby ---------------- */
 
   useEffect(() => {
-    if (!roomCode || !confirmedName) return;
+    if (!roomCode) return;
 
     const channelName = `lobby:${gameSlug}:${roomCode}`;
     const channel = supabase.channel(channelName, {
-      config: { presence: { key: odId.current } },
+      config: { presence: { key: oderId.current } },
     });
 
     channel.on("presence", { event: "sync" }, () => {
@@ -166,7 +107,7 @@ export default function GameLobby({
         roomCode: p.roomCode as string,
         isHost: false,
         startPayload: p.startPayload,
-        playerName: confirmedName,
+        playerName,
       });
     });
 
@@ -174,7 +115,7 @@ export default function GameLobby({
       if (status === "SUBSCRIBED") {
         setIsConnected(true);
         await channel.track({
-          username: confirmedName,
+          username: playerName,
           isHost,
           joinedAt: new Date().toISOString(),
         });
@@ -187,17 +128,75 @@ export default function GameLobby({
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [roomCode, gameSlug, isHost, onStartGame, confirmedName, playerName]);
+  }, [roomCode, gameSlug, isHost, onStartGame, playerName]);
 
   useEffect(() => {
-    if (channelRef.current && isConnected && confirmedName) {
+    if (channelRef.current && isConnected) {
       channelRef.current.track({
-        username: confirmedName,
+        username: playerName,
         isHost,
         joinedAt: new Date().toISOString(),
       });
     }
-  }, [playerName, isHost, isConnected, confirmedName]);
+  }, [playerName, isHost, isConnected]);
+
+  /* ---------------- utils ---------------- */
+
+  const generateRoomCode = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    return Array.from({ length: 4 })
+      .map(() => chars[Math.floor(Math.random() * chars.length)])
+      .join("");
+  };
+
+  const copyLink = () => {
+    if (!roomCode) return;
+    const link = `${window.location.origin}/game/${gameSlug}?room=${roomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  /* ---------------- handlers ---------------- */
+
+  const handleQuickPlay = () => {
+    onStartGame({ difficulties, isHost: true, playerName });
+  };
+
+  const handleCreateRoom = () => {
+    const code = generateRoomCode();
+    setRoomCode(code);
+    setIsHost(true);
+    setView("room_created");
+  };
+
+  const handleJoinRoom = () => {
+    if (inputCode.length === 4) {
+      setRoomCode(inputCode.toUpperCase());
+      setIsHost(false);
+      setView("waiting_room");
+    }
+  };
+
+  const handleStartRoomGame = async () => {
+    if (!roomCode) return;
+
+    const startPayload = buildStartPayload ? await buildStartPayload({ difficulties, roomCode }) : undefined;
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "game_start",
+        payload: { difficulties, roomCode, startPayload },
+      });
+    }
+
+    onStartGame({ difficulties, roomCode, isHost: true, startPayload, playerName });
+  };
+
+  /* =========================
+        MENU VIEW
+  ========================= */
 
   if (view === "menu") {
     return (
@@ -222,7 +221,7 @@ export default function GameLobby({
                   onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
                   autoFocus
                   maxLength={20}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-400"
                 />
               ) : (
                 <button
@@ -267,10 +266,10 @@ export default function GameLobby({
               );
             })}
           </div>
-
           <p className="text-center text-white/50 text-xs mb-6">Selecciona una o más dificultades</p>
 
           <div className="space-y-3">
+            {/* Play Solo */}
             <button
               onClick={handleQuickPlay}
               className="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition flex items-center justify-center gap-2"
@@ -279,21 +278,28 @@ export default function GameLobby({
             </button>
 
             <div className="grid grid-cols-2 gap-3">
+              {/* Create room */}
               <button
                 onClick={handleCreateRoom}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold border border-white/10 flex items-center justify-center gap-2"
+                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold transition border border-white/10 flex items-center justify-center gap-2"
               >
                 <Users size={18} /> Create Room
               </button>
 
+              {/* Join Button */}
               <button
                 onClick={() => setIsJoining(!isJoining)}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold border border-white/10 flex items-center justify-center gap-2"
+                className={`py-4 rounded-2xl transition border border-white/10 font-semibold flex items-center justify-center gap-2 ${
+                  isJoining
+                    ? "bg-purple-500/20 text-purple-300 border-purple-500/50"
+                    : "bg-white/5 hover:bg-white/10 text-white"
+                }`}
               >
                 <LogIn size={18} /> Join
               </button>
             </div>
 
+            {/* Join Room Input Area */}
             <AnimatePresence>
               {isJoining && (
                 <motion.div
@@ -312,7 +318,7 @@ export default function GameLobby({
                       className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-center font-bold tracking-widest placeholder:text-white/20 focus:outline-none focus:border-purple-400"
                     />
                     <button
-                      disabled={inputCode.length !== 4 || playerName.trim().length < 2}
+                      disabled={inputCode.length !== 4}
                       onClick={handleJoinRoom}
                       className="px-6 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -328,6 +334,10 @@ export default function GameLobby({
     );
   }
 
+  /* =========================
+        ROOM CREATED VIEW
+  ========================= */
+
   if (view === "room_created") {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
@@ -337,7 +347,32 @@ export default function GameLobby({
           className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
         >
           <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
-          <p className="text-center text-white/70 mb-4">Comparte el código</p>
+          <p className="text-center text-white/70 mb-4">Comparte el código con tus amigos</p>
+
+          <div className="mb-4">
+            <div className="relative">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                  onBlur={() => setIsEditingName(false)}
+                  onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
+                  autoFocus
+                  maxLength={20}
+                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+                />
+              ) : (
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
+                >
+                  <span>{playerName}</span>
+                  <Pencil size={14} className="text-white/60" />
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className="flex justify-center gap-3 mb-6">
             {roomCode?.split("").map((c, i) => (
@@ -357,7 +392,6 @@ export default function GameLobby({
                 <WifiOff size={14} className="text-red-400 ml-auto" />
               )}
             </div>
-
             <div className="space-y-2 max-h-32 overflow-y-auto">
               {players.length === 0 ? (
                 <p className="text-white/40 text-sm text-center py-2">Esperando jugadores...</p>
@@ -381,14 +415,15 @@ export default function GameLobby({
 
           <button
             onClick={copyLink}
-            className="w-full mb-3 py-4 rounded-2xl bg-[#24283b] hover:bg-[#2c3150] text-white font-semibold flex items-center justify-center gap-2"
+            className="w-full mb-3 py-4 rounded-2xl bg-[#24283b] hover:bg-[#2c3150] text-white font-semibold flex items-center justify-center gap-2 transition"
           >
-            {copied ? <Check size={18} /> : <Copy size={18} />} {copied ? "Copiado" : "Copiar Enlace"}
+            {copied ? <Check size={18} /> : <Copy size={18} />}
+            {copied ? "Copiado" : "Copiar Enlace"}
           </button>
 
           <button
             onClick={handleStartRoomGame}
-            className="w-full mb-4 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center justify-center gap-2"
+            className="w-full mb-4 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center justify-center gap-2 transition"
           >
             <Play size={18} /> Iniciar Partida
           </button>
@@ -398,7 +433,7 @@ export default function GameLobby({
               setRoomCode(null);
               setView("menu");
             }}
-            className="w-full text-center text-white/60 hover:text-white"
+            className="w-full text-center text-white/60 hover:text-white transition"
           >
             Cancelar
           </button>
@@ -406,6 +441,10 @@ export default function GameLobby({
       </div>
     );
   }
+
+  /* =========================
+        WAITING ROOM VIEW
+  ========================= */
 
   return (
     <div className="flex-1 flex items-center justify-center px-4">
@@ -417,6 +456,30 @@ export default function GameLobby({
         <h2 className="text-3xl font-black text-white text-center mb-2">Sala {roomCode}</h2>
         <p className="text-center text-white/70 mb-4">Esperando al host...</p>
 
+        <div className="mb-4">
+          <div className="relative">
+            {isEditingName ? (
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+                onBlur={() => setIsEditingName(false)}
+                onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
+                autoFocus
+                maxLength={20}
+                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+              />
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
+              >
+                <span>{playerName}</span>
+                <Pencil size={14} className="text-white/60" />
+              </button>
+            )}
+          </div>
+        </div>
         <div className="bg-white/5 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Users size={18} className="text-white/70" />
@@ -427,7 +490,6 @@ export default function GameLobby({
               <WifiOff size={14} className="text-red-400 ml-auto" />
             )}
           </div>
-
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {players.length === 0 ? (
               <p className="text-white/40 text-sm text-center py-2">Conectando...</p>
@@ -449,8 +511,9 @@ export default function GameLobby({
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-3 text-white/60 text-sm">
-          Esperando que el host inicie la partida...
+        <div className="flex items-center justify-center gap-3 text-white/60">
+          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+          <span className="text-sm">Esperando que el host inicie la partida...</span>
         </div>
       </motion.div>
     </div>
