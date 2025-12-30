@@ -62,8 +62,10 @@ export type Database = {
       games: {
         Row: {
           badge: string | null
+          base_game_slug: string | null
           categories: string[] | null
           category: string
+          content_category: string | null
           created_at: string
           description: string | null
           id: string
@@ -78,8 +80,10 @@ export type Database = {
         }
         Insert: {
           badge?: string | null
+          base_game_slug?: string | null
           categories?: string[] | null
           category: string
+          content_category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -94,8 +98,10 @@ export type Database = {
         }
         Update: {
           badge?: string | null
+          base_game_slug?: string | null
           categories?: string[] | null
           category?: string
+          content_category?: string | null
           created_at?: string
           description?: string | null
           id?: string

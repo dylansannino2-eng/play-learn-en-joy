@@ -75,6 +75,7 @@ type GamePhase = "waiting" | "playing" | "ranking";
 interface WordSearchGameProps {
   roomCode?: string;
   onBack?: () => void;
+  category?: string;
 }
 
 interface Coordinate {
@@ -147,7 +148,7 @@ const generateGrid = (words: string[], size: number) => {
 
 // --- COMPONENTE PRINCIPAL ---
 
-export default function WordSearchGame({ roomCode, onBack }: WordSearchGameProps) {
+export default function WordSearchGame({ roomCode, onBack, category }: WordSearchGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState("");

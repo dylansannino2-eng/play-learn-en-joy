@@ -18,10 +18,12 @@ interface Game {
   description: string | null;
   uses_chat: boolean;
   microlessons_enabled: boolean;
+  base_game_slug: string | null;
+  content_category: string | null;
 }
 
 const GamePage = () => {
-  const { slug, category } = useParams();
+  const { slug } = useParams();
   const [searchParams] = useSearchParams();
 
   const [game, setGame] = useState<Game | null>(null);
@@ -38,7 +40,7 @@ const GamePage = () => {
 
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, description, uses_chat, microlessons_enabled")
+        .select("id, title, image, slug, description, uses_chat, microlessons_enabled, base_game_slug, content_category")
         .eq("slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -56,19 +58,22 @@ const GamePage = () => {
     if (!game?.slug) return null;
 
     const microlessonsEnabled = game.microlessons_enabled ?? true;
+    // Use base_game_slug if it's a variant, otherwise use the game's own slug
+    const gameToRender = game.base_game_slug || game.slug;
+    // Use content_category from the game record
+    const contentCategory = game.content_category || undefined;
 
-    switch (game.slug) {
+    switch (gameToRender) {
       case "word-battle":
-        return <WordBattleGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
+        return <WordBattleGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={contentCategory} />;
       case "the-translator":
-        return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} />;
+        return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={contentCategory} />;
       case "the-movie-interpreter":
-        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={category} />;
+        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} category={contentCategory} />;
       case "word-search":
-        return <WordSearchGame roomCode={roomCode} />;
-      // CASO AÑADIDO:
+        return <WordSearchGame roomCode={roomCode} category={contentCategory} />;
       case "memorama":
-        return <MemoryGame />;
+        return <MemoryGame category={contentCategory} />;
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[400px]">

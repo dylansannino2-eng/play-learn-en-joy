@@ -45,9 +45,10 @@ interface TheTranslatorGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  category?: string;
 }
 
-export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnabled = true }: TheTranslatorGameProps) {
+export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnabled = true, category }: TheTranslatorGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');

@@ -11,7 +11,11 @@ interface MemoryItem {
   matchValue: string;
 }
 
-export default function MemoryGame() {
+interface MemoryGameProps {
+  category?: string;
+}
+
+export default function MemoryGame({ category }: MemoryGameProps) {
   const { playSound } = useGameSounds();
   const [cards, setCards] = useState<MemoryItem[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
