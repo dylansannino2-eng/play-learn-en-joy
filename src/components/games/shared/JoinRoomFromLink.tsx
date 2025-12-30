@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, ArrowLeft, User, Loader2 } from "lucide-react";
+import { Users, ArrowLeft, User, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -42,7 +42,7 @@ export default function JoinRoomFromLink({
 }: JoinRoomFromLinkProps) {
   const { user } = useAuth();
 
-  // 1. Inicializamos el nombre vacío para obligar al usuario a elegir uno
+  // ESTADO MODIFICADO: Empezamos vacío para obligar al usuario a elegir
   const [playerName, setPlayerName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -51,7 +51,7 @@ export default function JoinRoomFromLink({
   const [hasJoined, setHasJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch room data
+  // Buscar datos de la sala
   useEffect(() => {
     const fetchRoom = async () => {
       const { data, error } = await supabase
@@ -80,7 +80,7 @@ export default function JoinRoomFromLink({
     fetchRoom();
   }, [roomCode, gameSlug]);
 
-  // Connect to room presence when joined and listen for game start
+  // Gestión de Presence y Broadcast
   useEffect(() => {
     if (!hasJoined || !roomData) return;
 
@@ -99,11 +99,11 @@ export default function JoinRoomFromLink({
       const state = channel.presenceState();
       const players: RoomPlayer[] = [];
 
-      Object.entries(state).forEach(([oderId, presences]) => {
+      Object.entries(state).forEach(([id, presences]) => {
         const presence = presences[0] as any;
         if (presence) {
           players.push({
-            oderId,
+            oderId: id,
             username: presence.username,
             joinedAt: presence.joinedAt,
           });
@@ -115,7 +115,6 @@ export default function JoinRoomFromLink({
     });
 
     channel.on("broadcast", { event: "game_start" }, ({ payload }) => {
-      console.log("Game start received:", payload);
       const maybeDifficulty = (payload as any)?.difficulty as Difficulty | undefined;
       const difficulty: Difficulty =
         maybeDifficulty === "easy" || maybeDifficulty === "medium" || maybeDifficulty === "hard"
@@ -129,7 +128,7 @@ export default function JoinRoomFromLink({
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         await channel.track({
-          username: playerName,
+          username: playerName.trim(),
           joinedAt: new Date().toISOString(),
         });
       }
@@ -141,9 +140,14 @@ export default function JoinRoomFromLink({
   }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName, onGameStart]);
 
   const handleJoin = async () => {
-    // 2. Validación extra: No permitir nombres vacíos o solo espacios
+    // VALIDACIÓN: Obligatorio tener nombre
     if (!playerName.trim()) {
-      toast.error("Por favor, ingresa un nombre para continuar");
+      toast.error("Debes ingresar un nombre para jugar");
+      return;
+    }
+
+    if (playerName.trim().length < 2) {
+      toast.error("El nombre debe tener al menos 2 caracteres");
       return;
     }
 
@@ -152,7 +156,7 @@ export default function JoinRoomFromLink({
     onJoined(playerName.trim());
 
     await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success(`Te has unido a la sala de ${roomData?.host_name}`);
+    toast.success(`¡Bienvenido/a a la sala, ${playerName.trim()}!`);
     setIsJoining(false);
   };
 
@@ -192,6 +196,7 @@ export default function JoinRoomFromLink({
     );
   }
 
+  // VISTA: Sala de espera (ya unido)
   if (hasJoined) {
     return (
       <div className="flex-1 flex items-center justify-center p-4">
@@ -208,15 +213,9 @@ export default function JoinRoomFromLink({
               .toUpperCase()
               .split("")
               .map((char, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scale: 0, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-                >
+                <div key={i} className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
                   <span className="text-2xl font-black text-primary-foreground">{char}</span>
-                </motion.div>
+                </div>
               ))}
           </div>
 
@@ -227,35 +226,29 @@ export default function JoinRoomFromLink({
             </div>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               <AnimatePresence mode="popLayout">
-                {roomPlayers.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-2">Conectando...</p>
-                ) : (
-                  roomPlayers.map((player, index) => (
-                    <motion.div
-                      key={player.oderId}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <User size={16} className="text-primary" />
-                      </div>
-                      <span className="text-foreground font-medium flex-1">{player.username}</span>
-                      {index === 0 && (
-                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold">
-                          Host
-                        </span>
-                      )}
-                      {player.username === playerName && (
-                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full font-bold">
-                          Tú
-                        </span>
-                      )}
-                    </motion.div>
-                  ))
-                )}
+                {roomPlayers.map((player, index) => (
+                  <motion.div
+                    key={player.oderId}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <User size={16} className="text-primary" />
+                    </div>
+                    <span className="text-foreground font-medium flex-1">{player.username}</span>
+                    {index === 0 && (
+                      <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold uppercase">
+                        Host
+                      </span>
+                    )}
+                    {player.username === playerName.trim() && (
+                      <span className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full font-bold uppercase">
+                        Tú
+                      </span>
+                    )}
+                  </motion.div>
+                ))}
               </AnimatePresence>
             </div>
           </div>
@@ -277,75 +270,60 @@ export default function JoinRoomFromLink({
     );
   }
 
+  // VISTA: Formulario inicial (Aquí se elige el nombre)
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-card rounded-2xl p-8 border border-border max-w-md w-full"
+        className="bg-card rounded-2xl p-8 border border-border max-w-md w-full shadow-xl"
       >
-        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Users className="w-8 h-8 text-primary" />
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <User className="w-8 h-8 text-primary" />
         </div>
 
-        <h2 className="text-2xl font-bold text-foreground text-center mb-2">Unirse a partida</h2>
-        <p className="text-muted-foreground text-center mb-6">
-          {roomData?.host_name} te ha invitado a jugar {gameTitle}
+        <h2 className="text-2xl font-bold text-foreground text-center mb-1">Unirse a partida</h2>
+        <p className="text-muted-foreground text-center mb-8">
+          Ingresa el nombre que usarás en <strong>{gameTitle}</strong>
         </p>
 
-        <div className="flex justify-center gap-2 mb-6">
-          {roomCode
-            .toUpperCase()
-            .split("")
-            .map((char, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0, rotate: -10 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center"
-              >
-                <span className="text-2xl font-black text-foreground">{char}</span>
-              </motion.div>
-            ))}
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm text-muted-foreground mb-2">
-            Elige tu nombre para jugar <span className="text-destructive">*</span>
+        <div className="mb-8">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 ml-1">
+            Tu nombre de jugador
           </label>
-          <Input
-            placeholder="Escribe tu nombre aquí..."
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value.slice(0, 15))}
-            maxLength={15}
-            className="text-center text-lg font-bold bg-background border-border focus:ring-primary"
-            autoFocus
-          />
+          <div className="relative">
+            <Input
+              placeholder="Ej. SpeedyGomez"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value.slice(0, 15))}
+              maxLength={15}
+              className="text-center text-xl font-bold bg-background border-2 border-primary/20 focus:border-primary h-14 rounded-xl transition-all"
+              autoFocus
+            />
+            {playerName.trim().length >= 2 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500"
+              >
+                <CheckCircle2 size={20} />
+              </motion.div>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2 text-center">Mínimo 2 caracteres, máximo 15.</p>
         </div>
 
         <div className="space-y-3">
           <button
             onClick={handleJoin}
-            // 3. El botón permanece deshabilitado si no hay nombre
-            disabled={isJoining || !playerName.trim()}
-            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isJoining || playerName.trim().length < 2}
+            className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
           >
-            {isJoining ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                Uniéndose...
-              </>
-            ) : (
-              <>
-                <Users size={20} />
-                Unirse a la sala
-              </>
-            )}
+            {isJoining ? <Loader2 size={20} className="animate-spin" /> : "Entrar a la sala"}
           </button>
           <button
             onClick={onCancel}
-            className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
+            className="w-full py-2 text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
           >
             Cancelar
           </button>
