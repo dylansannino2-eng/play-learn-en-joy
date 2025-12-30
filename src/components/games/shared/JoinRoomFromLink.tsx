@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, ArrowLeft, User, Loader2 } from "lucide-react";
+import { Users, ArrowLeft, User, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -18,18 +18,11 @@ interface JoinRoomFromLinkProps {
   onCancel: () => void;
 }
 
-interface RoomPlayer {
-  oderId: string;
-  username: string;
-  joinedAt: string;
-}
-
 interface RoomData {
   id: string;
   code: string;
   host_name: string;
   status: string;
-  settings: unknown;
 }
 
 export default function JoinRoomFromLink({
@@ -42,273 +35,109 @@ export default function JoinRoomFromLink({
 }: JoinRoomFromLinkProps) {
   const { user } = useAuth();
 
-  // MODIFICACIÓN: Iniciamos vacío para obligar a elegir,
-  // o usamos el email si existe pero sin marcar 'hasJoined'.
+  // Nombre vacío para obligar al usuario a escribir
   const [playerName, setPlayerName] = useState(user?.email?.split("@")[0] || "");
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [roomData, setRoomData] = useState<RoomData | null>(null);
-  const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
-  const [hasJoined, setHasJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch room data
   useEffect(() => {
     const fetchRoom = async () => {
-      const { data, error } = await supabase
-        .from("game_rooms")
-        .select("id, code, host_name, status, settings")
-        .eq("code", roomCode.toUpperCase())
-        .eq("game_slug", gameSlug)
-        .maybeSingle();
+      if (!roomCode) return;
 
-      if (error || !data) {
-        setError("Sala no encontrada");
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Usamos .ilike para evitar errores por mayúsculas/minúsculas
+        const { data, error: supabaseError } = await supabase
+          .from("game_rooms")
+          .select("id, code, host_name, status")
+          .ilike("code", roomCode.trim())
+          .eq("game_slug", gameSlug)
+          .maybeSingle();
+
+        if (supabaseError) throw supabaseError;
+
+        if (!data) {
+          setError("La sala no existe o el código es inválido.");
+        } else if (data.status !== "waiting") {
+          setError("La partida ya ha comenzado.");
+        } else {
+          setRoomData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching room:", err);
+        setError("Error al conectar con la sala.");
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      if (data.status !== "waiting") {
-        setError("La partida ya ha comenzado");
-        setIsLoading(false);
-        return;
-      }
-
-      setRoomData(data);
-      setIsLoading(false);
     };
 
     fetchRoom();
   }, [roomCode, gameSlug]);
 
-  // Connect to room presence ONLY when hasJoined is true
-  useEffect(() => {
-    if (!hasJoined || !roomData) return;
-
-    const oderId = user?.id || `anon_${Math.random().toString(36).slice(2, 10)}`;
-    const channelName = `game:${gameSlug}:${roomCode.toUpperCase()}`;
-
-    const channel: RealtimeChannel = supabase.channel(channelName, {
-      config: {
-        presence: {
-          key: oderId,
-        },
-      },
-    });
-
-    channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
-      const players: RoomPlayer[] = [];
-
-      Object.entries(state).forEach(([oderId, presences]) => {
-        const presence = presences[0] as any;
-        if (presence) {
-          players.push({
-            oderId,
-            username: presence.username,
-            joinedAt: presence.joinedAt,
-          });
-        }
-      });
-
-      players.sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
-      setRoomPlayers(players);
-    });
-
-    channel.on("broadcast", { event: "game_start" }, ({ payload }) => {
-      const maybeDifficulty = (payload as any)?.difficulty as Difficulty | undefined;
-      const difficulty: Difficulty =
-        maybeDifficulty === "easy" || maybeDifficulty === "medium" || maybeDifficulty === "hard"
-          ? maybeDifficulty
-          : "medium";
-
-      toast.success("¡El host ha iniciado la partida!");
-      onGameStart(difficulty);
-    });
-
-    channel.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        await channel.track({
-          username: playerName,
-          joinedAt: new Date().toISOString(),
-        });
-      }
-    });
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [hasJoined, roomData, gameSlug, roomCode, user?.id, playerName, onGameStart]);
-
-  // MODIFICACIÓN: Validación estricta antes de unir al usuario
-  const handleJoin = async () => {
-    if (!playerName.trim()) {
-      toast.error("Por favor, ingresa tu nombre para unirte");
+  const handleJoin = () => {
+    if (!playerName.trim() || playerName.length < 2) {
+      toast.error("Ingresa un nombre válido (mín. 2 caracteres)");
       return;
     }
-
-    if (playerName.trim().length < 2) {
-      toast.error("El nombre es demasiado corto");
-      return;
-    }
-
     setIsJoining(true);
-
-    // Notificamos al sistema que el jugador se unió
+    // IMPORTANTE: Esto le dice a GameLobby que ya puede proceder
     onJoined(playerName.trim());
-
-    // Activamos la presencia en Supabase
-    setHasJoined(true);
-
-    toast.success(`Te has unido a la sala de ${roomData?.host_name}`);
-    setIsJoining(false);
   };
 
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Buscando sala...</p>
-        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-card rounded-2xl p-8 border border-border max-w-md w-full text-center"
-        >
-          <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-destructive" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Error</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="bg-[#1c1f2e] border border-white/10 p-8 rounded-3xl max-w-md w-full text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">¡Ups!</h2>
+          <p className="text-white/60 mb-6">{error}</p>
           <button
             onClick={onCancel}
-            className="w-full py-3 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition flex items-center justify-center gap-2"
           >
-            <ArrowLeft size={18} />
-            Volver
+            <ArrowLeft size={18} /> Volver al menú
           </button>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
-  // Waiting room view (solo visible DESPUÉS de validar el nombre)
-  if (hasJoined) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl p-8 border border-primary/30 max-w-md w-full"
-        >
-          <h2 className="text-2xl font-bold text-foreground text-center mb-2">{gameTitle}</h2>
-          <p className="text-muted-foreground text-center mb-6">Sala de {roomData?.host_name}</p>
-
-          <div className="flex justify-center gap-2 mb-6">
-            {roomCode
-              .toUpperCase()
-              .split("")
-              .map((char, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scale: 0, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center"
-                >
-                  <span className="text-2xl font-black text-primary-foreground">{char}</span>
-                </motion.div>
-              ))}
-          </div>
-
-          <div className="bg-background/50 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={18} className="text-foreground" />
-              <span className="text-foreground font-semibold">Jugadores ({roomPlayers.length})</span>
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              <AnimatePresence mode="popLayout">
-                {roomPlayers.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-2">Conectando...</p>
-                ) : (
-                  roomPlayers.map((player, index) => (
-                    <motion.div
-                      key={player.oderId}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <User size={16} className="text-primary" />
-                      </div>
-                      <span className="text-foreground font-medium flex-1">{player.username}</span>
-                      {index === 0 && (
-                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold">
-                          Host
-                        </span>
-                      )}
-                      {player.username === playerName && (
-                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full font-bold">
-                          Tú
-                        </span>
-                      )}
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="w-full py-3 bg-secondary/50 text-muted-foreground font-medium rounded-xl flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-              Esperando al host...
-            </div>
-            <button
-              onClick={onCancel}
-              className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
-            >
-              Salir de la sala
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Initial join view (Formulario obligatorio de nombre)
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-card rounded-2xl p-8 border border-border max-w-md w-full"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[#1c1f2e] border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl"
       >
-        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Users className="w-8 h-8 text-primary" />
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-400">
+            <Users size={32} />
+          </div>
+          <h2 className="text-2xl font-black text-white">{gameTitle}</h2>
+          <p className="text-white/60 text-sm">Invitación de {roomData?.host_name}</p>
         </div>
 
-        <h2 className="text-2xl font-bold text-foreground text-center mb-2">Unirse a partida</h2>
-        <p className="text-muted-foreground text-center mb-6">{roomData?.host_name} te ha invitado</p>
-
         <div className="mb-6">
-          <label className="block text-sm text-muted-foreground mb-2 text-center">Tu nombre de juego</label>
+          <label className="block text-xs font-bold uppercase tracking-wider text-white/40 mb-2 ml-1">
+            Tu Nombre de Jugador
+          </label>
           <Input
-            placeholder="Ej: ProPlayer24"
             value={playerName}
-            onChange={(e) => setPlayerName(e.target.value.slice(0, 15))}
-            maxLength={15}
-            className="text-center text-lg font-bold bg-background border-border"
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Escribe tu nombre..."
+            className="bg-white/5 border-white/10 text-white text-center h-12 text-lg focus:border-purple-500"
           />
         </div>
 
@@ -316,14 +145,13 @@ export default function JoinRoomFromLink({
           <button
             onClick={handleJoin}
             disabled={isJoining || !playerName.trim()}
-            className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-2xl transition flex items-center justify-center gap-2"
           >
-            {isJoining ? <Loader2 size={20} className="animate-spin" /> : <Users size={20} />}
-            Confirmar y Unirse
+            {isJoining ? <Loader2 className="animate-spin" size={20} /> : "Confirmar y Unirse"}
           </button>
           <button
             onClick={onCancel}
-            className="w-full py-2 text-muted-foreground hover:text-foreground text-sm transition-colors"
+            className="w-full py-2 text-white/40 hover:text-white text-sm underline transition"
           >
             Cancelar
           </button>
