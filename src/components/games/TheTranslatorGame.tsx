@@ -44,9 +44,10 @@ type GamePhase = 'waiting' | 'playing' | 'reveal' | 'microlesson' | 'ranking';
 interface TheTranslatorGameProps {
   roomCode?: string;
   onBack?: () => void;
+  microlessonsEnabled?: boolean;
 }
 
-export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGameProps) {
+export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnabled = true }: TheTranslatorGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -360,8 +361,8 @@ export default function TheTranslatorGame({ roomCode, onBack }: TheTranslatorGam
     if (gamePhase !== 'reveal') return;
 
     const timer = setTimeout(() => {
-      // Show microlesson with a word from the phrase
-      if (currentPhrase) {
+      // Show microlesson with a word from the phrase (if enabled)
+      if (microlessonsEnabled && currentPhrase) {
         // Extract a key word from the English translation
         const words = currentPhrase.english_translation.split(/\s+/).filter(w => w.length >= 3);
         if (words.length > 0) {

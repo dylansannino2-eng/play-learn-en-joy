@@ -29,9 +29,10 @@ type GamePhase = 'waiting' | 'playing' | 'microlesson' | 'ranking';
 interface WordBattleGameProps {
   roomCode?: string;
   onBack?: () => void;
+  microlessonsEnabled?: boolean;
 }
 
-export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps) {
+export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled = true }: WordBattleGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -157,8 +158,8 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
   // Removed auto-fetch on mount - now starts from lobby
 
   const endRound = useCallback(() => {
-    // Show microlesson with a word from the current card
-    if (currentCard && currentCard.correct_answers.length > 0) {
+    // Show microlesson with a word from the current card (if enabled)
+    if (microlessonsEnabled && currentCard && currentCard.correct_answers.length > 0) {
       // Pick a random correct answer as the microlesson word
       const randomAnswer = currentCard.correct_answers[Math.floor(Math.random() * currentCard.correct_answers.length)];
       setMicrolessonWord(randomAnswer);
@@ -166,7 +167,7 @@ export default function WordBattleGame({ roomCode, onBack }: WordBattleGameProps
     } else {
       setGamePhase('ranking');
     }
-  }, [currentCard]);
+  }, [currentCard, microlessonsEnabled]);
 
   // Timer (uses an absolute end timestamp so it doesn't "pause" when the tab is inactive)
   useEffect(() => {

@@ -25,6 +25,7 @@ interface Game {
   description: string | null;
   is_active: boolean;
   sort_order: number;
+  microlessons_enabled: boolean;
 }
 
 type GameFormData = Omit<Game, "id">;
@@ -70,6 +71,7 @@ export default function AdminPage() {
     description: null,
     is_active: true,
     sort_order: 0,
+    microlessons_enabled: true,
   });
 
   useEffect(() => {
@@ -111,6 +113,7 @@ export default function AdminPage() {
       description: null,
       is_active: true,
       sort_order: 0,
+      microlessons_enabled: true,
     });
     setEditingGame(null);
   };
@@ -127,6 +130,7 @@ export default function AdminPage() {
         description: game.description,
         is_active: game.is_active,
         sort_order: game.sort_order,
+        microlessons_enabled: game.microlessons_enabled ?? true,
       });
     } else {
       resetForm();
@@ -332,7 +336,7 @@ export default function AdminPage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sort_order">Orden</Label>
                     <Input
@@ -348,6 +352,15 @@ export default function AdminPage() {
                       <Switch
                         checked={formData.is_active}
                         onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Microlecciones</Label>
+                    <div className="pt-2">
+                      <Switch
+                        checked={formData.microlessons_enabled}
+                        onCheckedChange={(checked) => setFormData({ ...formData, microlessons_enabled: checked })}
                       />
                     </div>
                   </div>
@@ -388,6 +401,7 @@ export default function AdminPage() {
                       <TableHead>Badge</TableHead>
                       <TableHead>Orden</TableHead>
                       <TableHead>Activo</TableHead>
+                      <TableHead>Microlec.</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -414,6 +428,11 @@ export default function AdminPage() {
                         <TableCell>{game.sort_order}</TableCell>
                         <TableCell>
                           <Switch checked={game.is_active} onCheckedChange={() => toggleActive(game)} />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={game.microlessons_enabled ? "default" : "secondary"}>
+                            {game.microlessons_enabled ? "Sí" : "No"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
