@@ -19,6 +19,7 @@ interface Game {
   id: string;
   title: string;
   image: string;
+  slug: string | null;
   badge: string | null;
   category: string;
   categories: string[];
@@ -26,6 +27,8 @@ interface Game {
   is_active: boolean;
   sort_order: number;
   microlessons_enabled: boolean;
+  base_game_slug: string | null;
+  content_category: string | null;
 }
 
 type GameFormData = Omit<Game, "id">;
@@ -33,6 +36,15 @@ type GameFormData = Omit<Game, "id">;
 const skillCategories = ["listening", "speaking", "writing", "reading"];
 const otherCategories = ["new", "popular", "multiplayer", "brain", "ranking"];
 const badges = ["new", "hot", "top", "updated"];
+
+// Base game slugs - these are the actual game components that can be rendered
+const baseGameSlugs = [
+  { value: "word-battle", label: "Word Battle" },
+  { value: "the-translator", label: "The Translator" },
+  { value: "the-movie-interpreter", label: "The Movie Interpreter" },
+  { value: "word-search", label: "Word Search" },
+  { value: "memorama", label: "Memorama" },
+];
 
 const categoryLabels: Record<string, string> = {
   listening: "🎧 Listening",
@@ -65,6 +77,7 @@ export default function AdminPage() {
   const [formData, setFormData] = useState<GameFormData>({
     title: "",
     image: "",
+    slug: null,
     badge: null,
     category: "listening",
     categories: [],
@@ -72,6 +85,8 @@ export default function AdminPage() {
     is_active: true,
     sort_order: 0,
     microlessons_enabled: true,
+    base_game_slug: null,
+    content_category: null,
   });
 
   useEffect(() => {
@@ -107,6 +122,7 @@ export default function AdminPage() {
     setFormData({
       title: "",
       image: "",
+      slug: null,
       badge: null,
       category: "listening",
       categories: [],
@@ -114,6 +130,8 @@ export default function AdminPage() {
       is_active: true,
       sort_order: 0,
       microlessons_enabled: true,
+      base_game_slug: null,
+      content_category: null,
     });
     setEditingGame(null);
   };
@@ -124,6 +142,7 @@ export default function AdminPage() {
       setFormData({
         title: game.title,
         image: game.image,
+        slug: game.slug,
         badge: game.badge,
         category: game.category,
         categories: game.categories || [],
@@ -131,6 +150,8 @@ export default function AdminPage() {
         is_active: game.is_active,
         sort_order: game.sort_order,
         microlessons_enabled: game.microlessons_enabled ?? true,
+        base_game_slug: game.base_game_slug,
+        content_category: game.content_category,
       });
     } else {
       resetForm();
@@ -250,6 +271,20 @@ export default function AdminPage() {
                     required
                   />
                 </div>
+                
+                {/* Slug field */}
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug (URL) *</Label>
+                  <Input
+                    id="slug"
+                    value={formData.slug || ""}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value || null })}
+                    placeholder="the-movie-interpreter-phrasal-verbs"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">URL del juego: /game/{formData.slug || "tu-slug"}</p>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="image">URL de Imagen *</Label>
                   <Input
@@ -259,6 +294,44 @@ export default function AdminPage() {
                     placeholder="https://..."
                     required
                   />
+                </div>
+
+                {/* Base Game Slug - for variants */}
+                <div className="space-y-2">
+                  <Label>Juego Base (para variantes)</Label>
+                  <Select
+                    value={formData.base_game_slug || "none"}
+                    onValueChange={(value) => setFormData({ ...formData, base_game_slug: value === "none" ? null : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona juego base" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ninguno (usar slug propio)</SelectItem>
+                      {baseGameSlugs.map((game) => (
+                        <SelectItem key={game.value} value={game.value}>
+                          {game.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Si es una variante, selecciona el juego base. Dejarlo vacío si es un juego principal.
+                  </p>
+                </div>
+
+                {/* Content Category - filter for variants */}
+                <div className="space-y-2">
+                  <Label htmlFor="content_category">Categoría de Contenido (filtro)</Label>
+                  <Input
+                    id="content_category"
+                    value={formData.content_category || ""}
+                    onChange={(e) => setFormData({ ...formData, content_category: e.target.value || null })}
+                    placeholder="phrasal-verbs, idioms, etc."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Filtra el contenido del juego por esta categoría (ej: phrasal-verbs, idioms).
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Habilidad (Skill)</Label>

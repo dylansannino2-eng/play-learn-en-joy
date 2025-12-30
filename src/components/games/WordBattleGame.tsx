@@ -30,9 +30,10 @@ interface WordBattleGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  category?: string;
 }
 
-export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled = true }: WordBattleGameProps) {
+export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled = true, category }: WordBattleGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');

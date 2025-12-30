@@ -46,9 +46,7 @@ const App = () => (
             <Route path="/speaking" element={<SpeakingGames />} />
             <Route path="/reading" element={<ReadingGames />} />
             <Route path="/game/:slug" element={<GamePage />} />
-            <Route path="/game/:slug/:category" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
-            <Route path="/game-mobile/:slug/:category" element={<GamePageMobile />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
             {/* 👇 Rutas de Administración */}
