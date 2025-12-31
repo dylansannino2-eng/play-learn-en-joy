@@ -43,6 +43,19 @@ interface SubtitleConfig {
   category: string | null;
 }
 
+// --- Lógica de Autogeneración de Contenido Educativo ---
+async function autoGenerateLessonData(word: string) {
+  // Simulación de generación de contenido (En el futuro puedes conectar esto a una IA)
+  const normalized = word.toLowerCase().trim();
+  return {
+    meaning: `Uso de "${normalized}" en el contexto del clip. Esta palabra es clave para la fluidez en conversaciones cotidianas.`,
+    examples: [
+      `I can't believe it's ${normalized}. (No puedo creer que sea "${normalized}")`,
+      `Let's look at this "${normalized}" again. (Miremos esto "${normalized}" de nuevo.)`,
+    ],
+  };
+}
+
 // --- Componente de Auto-Selección ---
 interface AutoSelectorProps {
   subtitles: SubtitleItem[];
@@ -91,7 +104,7 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
           start: startTimeCalculated,
           end: endTimeCalculated,
         });
-        toast.success("Configuración generada con éxito");
+        toast.success("Configuración inteligente lista");
       } else {
         toast.error("No se encontraron palabras para esta dificultad");
       }
@@ -107,7 +120,7 @@ function AutoWordSelector({ subtitles, difficulty, onAutoSelect }: AutoSelectorP
       className="w-full bg-gradient-to-r from-purple-600 to-primary hover:from-purple-700 hover:to-primary/90 text-white shadow-lg gap-2"
     >
       {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-      {isGenerating ? "Analizando..." : "Auto-Configurar Clip e Inteligencia"}
+      {isGenerating ? "Analizando..." : "Auto-Configurar e Inteligencia"}
     </Button>
   );
 }
@@ -122,12 +135,10 @@ export default function SubtitleConfigAdmin() {
   const [configs, setConfigs] = useState<SubtitleConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
 
-  // Estados de Diálogos
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<SubtitleConfig | null>(null);
-
   const [editingConfig, setEditingConfig] = useState<SubtitleConfig | null>(null);
 
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number | null>(null);
@@ -191,30 +202,53 @@ export default function SubtitleConfigAdmin() {
     setManualWord(cleanWord);
   };
 
-  const handleManualWordChange = (value: string) => {
-    setManualWord(value);
-    setSelectedWord(value);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingConfig) return;
 
-    const { error } = await supabase
-      .from("subtitle_configs")
-      .update({
-        ...formData,
-        target_subtitle_index: selectedSubtitleIndex,
-        hidden_word: manualWord || selectedWord || null,
-        hidden_word_index: selectedWordIndex,
-      })
-      .eq("id", editingConfig.id);
+    const finalWord = (manualWord || selectedWord).toLowerCase().trim();
 
-    if (error) toast.error("Error al actualizar");
-    else {
-      toast.success("Guardado");
+    try {
+      // 1. Guardar configuración del Clip
+      const { error: configError } = await supabase
+        .from("subtitle_configs")
+        .update({
+          ...formData,
+          target_subtitle_index: selectedSubtitleIndex,
+          hidden_word: finalWord,
+          hidden_word_index: selectedWordIndex,
+        })
+        .eq("id", editingConfig.id);
+
+      if (configError) throw configError;
+
+      // 2. AUTOGENERAR MICROLECCIÓN
+      if (finalWord) {
+        // Verificar si la lección ya existe
+        const { data: existingLesson } = await supabase
+          .from("microlessons")
+          .select("id")
+          .eq("word", finalWord)
+          .maybeSingle();
+
+        if (!existingLesson) {
+          const lessonContent = await autoGenerateLessonData(finalWord);
+          await supabase.from("microlessons").insert({
+            word: finalWord,
+            meaning: lessonContent.meaning,
+            examples: lessonContent.examples,
+            is_active: true,
+            category: formData.category,
+          });
+          toast.success(`Microlección creada para: ${finalWord}`);
+        }
+      }
+
+      toast.success("Todo guardado correctamente");
       setDialogOpen(false);
       fetchConfigs();
+    } catch (error) {
+      toast.error("Error al guardar");
     }
   };
 
@@ -263,13 +297,12 @@ export default function SubtitleConfigAdmin() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">Movie Interpreter</h1>
-                <p className="text-sm text-muted-foreground">Panel de Administración de Clips</p>
+                <p className="text-sm text-muted-foreground">Admin de Clips y Microlecciones</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* DIALOGO DE EDICIÓN */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-5xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
@@ -284,7 +317,7 @@ export default function SubtitleConfigAdmin() {
                   <div className="space-y-4 p-4 border rounded-xl bg-muted/10">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-primary">Ajustes del Clip</h3>
                     <div className="space-y-2">
-                      <Label>Nombre del Clip</Label>
+                      <Label>Nombre</Label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -310,24 +343,6 @@ export default function SubtitleConfigAdmin() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Dificultad Base</Label>
-                      <Select
-                        value={formData.difficulty}
-                        onValueChange={(v) => setFormData({ ...formData, difficulty: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {difficulties.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {difficultyLabels[d]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   <div className="p-4 border-2 border-primary/20 rounded-xl bg-primary/5 space-y-3">
@@ -335,7 +350,7 @@ export default function SubtitleConfigAdmin() {
                       <Sparkles className="w-4 h-4" /> ASISTENTE MÁGICO
                     </div>
                     <p className="text-xs text-muted-foreground italic">
-                      Analiza los subtítulos y configura automáticamente los tiempos y la palabra oculta.
+                      Configura el clip y prepara la autogeneración de la lección educativa.
                     </p>
                     <AutoWordSelector
                       subtitles={editingConfig?.subtitles || []}
@@ -359,7 +374,7 @@ export default function SubtitleConfigAdmin() {
                   <Card className="border-none shadow-none bg-muted/20">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-bold uppercase tracking-widest">
-                        Selección Manual de Palabra
+                        Palabra Oculta (Generará Microlección)
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -368,17 +383,19 @@ export default function SubtitleConfigAdmin() {
                           <Label>Palabra Activa</Label>
                           <Input
                             value={manualWord}
-                            onChange={(e) => handleManualWordChange(e.target.value)}
-                            placeholder="Selecciona abajo o escribe..."
+                            onChange={(e) => {
+                              setManualWord(e.target.value);
+                              setSelectedWord(e.target.value);
+                            }}
                           />
                         </div>
                         {selectedWord && (
                           <Badge className="h-10 px-4 bg-green-600">
-                            <Check className="mr-2 w-4 h-4" /> Lista
+                            <Check className="mr-2 w-4 h-4" /> Lista para IA
                           </Badge>
                         )}
                       </div>
-                      <div className="max-h-[400px] overflow-y-auto pr-2 space-y-1 border rounded-lg p-2 bg-background">
+                      <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2 bg-background">
                         {editingConfig?.subtitles?.map((sub, idx) => renderSubtitleWithSelection(sub, idx))}
                       </div>
                     </CardContent>
@@ -398,7 +415,6 @@ export default function SubtitleConfigAdmin() {
           </DialogContent>
         </Dialog>
 
-        {/* --- TABLA DE CONFIGURACIONES --- */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Clips Disponibles</CardTitle>
@@ -461,10 +477,7 @@ export default function SubtitleConfigAdmin() {
           </CardContent>
         </Card>
 
-        {/* --- MODAL DE VISTA PREVIA --- */}
         <ClipPreviewModal open={previewOpen} onOpenChange={setPreviewOpen} config={previewConfig} />
-
-        {/* --- MODAL DE IMPORTACIÓN --- */}
         <VideoImportModal open={importModalOpen} onOpenChange={setImportModalOpen} onSuccess={fetchConfigs} />
       </div>
     </div>
