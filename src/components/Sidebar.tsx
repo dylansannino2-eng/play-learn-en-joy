@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, BookOpen, GraduationCap, Brain, MessageCircle, Settings, Wand2, Mic, User } from "lucide-react";
+import { Home, Users, BookOpen, GraduationCap, MessageCircle, Settings, Wand2, Mic, User, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarItemProps {
@@ -53,7 +53,7 @@ const Sidebar = () => {
   const [expanded, setExpanded] = useState(false);
   const location = useLocation();
 
-  // Función para verificar si la ruta está activa
+  // Función auxiliar para determinar si la ruta actual coincide con el ítem
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -84,7 +84,7 @@ const Sidebar = () => {
           active={isActive("/vocabulary")}
         />
         <SidebarItem
-          icon={<MessageCircle size={22} />}
+          icon={<PenTool size={22} />}
           label="Gramática"
           expanded={expanded}
           to="/grammar"
@@ -126,7 +126,14 @@ const Sidebar = () => {
         />
       </nav>
 
-      <SidebarItem icon={<Settings size={22} />} label="Configuración" expanded={expanded} />
+      {/* ⚙️ Link a Configuración actualizado */}
+      <SidebarItem
+        icon={<Settings size={22} />}
+        label="Configuración"
+        expanded={expanded}
+        to="/settings"
+        active={isActive("/settings")}
+      />
     </aside>
   );
 };
