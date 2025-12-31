@@ -24,8 +24,10 @@ import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
 import ReadingGames from "./pages/ReadingGames";
-// 1. IMPORTAR LA NUEVA PÁGINA
+
+// --- NUEVAS PÁGINAS AÑADIDAS ---
 import VocabularyGames from "./pages/VocabularyGames";
+import GrammarGames from "./pages/GrammarGames";
 
 const queryClient = new QueryClient();
 
@@ -38,30 +40,32 @@ const App = () => (
         <BrowserRouter>
           <ScrollToTop />
 
-          {/* 🔍 Inyectamos el componente SEO aquí para que escuche los cambios de ruta */}
           <SEO />
 
           <Routes>
             <Route path="/" element={<Index />} />
+
+            {/* 📚 Rutas de Categorías de Aprendizaje */}
             <Route path="/listening" element={<ListeningGames />} />
             <Route path="/writing" element={<WritingGames />} />
             <Route path="/speaking" element={<SpeakingGames />} />
             <Route path="/reading" element={<ReadingGames />} />
-            {/* 2. AÑADIR LA RUTA DE VOCABULARIO */}
             <Route path="/vocabulary" element={<VocabularyGames />} />
+            <Route path="/grammar" element={<GrammarGames />} />
 
+            {/* 🎮 Rutas de Juego */}
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
+
+            {/* 🔐 Auth y Admin */}
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
-
-            {/* 👇 Rutas de Administración */}
             <Route path="/admin/subtitle-configs" element={<SubtitleConfigAdmin />} />
             <Route path="/admin/microlessons" element={<MicrolessonsAdmin />} />
             <Route path="/admin/seo" element={<SEOManager />} />
             <Route path="/ai-creator" element={<AIGameCreator />} />
 
-            {/* CATCH-ALL ROUTE */}
+            {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
