@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Lightbulb, Clock } from "lucide-react";
+import { BookOpen, Lightbulb, Clock, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface MicroLessonProps {
   word: string;
+  context?: string; // The subtitle/sentence where the word appears
   duration?: number;
   onComplete: () => void;
 }
@@ -46,18 +47,22 @@ function getGenericDefinition(word: string): MicroLessonData {
   };
 }
 
-export default function MicroLesson({ word, duration = 10, onComplete }: MicroLessonProps) {
+export default function MicroLesson({ word, context, duration = 10, onComplete }: MicroLessonProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isVisible, setIsVisible] = useState(true);
   const [definition, setDefinition] = useState<MicroLessonData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAIGenerated, setIsAIGenerated] = useState(false);
 
   const normalizedWord = word.toLowerCase().trim();
 
   useEffect(() => {
     const fetchDefinition = async () => {
       setIsLoading(true);
+      setIsAIGenerated(false);
+      
       try {
+        // First, try to get from database
         const { data, error } = await supabase
           .from("microlessons")
           .select("meaning, examples")
@@ -67,10 +72,31 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
 
         if (data && !error) {
           setDefinition({ meaning: data.meaning, examples: data.examples || [] });
-        } else {
-          const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
-          setDefinition(fallback);
+          setIsLoading(false);
+          return;
         }
+
+        // If context is provided, generate with AI
+        if (context) {
+          try {
+            const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-microlesson', {
+              body: { word: normalizedWord, context }
+            });
+
+            if (aiData && !aiError && aiData.meaning) {
+              setDefinition({ meaning: aiData.meaning, examples: aiData.examples || [] });
+              setIsAIGenerated(true);
+              setIsLoading(false);
+              return;
+            }
+          } catch (aiErr) {
+            console.error("AI generation failed:", aiErr);
+          }
+        }
+
+        // Fallback to local definitions
+        const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
+        setDefinition(fallback);
       } catch (err) {
         const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
         setDefinition(fallback);
@@ -78,7 +104,7 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
       setIsLoading(false);
     };
     fetchDefinition();
-  }, [normalizedWord, word]);
+  }, [normalizedWord, word, context]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -124,7 +150,15 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
                 <div className="p-2 rounded-lg bg-primary/10">
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
-                <h2 className="text-lg font-semibold text-foreground">Repaso Rápido</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">Repaso Rápido</h2>
+                  {isAIGenerated && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-accent/20 rounded-full text-xs text-accent">
+                      <Sparkles className="w-3 h-3" />
+                      Contextual
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary">
                 <Clock className="w-4 h-4 text-muted-foreground" />

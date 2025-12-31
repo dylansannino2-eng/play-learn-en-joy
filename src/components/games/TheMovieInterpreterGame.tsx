@@ -197,6 +197,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
   // Microlesson state
   const [microlessonWord, setMicrolessonWord] = useState('');
+  const [microlessonContext, setMicrolessonContext] = useState('');
 
   // Sync refs (multiplayer)
   const lastSyncedConfigRef = useRef<string | null>(null);
@@ -514,13 +515,15 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
   const endRound = useCallback(async () => {
     // Start microlesson phase with the hidden word (if enabled)
     const word = blankSubtitle?.hiddenWord || '';
+    const context = blankSubtitle?.originalText || '';
     if (microlessonsEnabled && word) {
       setMicrolessonWord(word);
+      setMicrolessonContext(context);
       setGamePhase('microlesson');
       
       // Host broadcasts microlesson phase
       if (gameRoomCode && isHostInRoom) {
-        await broadcastGameEvent('sync_microlesson', { word });
+        await broadcastGameEvent('sync_microlesson', { word, context });
       }
     } else {
       setGamePhase('ranking');
@@ -604,9 +607,10 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
     // Sync microlesson from host
     if (gameEvent.type === 'sync_microlesson' && !isHostInRoom && gameRoomCode) {
-      const payload = gameEvent.payload as { word: string };
+      const payload = gameEvent.payload as { word: string; context?: string };
       if (payload.word) {
         setMicrolessonWord(payload.word);
+        setMicrolessonContext(payload.context || '');
         setGamePhase('microlesson');
         if (ytPlayerRef.current) {
           ytPlayerRef.current.pauseVideo();
@@ -1047,6 +1051,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     return (
       <MicroLesson
         word={microlessonWord}
+        context={microlessonContext}
         duration={10}
         onComplete={() => setGamePhase('ranking')}
       />
