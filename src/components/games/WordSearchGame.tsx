@@ -9,7 +9,7 @@ import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
-const ROUND_SECONDS = 90; // Aumentado un poco porque leer pistas toma tiempo
+const ROUND_SECONDS = 90;
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -91,7 +91,6 @@ const DIRECTIONS = [
   [-1, 1],
 ]; // Horiz, Vert, Diag, DiagInv
 
-// Genera la grilla usando solo las strings, devuelve grid y strings colocadas
 const generateGrid = (words: string[], size: number) => {
   const grid = Array(size)
     .fill(null)
@@ -170,7 +169,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
   const [grid, setGrid] = useState<string[][]>([]);
 
-  // AHORA targetWords guarda los objetos completos {word, clue}
+  // targetWords guarda los objetos completos {word, clue}
   const [targetWords, setTargetWords] = useState<WordDef[]>([]);
   const [myFoundWords, setMyFoundWords] = useState<string[]>([]);
 
@@ -241,7 +240,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
       const p = gameEvent.payload as any;
 
       setGrid(p.grid);
-      setTargetWords(p.words); // Recibe [{word, clue}, ...]
+      setTargetWords(p.words);
       setRound(p.round);
       setCurrentDifficulty(p.difficulty);
 
@@ -294,7 +293,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
       if (gameRoomCode) {
         await broadcastGameEvent("wordsearch_start", {
           grid: newGrid,
-          words: finalTargetWords, // Enviamos el objeto completo (palabra + pista)
+          words: finalTargetWords,
           round: roundNum,
           difficulty: difficultyVal,
           roundEndsAt: endsAt,
@@ -361,7 +360,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     setIsSelecting(true);
     setStartCell({ r, c });
     setCurrentCell({ r, c });
-    // Selection sound feedback
   };
 
   const handleMouseEnter = (r: number, c: number) => {
@@ -403,7 +401,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
       setMyFoundWords(newFound);
       playSound("correct", 0.6);
 
-      const wordPoints = actualWord.length * 15; // Más puntos porque es con pistas
+      const wordPoints = actualWord.length * 15;
       const newScore = score + wordPoints;
       setScore(newScore);
 
@@ -530,16 +528,16 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                     key={`${rIndex}-${cIndex}`}
                     whileTap={{ scale: 0.9 }}
                     className={`
-                       flex items-center justify-center font-bold text-lg sm:text-xl rounded-md cursor-pointer 
-                       transition-colors duration-100
-                       ${
-                         isActive
-                           ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20"
-                           : isAlreadyFound
-                             ? "bg-green-500/20 text-green-500 border border-green-500/30"
-                             : "bg-secondary/40 text-foreground hover:bg-secondary/70"
-                       } 
-                     `}
+                      flex items-center justify-center font-bold text-lg sm:text-xl rounded-md cursor-pointer 
+                      transition-colors duration-100
+                      ${
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20"
+                          : isAlreadyFound
+                            ? "bg-green-500/20 text-green-500 border border-green-500/30"
+                            : "bg-secondary/40 text-foreground hover:bg-secondary/70"
+                      } 
+                    `}
                     onMouseDown={() => handleMouseDown(rIndex, cIndex)}
                     onMouseEnter={() => handleMouseEnter(rIndex, cIndex)}
                   >
@@ -551,7 +549,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
           </div>
         </div>
 
-        {/* LADO DERECHO: PISTAS (TARJETAS) */}
+        {/* LADO DERECHO: PISTAS (TARJETAS MEJORADAS) */}
         <div className="w-full md:w-96 border-l border-border bg-card flex flex-col">
           <div className="p-4 border-b border-border bg-secondary/5">
             <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
@@ -567,45 +565,62 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                 return (
                   <motion.div
                     key={item.word}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
                     className={`
-                      relative p-3 rounded-lg border text-sm transition-all duration-300
+                      relative p-3 rounded-lg border text-sm transition-all duration-300 group
                       ${
                         found
-                          ? "bg-green-500/10 border-green-500/30"
-                          : "bg-secondary/30 border-border hover:bg-secondary/50"
+                          ? "bg-green-500/10 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.1)]"
+                          : "bg-card border-border hover:border-primary/50 hover:bg-secondary/40"
                       }
                     `}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`mt-0.5 ${found ? "text-green-500" : "text-muted-foreground"}`}>
+                      {/* Ícono de estado */}
+                      <div
+                        className={`mt-1 transition-colors duration-300 ${found ? "text-green-500" : "text-primary/40"}`}
+                      >
                         {found ? (
-                          <CheckCircle2 size={16} />
+                          <CheckCircle2 size={18} />
                         ) : (
-                          <div className="w-4 h-4 rounded-full border border-current opacity-40" />
+                          <div className="w-4 h-4 rounded-full border-2 border-current" />
                         )}
                       </div>
 
                       <div className="flex-1">
+                        {/* La Pista */}
                         <p
-                          className={`mb-1 ${found ? "text-muted-foreground line-through opacity-70" : "text-foreground font-medium"}`}
+                          className={`mb-2 leading-relaxed ${found ? "text-muted-foreground line-through decoration-green-500/50 decoration-2" : "text-foreground font-medium"}`}
                         >
                           {item.clue}
                         </p>
 
+                        {/* Footer de la tarjeta: Contador de letras y Respuesta */}
                         <div className="flex items-center justify-between">
-                          {/* Indicador de letras (pista) */}
-                          <span className="text-xs font-mono text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded border border-border/50">
-                            {item.word.length} letras
-                          </span>
+                          {/* Badge de conteo de letras */}
+                          <div
+                            className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md border ${
+                              found
+                                ? "bg-background/50 border-transparent text-muted-foreground"
+                                : "bg-primary/10 border-primary/20 text-primary"
+                            }`}
+                          >
+                            <span>{item.word.length} letras</span>
+                          </div>
 
-                          {/* Palabra revelada si se encontró */}
-                          {found && (
-                            <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded animate-in fade-in zoom-in">
-                              {item.word}
-                            </span>
-                          )}
+                          {/* Respuesta Revelada */}
+                          <AnimatePresence>
+                            {found && (
+                              <motion.span
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="text-xs font-bold text-green-500 tracking-wider uppercase bg-green-500/10 px-2 py-1 rounded border border-green-500/20"
+                              >
+                                {item.word}
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </div>
                     </div>
