@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Copy, Check, Users, Wifi, WifiOff, Pencil, LogIn } from "lucide-react";
+import { Play, Copy, Check, Users, Wifi, WifiOff, Pencil, LogIn, ArrowLeft, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -8,7 +8,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
     TYPES
 ======================= */
 
-type View = "menu" | "room_created" | "waiting_room";
+type View = "menu" | "join_menu" | "room_created" | "waiting_room";
 type Difficulty = "easy" | "medium" | "hard";
 
 type StartPayloadBuilder = (args: { difficulties: Difficulty[]; roomCode: string }) => Promise<unknown> | unknown;
@@ -68,7 +68,6 @@ export default function GameLobby({
   const [isEditingName, setIsEditingName] = useState(false);
 
   // Estados para la lógica de "Join"
-  const [isJoining, setIsJoining] = useState(false);
   const [inputCode, setInputCode] = useState("");
 
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -206,11 +205,13 @@ export default function GameLobby({
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl"
         >
-          <h1 className="text-3xl font-black text-center text-white mb-2">Play</h1>
-          <p className="text-center text-white/60 mb-6">Select difficulty</p>
+          <h1 className="text-4xl font-black text-center text-white mb-2 tracking-tight">Play</h1>
+          <p className="text-center text-white/60 mb-8">Selecciona la dificultad</p>
 
           <div className="mb-6">
-            <label className="text-white/60 text-sm mb-2 block">Tu nombre</label>
+            <label className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2 block ml-1">
+              Tu nombre
+            </label>
             <div className="relative">
               {isEditingName ? (
                 <input
@@ -221,25 +222,25 @@ export default function GameLobby({
                   onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
                   autoFocus
                   maxLength={20}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-purple-500/50 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 />
               ) : (
                 <button
                   onClick={() => setIsEditingName(true)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-left flex items-center justify-between hover:bg-white/15 transition"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-left flex items-center justify-between hover:bg-white/10 transition group"
                 >
-                  <span>{playerName}</span>
-                  <Pencil size={16} className="text-white/60" />
+                  <span className="font-medium">{playerName}</span>
+                  <Pencil size={16} className="text-white/40 group-hover:text-purple-400 transition" />
                 </button>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-2">
+          <div className="grid grid-cols-3 gap-3 mb-8">
             {[
-              { id: "easy", label: "Easy", sub: "A1, A2" },
-              { id: "medium", label: "Medium", sub: "B1, B2" },
-              { id: "hard", label: "Hard", sub: "C1, C2" },
+              { id: "easy", label: "Easy", sub: "A1-A2" },
+              { id: "medium", label: "Med", sub: "B1-B2" },
+              { id: "hard", label: "Hard", sub: "C1-C2" },
             ].map((d) => {
               const active = difficulties.includes(d.id as Difficulty);
               return (
@@ -254,80 +255,131 @@ export default function GameLobby({
                       return [...prev, d.id as Difficulty];
                     });
                   }}
-                  className={`rounded-2xl p-4 text-center transition ${
+                  className={`rounded-2xl p-3 text-center transition-all duration-300 border ${
                     active
-                      ? "bg-yellow-400/20 border border-yellow-400 text-yellow-300"
-                      : "bg-white/5 border border-white/10 text-white"
+                      ? "bg-purple-500/20 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                      : "bg-white/5 border-white/10 text-white/60 hover:border-white/20"
                   }`}
                 >
-                  <div className="font-bold">{d.label}</div>
-                  <div className="text-xs opacity-70">{d.sub}</div>
+                  <div className="font-black text-sm">{d.label}</div>
+                  <div className="text-[10px] font-bold opacity-50">{d.sub}</div>
                 </button>
               );
             })}
           </div>
-          <p className="text-center text-white/50 text-xs mb-6">Selecciona una o más dificultades</p>
 
           <div className="space-y-3">
-            {/* Play Solo */}
             <button
               onClick={handleQuickPlay}
-              className="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-2"
             >
-              <Play size={18} fill="currentColor" /> Play (Solo)
+              <Play size={20} fill="currentColor" /> SOLO PLAY
             </button>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Create room */}
               <button
                 onClick={handleCreateRoom}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-semibold transition border border-white/10 flex items-center justify-center gap-2"
+                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
               >
-                <Users size={18} /> Create Room
+                <Users size={18} /> CREATE
               </button>
 
-              {/* Join Button */}
               <button
-                onClick={() => setIsJoining(!isJoining)}
-                className={`py-4 rounded-2xl transition border border-white/10 font-semibold flex items-center justify-center gap-2 ${
-                  isJoining
-                    ? "bg-purple-500/20 text-purple-300 border-purple-500/50"
-                    : "bg-white/5 hover:bg-white/10 text-white"
-                }`}
+                onClick={() => setView("join_menu")}
+                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
               >
-                <LogIn size={18} /> Join
+                <LogIn size={18} /> JOIN
               </button>
             </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
-            {/* Join Room Input Area */}
-            <AnimatePresence>
-              {isJoining && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
+  /* =========================
+        JOIN ROOM VIEW
+  ========================= */
+
+  if (view === "join_menu") {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl"
+        >
+          <div className="flex items-center gap-2 mb-6">
+            <button
+              onClick={() => setView("menu")}
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-black text-white">Unirse a Sala</h2>
+          </div>
+
+          {/* Código de Sala */}
+          <div className="space-y-4 mb-8">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="CÓDIGO"
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value.toUpperCase().slice(0, 4))}
+                className="w-full px-4 py-5 rounded-2xl bg-white/5 border-2 border-purple-500/20 text-white text-center text-3xl font-black tracking-[0.4em] placeholder:text-white/5 focus:outline-none focus:border-purple-500 focus:bg-purple-500/5 transition-all"
+              />
+            </div>
+            <button
+              disabled={inputCode.length !== 4}
+              onClick={handleJoinRoom}
+              className="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:grayscale"
+            >
+              <LogIn size={20} /> ENTRAR AHORA
+            </button>
+          </div>
+
+          {/* Divisor */}
+          <div className="relative mb-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/5"></div>
+            </div>
+            <span className="relative px-4 bg-[#181a29] text-white/30 text-[10px] font-bold uppercase tracking-widest">
+              Salas Públicas
+            </span>
+          </div>
+
+          {/* Salas Públicas Listado */}
+          <div className="space-y-3">
+            <div className="bg-white/5 rounded-2xl p-2 border border-white/5 max-h-48 overflow-y-auto custom-scrollbar">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition group"
                 >
-                  <div className="flex gap-2 pt-2">
-                    <input
-                      type="text"
-                      placeholder="CÓDIGO"
-                      value={inputCode}
-                      onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                      maxLength={4}
-                      className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-center font-bold tracking-widest placeholder:text-white/20 focus:outline-none focus:border-purple-400"
-                    />
-                    <button
-                      disabled={inputCode.length !== 4}
-                      onClick={handleJoinRoom}
-                      className="px-6 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Go
-                    </button>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-black">
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-sm">Public_Lobby_{i * 7}</p>
+                      <p className="text-white/30 text-[10px] uppercase font-bold tracking-tight">
+                        3/8 Jugadores • Normal
+                      </p>
+                    </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <button
+                    onClick={() => {
+                      setInputCode(`PUB${i}`);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-purple-600 text-white text-[10px] font-black transition-all"
+                  >
+                    UNIRSE
+                  </button>
+                </div>
+              ))}
+              <p className="text-center text-white/20 text-[10px] py-3 font-medium">Buscando más salas...</p>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -344,106 +396,90 @@ export default function GameLobby({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
+          className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl text-center"
         >
-          <h2 className="text-3xl font-black text-white text-center mb-2">¡Sala Creada!</h2>
-          <p className="text-center text-white/70 mb-4">Comparte el código con tus amigos</p>
+          <h2 className="text-3xl font-black text-white mb-2">¡Sala Lista!</h2>
+          <p className="text-white/60 mb-8">Comparte el código con tus amigos</p>
 
-          <div className="mb-4">
-            <div className="relative">
-              {isEditingName ? (
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
-                  onBlur={() => setIsEditingName(false)}
-                  onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
-                  autoFocus
-                  maxLength={20}
-                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
-                />
-              ) : (
-                <button
-                  onClick={() => setIsEditingName(true)}
-                  className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
-                >
-                  <span>{playerName}</span>
-                  <Pencil size={14} className="text-white/60" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-center gap-3 mb-6">
+          <div className="flex justify-center gap-3 mb-8">
             {roomCode?.split("").map((c, i) => (
-              <div key={i} className="w-14 h-14 rounded-2xl bg-purple-500 flex items-center justify-center">
-                <span className="text-2xl font-black text-white">{c}</span>
-              </div>
+              <motion.div
+                key={i}
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: i * 0.1 }}
+                className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-lg"
+              >
+                <span className="text-3xl font-black text-white">{c}</span>
+              </motion.div>
             ))}
           </div>
 
-          <div className="bg-white/5 rounded-2xl p-4 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={18} className="text-white/70" />
-              <span className="text-white/70 text-sm">Jugadores ({players.length})</span>
+          <div className="bg-white/5 rounded-2xl p-5 mb-6 border border-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-purple-400" />
+                <span className="text-white font-bold text-sm">Jugadores ({players.length})</span>
+              </div>
               {isConnected ? (
-                <Wifi size={14} className="text-green-400 ml-auto" />
+                <Wifi size={16} className="text-green-400" />
               ) : (
-                <WifiOff size={14} className="text-red-400 ml-auto" />
+                <WifiOff size={16} className="text-red-400" />
               )}
             </div>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {players.length === 0 ? (
-                <p className="text-white/40 text-sm text-center py-2">Esperando jugadores...</p>
-              ) : (
-                players.map((p) => (
-                  <div key={p.odId} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
-                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                      {p.username.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-white text-sm">{p.username}</span>
-                    {p.isHost && (
-                      <span className="ml-auto text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">
-                        Host
-                      </span>
-                    )}
+
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+              {players.map((p) => (
+                <div key={p.odId} className="flex items-center gap-3 bg-white/5 rounded-xl p-2 border border-white/5">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs">
+                    {p.username.charAt(0).toUpperCase()}
                   </div>
-                ))
-              )}
+                  <span className="text-white text-sm font-medium">{p.username}</span>
+                  {p.isHost && (
+                    <span className="ml-auto text-[9px] font-black bg-yellow-400 text-black px-2 py-0.5 rounded-full uppercase">
+                      Host
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
-          <button
-            onClick={copyLink}
-            className="w-full mb-3 py-4 rounded-2xl bg-[#24283b] hover:bg-[#2c3150] text-white font-semibold flex items-center justify-center gap-2 transition"
-          >
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-            {copied ? "Copiado" : "Copiar Enlace"}
-          </button>
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              onClick={handleStartRoomGame}
+              disabled={players.length < 1}
+              className="w-full py-4 rounded-2xl bg-white text-purple-900 font-black flex items-center justify-center gap-2 hover:bg-purple-100 transition shadow-xl disabled:opacity-50"
+            >
+              <Play size={20} fill="currentColor" /> INICIAR PARTIDA
+            </button>
 
-          <button
-            onClick={handleStartRoomGame}
-            className="w-full mb-4 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center justify-center gap-2 transition"
-          >
-            <Play size={18} /> Iniciar Partida
-          </button>
-
-          <button
-            onClick={() => {
-              setRoomCode(null);
-              setView("menu");
-            }}
-            className="w-full text-center text-white/60 hover:text-white transition"
-          >
-            Cancelar
-          </button>
+            <div className="flex gap-2">
+              <button
+                onClick={copyLink}
+                className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-2 transition"
+              >
+                {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+                {copied ? "COPIADO" : "COPIAR LINK"}
+              </button>
+              <button
+                onClick={() => {
+                  setRoomCode(null);
+                  setView("menu");
+                }}
+                className="px-6 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold transition"
+              >
+                SALIR
+              </button>
+            </div>
+          </div>
         </motion.div>
       </div>
     );
   }
 
   /* =========================
-        WAITING ROOM VIEW
+        WAITING ROOM VIEW (FOR GUESTS)
   ========================= */
 
   return (
@@ -451,70 +487,48 @@ export default function GameLobby({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#3a2a78] to-[#1b163a] border border-white/10 shadow-2xl"
+        className="w-full max-w-md rounded-3xl p-8 bg-gradient-to-br from-[#1c1f2e] to-[#141625] border border-white/10 shadow-2xl text-center"
       >
-        <h2 className="text-3xl font-black text-white text-center mb-2">Sala {roomCode}</h2>
-        <p className="text-center text-white/70 mb-4">Esperando al host...</p>
-
-        <div className="mb-4">
-          <div className="relative">
-            {isEditingName ? (
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
-                onBlur={() => setIsEditingName(false)}
-                onKeyDown={(e) => e.key === "Enter" && setIsEditingName(false)}
-                autoFocus
-                maxLength={20}
-                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-center placeholder:text-white/40 focus:outline-none focus:border-purple-400"
-              />
-            ) : (
-              <button
-                onClick={() => setIsEditingName(true)}
-                className="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center gap-2 hover:bg-white/15 transition"
-              >
-                <span>{playerName}</span>
-                <Pencil size={14} className="text-white/60" />
-              </button>
-            )}
-          </div>
+        <div className="w-20 h-20 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-purple-500/30">
+          <Users size={40} className="text-purple-500 animate-pulse" />
         </div>
-        <div className="bg-white/5 rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={18} className="text-white/70" />
-            <span className="text-white/70 text-sm">Jugadores ({players.length})</span>
-            {isConnected ? (
-              <Wifi size={14} className="text-green-400 ml-auto" />
-            ) : (
-              <WifiOff size={14} className="text-red-400 ml-auto" />
-            )}
-          </div>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {players.length === 0 ? (
-              <p className="text-white/40 text-sm text-center py-2">Conectando...</p>
-            ) : (
-              players.map((p) => (
-                <div key={p.odId} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
-                  <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                    {p.username.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-white text-sm">{p.username}</span>
-                  {p.isHost && (
-                    <span className="ml-auto text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">
-                      Host
-                    </span>
-                  )}
+
+        <h2 className="text-2xl font-black text-white mb-2">Sala {roomCode}</h2>
+        <p className="text-white/40 text-sm mb-8">Esperando que el host inicie la partida...</p>
+
+        <div className="bg-white/5 rounded-2xl p-5 mb-8 border border-white/5">
+          <div className="flex items-center gap-2 mb-4 justify-center">
+            <div className="flex -space-x-2">
+              {players.map((p, i) => (
+                <div
+                  key={i}
+                  className="w-8 h-8 rounded-full border-2 border-[#1c1f2e] bg-purple-500 flex items-center justify-center text-[10px] font-black text-white"
+                >
+                  {p.username[0].toUpperCase()}
                 </div>
-              ))
-            )}
+              ))}
+            </div>
+            <span className="text-white/60 text-xs font-bold ml-2">{players.length} jugadores unidos</span>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-purple-400 text-xs font-bold uppercase tracking-widest">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+            </span>
+            Preparando escenario...
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-3 text-white/60">
-          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-          <span className="text-sm">Esperando que el host inicie la partida...</span>
-        </div>
+        <button
+          onClick={() => {
+            setRoomCode(null);
+            setView("menu");
+          }}
+          className="text-white/30 hover:text-white transition text-xs font-bold uppercase tracking-widest"
+        >
+          Abandonar Sala
+        </button>
       </motion.div>
     </div>
   );
