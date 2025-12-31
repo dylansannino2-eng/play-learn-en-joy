@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface MicroLessonProps {
   word: string;
-  duration?: number; // en segundos
+  duration?: number;
   onComplete: () => void;
 }
 
@@ -14,7 +14,6 @@ interface MicroLessonData {
   examples: string[];
 }
 
-// Diccionario local con la definición de "Over" añadida
 const fallbackDefinitions: Record<string, MicroLessonData> = {
   over: {
     meaning: "Preposición que indica que algo está por encima de otra cosa, o que una acción ha finalizado.",
@@ -31,13 +30,8 @@ const fallbackDefinitions: Record<string, MicroLessonData> = {
     meaning: "Contracción de 'do not'. Se usa para negar acciones.",
     examples: ["I don't like coffee. (No me gusta el café)", "Don't worry! (¡No te preocupes!)"],
   },
-  "won't": {
-    meaning: "Contracción de 'will not'. Expresa negación en futuro.",
-    examples: ["It won't rain today. (No lloverá hoy)", "I won't forget. (No olvidaré)"],
-  },
 };
 
-// Genera una definición genérica mejorada gramaticalmente
 function getGenericDefinition(word: string): MicroLessonData {
   const vowels = ["a", "e", "i", "o", "u"];
   const startsWithVowel = vowels.includes(word.charAt(0).toLowerCase());
@@ -63,9 +57,7 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
   useEffect(() => {
     const fetchDefinition = async () => {
       setIsLoading(true);
-
       try {
-        // Intentar obtener de Supabase primero
         const { data, error } = await supabase
           .from("microlessons")
           .select("meaning, examples")
@@ -74,12 +66,8 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
           .single();
 
         if (data && !error) {
-          setDefinition({
-            meaning: data.meaning,
-            examples: data.examples || [],
-          });
+          setDefinition({ meaning: data.meaning, examples: data.examples || [] });
         } else {
-          // Si no está en BD, buscar en el diccionario local o usar genérico
           const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
           setDefinition(fallback);
         }
@@ -87,16 +75,13 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
         const fallback = fallbackDefinitions[normalizedWord] || getGenericDefinition(word);
         setDefinition(fallback);
       }
-
       setIsLoading(false);
     };
-
     fetchDefinition();
   }, [normalizedWord, word]);
 
   useEffect(() => {
     if (isLoading) return;
-
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -108,7 +93,6 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [onComplete, isLoading]);
 
@@ -140,7 +124,7 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
                 <div className="p-2 rounded-lg bg-primary/10">
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
-                <h2 className="text-lg font-semibold text-foreground">Microlección</h2>
+                <h2 className="text-lg font-semibold text-foreground">Repaso Rápido</h2>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary">
                 <Clock className="w-4 h-4 text-muted-foreground" />
@@ -148,13 +132,14 @@ export default function MicroLesson({ word, duration = 10, onComplete }: MicroLe
               </div>
             </div>
 
-            {/* Word Display */}
+            {/* FEEDBACK TEXT & WORD */}
             <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.1, type: "spring" }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1 }}
               className="text-center mb-6"
             >
+              <p className="text-sm font-medium text-muted-foreground mb-2 italic">La palabra correcta era:</p>
               <span className="inline-block px-6 py-3 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl border border-primary/30">
                 <span className="text-3xl md:text-4xl font-bold text-primary">
                   {word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()}
