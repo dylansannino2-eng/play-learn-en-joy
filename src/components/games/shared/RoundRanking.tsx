@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Star, Trophy, Target, Crown, Medal } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import SoloResult from './SoloResult';
 
 interface PlayerScore {
   rank: number;
@@ -19,6 +20,7 @@ interface RoundRankingProps {
   onCountdownComplete?: () => void;
   isLastRound?: boolean;
   allPlayersCorrect?: boolean;
+  isSoloMode?: boolean;
 }
 
 export default function RoundRanking({ 
@@ -28,14 +30,27 @@ export default function RoundRanking({
   countdownSeconds = 5,
   onCountdownComplete,
   isLastRound = false,
-  allPlayersCorrect = false
+  allPlayersCorrect = false,
+  isSoloMode = false
 }: RoundRankingProps) {
   // Faster countdown if all players got it right
   const effectiveCountdown = allPlayersCorrect ? Math.min(countdownSeconds, 2) : countdownSeconds;
   const [countdown, setCountdown] = useState(effectiveCountdown);
 
+  // Solo mode between-round auto-advance effect
   useEffect(() => {
-    if (isLastRound) return; // No countdown on last round
+    if (!isSoloMode || isLastRound) return;
+    
+    const timer = setTimeout(() => {
+      onCountdownComplete?.();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isSoloMode, isLastRound, onCountdownComplete]);
+
+  // Multiplayer countdown effect
+  useEffect(() => {
+    if (isLastRound) return;
+    if (isSoloMode) return;
     
     if (countdown <= 0) {
       onCountdownComplete?.();
@@ -47,7 +62,35 @@ export default function RoundRanking({
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown, onCountdownComplete, isLastRound]);
+  }, [countdown, onCountdownComplete, isLastRound, isSoloMode]);
+
+  // Solo mode: show circular result at end, or brief transition between rounds
+  if (isSoloMode) {
+    if (isLastRound) {
+      const player = players[0];
+      return (
+        <SoloResult
+          correctAnswers={player?.correctAnswers || 0}
+          totalRounds={totalRounds}
+          points={player?.points || 0}
+          onPlayAgain={onCountdownComplete || (() => {})}
+        />
+      );
+    }
+    
+    // Between rounds - brief transition
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <p className="text-lg font-bold text-foreground">Siguiente ronda...</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   const getRankColor = (rank: number) => {
     switch (rank) {
