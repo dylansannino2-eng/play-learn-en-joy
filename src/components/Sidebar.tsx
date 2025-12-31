@@ -1,21 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  Home,
-  Gamepad2,
-  Users,
-  Trophy,
-  Flame,
-  Sparkles,
-  BookOpen,
-  GraduationCap,
-  Brain,
-  Mic, // Cambiado para Pronunciación
-  PenTool, // Cambiado para Gramática
-  Settings,
-  Wand2,
-  User, // Añadido para Single Player
-} from "lucide-react";
+import { Home, Users, BookOpen, GraduationCap, Brain, MessageCircle, Settings, Wand2, Mic, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarItemProps {
@@ -66,7 +51,10 @@ const SidebarItem = ({ icon, label, active, expanded, to }: SidebarItemProps) =>
 
 const Sidebar = () => {
   const [expanded, setExpanded] = useState(false);
-  const location = useLocation(); // Para detectar la página activa automáticamente
+  const location = useLocation();
+
+  // Función para verificar si la ruta está activa
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <aside
@@ -84,58 +72,47 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">
-        <SidebarItem
-          icon={<Home size={22} />}
-          label="Inicio"
-          active={location.pathname === "/"}
-          expanded={expanded}
-          to="/"
-        />
-        <SidebarItem icon={<Sparkles size={22} />} label="Nuevos" expanded={expanded} />
-        <SidebarItem icon={<Flame size={22} />} label="Populares" expanded={expanded} />
-        <SidebarItem icon={<Trophy size={22} />} label="Ranking" expanded={expanded} />
+        <SidebarItem icon={<Home size={22} />} label="Inicio" active={isActive("/")} expanded={expanded} to="/" />
 
         <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
 
-        {/* Enlaces a las nuevas páginas de habilidades */}
         <SidebarItem
           icon={<GraduationCap size={22} />}
           label="Vocabulario"
           expanded={expanded}
           to="/vocabulary"
-          active={location.pathname === "/vocabulary"}
+          active={isActive("/vocabulary")}
         />
         <SidebarItem
-          icon={<PenTool size={22} />}
+          icon={<MessageCircle size={22} />}
           label="Gramática"
           expanded={expanded}
           to="/grammar"
-          active={location.pathname === "/grammar"}
+          active={isActive("/grammar")}
         />
         <SidebarItem
           icon={<Mic size={22} />}
           label="Pronunciación"
           expanded={expanded}
           to="/pronunciation"
-          active={location.pathname === "/pronunciation"}
+          active={isActive("/pronunciation")}
         />
 
         <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
 
-        {/* Enlaces a Modos de Juego */}
         <SidebarItem
           icon={<Users size={22} />}
           label="Multijugador"
           expanded={expanded}
           to="/multiplayer"
-          active={location.pathname === "/multiplayer"}
+          active={isActive("/multiplayer")}
         />
         <SidebarItem
           icon={<User size={22} />}
           label="Single Player"
           expanded={expanded}
           to="/single-player"
-          active={location.pathname === "/single-player"}
+          active={isActive("/single-player")}
         />
 
         <div className={cn("h-px bg-sidebar-border my-2", expanded ? "w-full" : "w-8")} />
@@ -145,7 +122,7 @@ const Sidebar = () => {
           label="Crear Contenido"
           expanded={expanded}
           to="/ai-creator"
-          active={location.pathname === "/ai-creator"}
+          active={isActive("/ai-creator")}
         />
       </nav>
 
