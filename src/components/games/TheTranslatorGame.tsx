@@ -826,6 +826,7 @@ export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnable
           onCountdownComplete={isLastRound ? handlePlayAgain : nextRound}
           isLastRound={isLastRound}
           allPlayersCorrect={allPlayersCorrect}
+          isSoloMode={playerCount <= 1}
         />
         <div className="w-80 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
           <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border">

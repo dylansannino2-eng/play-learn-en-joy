@@ -470,6 +470,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         onCountdownComplete={isHostInRoom ? handleNextRound : () => {}}
         isLastRound={isLastRound}
         allPlayersCorrect={false}
+        isSoloMode={playerCount <= 1}
       />
     );
   }
