@@ -21,16 +21,18 @@ import SubtitleConfigAdmin from "./pages/SubtitleConfigAdmin";
 import MicrolessonsAdmin from "./pages/MicrolessonsAdmin";
 import NotFound from "./pages/NotFound";
 
-// --- Imports de Categorías Existentes ---
+// --- Habilidades ---
 import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
 import ReadingGames from "./pages/ReadingGames";
-
-// --- 1. NUEVOS IMPORTS ---
 import VocabularyGames from "./pages/VocabularyGames";
 import GrammarGames from "./pages/GrammarGames";
 import PronunciationGames from "./pages/PronunciationGames";
+
+// --- Modos de Juego (Últimas añadidas) ---
+import MultiplayerGames from "./pages/MultiplayerGames";
+import SinglePlayerGames from "./pages/SinglePlayerGames";
 
 const queryClient = new QueryClient();
 
@@ -48,22 +50,24 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
 
-            {/* 📚 Rutas de Categorías de Aprendizaje */}
+            {/* 📚 Rutas de Habilidades */}
             <Route path="/listening" element={<ListeningGames />} />
             <Route path="/writing" element={<WritingGames />} />
             <Route path="/speaking" element={<SpeakingGames />} />
             <Route path="/reading" element={<ReadingGames />} />
-
-            {/* --- 2. NUEVAS RUTAS AÑADIDAS --- */}
             <Route path="/vocabulary" element={<VocabularyGames />} />
             <Route path="/grammar" element={<GrammarGames />} />
             <Route path="/pronunciation" element={<PronunciationGames />} />
 
-            {/* 🎮 Rutas de Juego */}
+            {/* 🕹️ Rutas de Modos de Juego */}
+            <Route path="/multiplayer" element={<MultiplayerGames />} />
+            <Route path="/single-player" element={<SinglePlayerGames />} />
+
+            {/* 🎮 Rutas de Juego Core */}
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
 
-            {/* 🔐 Auth y Admin */}
+            {/* 🔐 Rutas de Auth y Admin */}
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/subtitle-configs" element={<SubtitleConfigAdmin />} />
