@@ -6,7 +6,6 @@ import RoundRanking from "./shared/RoundRanking";
 import GameLobby from "./shared/GameLobby";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
-// 1. IMPORTA TU CLIENTE DE SUPABASE (Ajusta la ruta si es necesario)
 import { supabase } from "@/integrations/supabase/client";
 
 // --- CONFIGURACIÓN Y TIPOS ---
@@ -40,10 +39,8 @@ const difficultyOptions: DifficultyOption[] = [
 interface WordDef {
   word: string;
   clue: string;
+  category?: string; // Columna adicional de la DB
 }
-
-// YA NO NECESITAMOS LA CONSTANTE "WORD_DEFINITIONS" AQUÍ.
-// LOS DATOS VENDRÁN DE LA DB.
 
 type GamePhase = "waiting" | "playing" | "ranking";
 
@@ -137,11 +134,8 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     broadcastGameEvent,
   } = useMultiplayerGame("word-search", gameRoomCode, displayName || undefined);
 
-  // Estados del Juego
   const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
   const [grid, setGrid] = useState<string[][]>([]);
-
-  // 2. NUEVO ESTADO: Diccionario cargado desde Supabase
   const [dictionary, setDictionary] = useState<WordDef[]>([]);
   const [isLoadingDictionary, setIsLoadingDictionary] = useState(true);
 
@@ -149,12 +143,10 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   const [myFoundWords, setMyFoundWords] = useState<string[]>([]);
   const [foundWordsCoords, setFoundWordsCoords] = useState<Coordinate[][]>([]);
 
-  // Estados de Selección
   const [isSelecting, setIsSelecting] = useState(false);
   const [startCell, setStartCell] = useState<Coordinate | null>(null);
   const [currentCell, setCurrentCell] = useState<Coordinate | null>(null);
 
-  // Estado General
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [totalRounds] = useState(3);
@@ -167,22 +159,20 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     preloadSounds();
   }, [preloadSounds]);
 
-  // 3. EFFECT PARA CARGAR PALABRAS DESDE SUPABASE
+  // Cargar palabras incluyendo la columna CATEGORY
   useEffect(() => {
     async function fetchWords() {
       try {
         setIsLoadingDictionary(true);
-        // Ajusta "wordsearch_dictionary" si tu tabla se llama distinto
-        // Traemos "word" y "clue". Puedes agregar .eq('category', category) si usas categorías.
-        const { data, error } = await supabase.from("wordsearch_dictionary").select("word, clue");
+        const { data, error } = await supabase.from("wordsearch_dictionary").select("word, clue, category"); //
 
         if (error) throw error;
 
         if (data) {
-          // Asegurarnos que word sea string y clue string (y convertimos a mayúsculas por si acaso)
           const formattedData: WordDef[] = data.map((item: any) => ({
             word: item.word.toUpperCase(),
             clue: item.clue,
+            category: item.category, //
           }));
           setDictionary(formattedData);
         }
@@ -195,9 +185,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     }
 
     fetchWords();
-  }, []); // Se ejecuta una sola vez al montar
-
-  // --- SINCRONIZACIÓN DE JUEGO (GAME LOOP) ---
+  }, []);
 
   const startRoundTimer = useCallback((endsAt?: number) => {
     const nextEndsAt = endsAt ?? Date.now() + ROUND_SECONDS * 1000;
@@ -240,12 +228,10 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
 
     if (gameEvent.type === "wordsearch_start") {
       const p = gameEvent.payload as any;
-
       setGrid(p.grid);
       setTargetWords(p.words);
       setRound(p.round);
       setCurrentDifficulty(p.difficulty);
-
       setMyFoundWords([]);
       setFoundWordsCoords([]);
       setGamePhase("playing");
@@ -263,19 +249,14 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     }
   }, [gameEvent, isHostInRoom, playSound, startRoundTimer]);
 
-  // --- FUNCIONES DEL HOST ---
-
   const generateAndBroadcastRound = useCallback(
     async (difficultyVal: Difficulty, roundNum: number) => {
-      // Si el diccionario está vacío, no podemos jugar
       if (dictionary.length === 0) {
         toast.error("No hay palabras disponibles para jugar.");
         return;
       }
 
       const diffConfig = difficultyOptions.find((d) => d.value === difficultyVal) || difficultyOptions[1];
-
-      // 4. USAMOS EL DICCIONARIO CARGADO (state) EN LUGAR DE LA CONSTANTE
       const shuffled = [...dictionary].sort(() => 0.5 - Math.random());
       const selectedItems = shuffled.slice(0, diffConfig.wordCount);
 
@@ -303,7 +284,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         });
       }
     },
-    // Añadimos 'dictionary' a las dependencias
     [gameRoomCode, broadcastGameEvent, playSound, startRoundTimer, dictionary],
   );
 
@@ -312,18 +292,13 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
       setDisplayName(payload.playerName);
       setIsHostInRoom(payload.isHost);
       if (payload.roomCode) setGameRoomCode(payload.roomCode);
-
       const initialDiff = payload.difficulties[0] || "medium";
-
       if (payload.isHost) {
-        // Un pequeño delay para asegurar transición, luego generar
         setTimeout(() => generateAndBroadcastRound(initialDiff, 1), 500);
       }
     },
     [generateAndBroadcastRound],
   );
-
-  // --- LÓGICA DE SELECCIÓN Y RENDERIZADO (IGUAL QUE ANTES) ---
 
   const getSelectedCells = (start: Coordinate, end: Coordinate): Coordinate[] => {
     const cells: Coordinate[] = [];
@@ -482,7 +457,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         </div>
       </div>
 
-      {/* ÁREA PRINCIPAL */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* LADO IZQUIERDO: GRILLA */}
         <div className="flex-1 flex items-center justify-center p-4 bg-secondary/10 overflow-auto">
@@ -520,7 +494,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
           </div>
         </div>
 
-        {/* LADO DERECHO: PISTAS */}
+        {/* LADO DERECHO: PISTAS CON TAG DE CATEGORÍA */}
         <div className="w-full md:w-96 border-l border-border bg-card flex flex-col">
           <div className="p-4 border-b border-border bg-secondary/5">
             <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
@@ -537,12 +511,10 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                     key={item.word}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className={`relative p-3 rounded-lg border text-sm transition-all duration-300 group ${found ? "bg-green-500/10 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.1)]" : "bg-card border-border hover:border-primary/50 hover:bg-secondary/40"}`}
+                    className={`relative p-3 rounded-lg border text-sm transition-all duration-300 group ${found ? "bg-green-500/10 border-green-500/50" : "bg-card border-border hover:bg-secondary/40"}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div
-                        className={`mt-1 transition-colors duration-300 ${found ? "text-green-500" : "text-primary/40"}`}
-                      >
+                      <div className={`mt-1 ${found ? "text-green-500" : "text-primary/40"}`}>
                         {found ? (
                           <CheckCircle2 size={18} />
                         ) : (
@@ -551,22 +523,33 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                       </div>
                       <div className="flex-1">
                         <p
-                          className={`mb-2 leading-relaxed ${found ? "text-muted-foreground line-through decoration-green-500/50 decoration-2" : "text-foreground font-medium"}`}
+                          className={`mb-2 leading-relaxed ${found ? "text-muted-foreground line-through decoration-green-500/50" : "text-foreground font-medium"}`}
                         >
                           {item.clue}
                         </p>
                         <div className="flex items-center justify-between">
-                          <div
-                            className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md border ${found ? "bg-background/50 border-transparent text-muted-foreground" : "bg-primary/10 border-primary/20 text-primary"}`}
-                          >
-                            <span>{item.word.length} letras</span>
+                          <div className="flex items-center gap-2">
+                            {/* TAG: Cantidad de letras */}
+                            <div
+                              className={`text-[10px] font-mono px-2 py-1 rounded-md border ${found ? "bg-background/50 text-muted-foreground/50" : "bg-primary/10 text-primary"}`}
+                            >
+                              {item.word.length} letras
+                            </div>
+                            {/* TAG: CATEGORÍA */}
+                            {item.category && (
+                              <div
+                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md border ${found ? "bg-secondary/30 text-muted-foreground/40 border-transparent" : "bg-orange-500/10 text-orange-500 border-orange-500/20"}`}
+                              >
+                                {item.category}
+                              </div>
+                            )}
                           </div>
                           <AnimatePresence>
                             {found && (
                               <motion.span
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="text-xs font-bold text-green-500 tracking-wider uppercase bg-green-500/10 px-2 py-1 rounded border border-green-500/20"
+                                className="text-xs font-bold text-green-500 uppercase bg-green-500/10 px-2 py-1 rounded"
                               >
                                 {item.word}
                               </motion.span>
