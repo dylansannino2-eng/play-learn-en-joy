@@ -2,3 +2,6 @@ project_id = "efzuokydxgadotqchxdw"
 
 [functions.generate-game-content]
 verify_jwt = true
+
+[functions.generate-microlesson]
+verify_jwt = false
