@@ -7,7 +7,7 @@ import GameLobby from "./shared/GameLobby";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 // 1. IMPORTA TU CLIENTE DE SUPABASE (Ajusta la ruta si es necesario)
-import { supabase } from "@/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
