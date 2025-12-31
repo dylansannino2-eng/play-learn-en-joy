@@ -20,14 +20,17 @@ import AIGameCreator from "./pages/AIGameCreator";
 import SubtitleConfigAdmin from "./pages/SubtitleConfigAdmin";
 import MicrolessonsAdmin from "./pages/MicrolessonsAdmin";
 import NotFound from "./pages/NotFound";
+
+// --- Imports de Categorías Existentes ---
 import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
 import ReadingGames from "./pages/ReadingGames";
 
-// --- NUEVAS PÁGINAS AÑADIDAS ---
+// --- 1. NUEVOS IMPORTS ---
 import VocabularyGames from "./pages/VocabularyGames";
 import GrammarGames from "./pages/GrammarGames";
+import PronunciationGames from "./pages/PronunciationGames";
 
 const queryClient = new QueryClient();
 
@@ -50,8 +53,11 @@ const App = () => (
             <Route path="/writing" element={<WritingGames />} />
             <Route path="/speaking" element={<SpeakingGames />} />
             <Route path="/reading" element={<ReadingGames />} />
+
+            {/* --- 2. NUEVAS RUTAS AÑADIDAS --- */}
             <Route path="/vocabulary" element={<VocabularyGames />} />
             <Route path="/grammar" element={<GrammarGames />} />
+            <Route path="/pronunciation" element={<PronunciationGames />} />
 
             {/* 🎮 Rutas de Juego */}
             <Route path="/game/:slug" element={<GamePage />} />
@@ -65,7 +71,7 @@ const App = () => (
             <Route path="/admin/seo" element={<SEOManager />} />
             <Route path="/ai-creator" element={<AIGameCreator />} />
 
-            {/* 404 */}
+            {/* CATCH-ALL ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
