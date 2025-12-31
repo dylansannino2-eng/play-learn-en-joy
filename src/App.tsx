@@ -7,8 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ScrollToTop from "@/components/ScrollToTop";
 
 // --- Imports de SEO ---
-import { SEO } from "@/components/SEO"; // El componente lógico
-import SEOManager from "@/pages/SEOManager"; // La página de administración
+import { SEO } from "@/components/SEO";
+import SEOManager from "@/pages/SEOManager";
 
 // --- Resto de Imports ---
 import Index from "./pages/Index";
@@ -24,6 +24,8 @@ import ListeningGames from "./pages/ListeningGames";
 import WritingGames from "./pages/WritingGames";
 import SpeakingGames from "./pages/SpeakingGames";
 import ReadingGames from "./pages/ReadingGames";
+// 1. IMPORTAR LA NUEVA PÁGINA
+import VocabularyGames from "./pages/VocabularyGames";
 
 const queryClient = new QueryClient();
 
@@ -45,15 +47,20 @@ const App = () => (
             <Route path="/writing" element={<WritingGames />} />
             <Route path="/speaking" element={<SpeakingGames />} />
             <Route path="/reading" element={<ReadingGames />} />
+            {/* 2. AÑADIR LA RUTA DE VOCABULARIO */}
+            <Route path="/vocabulary" element={<VocabularyGames />} />
+
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminPage />} />
+
             {/* 👇 Rutas de Administración */}
             <Route path="/admin/subtitle-configs" element={<SubtitleConfigAdmin />} />
             <Route path="/admin/microlessons" element={<MicrolessonsAdmin />} />
-            <Route path="/admin/seo" element={<SEOManager />} /> {/* NUEVA RUTA SEO */}
+            <Route path="/admin/seo" element={<SEOManager />} />
             <Route path="/ai-creator" element={<AIGameCreator />} />
+
             {/* CATCH-ALL ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
