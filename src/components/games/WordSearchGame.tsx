@@ -6,6 +6,8 @@ import RoundRanking from "./shared/RoundRanking";
 import GameLobby from "./shared/GameLobby";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+// 1. IMPORTA TU CLIENTE DE SUPABASE (Ajusta la ruta si es necesario)
+import { supabase } from "@/lib/supabase";
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
@@ -35,40 +37,13 @@ const difficultyOptions: DifficultyOption[] = [
   { value: "hard", label: "Difícil", gridSize: 12, wordCount: 8, color: "text-red-400", bgColor: "bg-red-500/20" },
 ];
 
-// --- BANCO DE PREGUNTAS (Palabra + Definición) ---
 interface WordDef {
   word: string;
   clue: string;
 }
 
-const WORD_DEFINITIONS: WordDef[] = [
-  { word: "REACT", clue: "Biblioteca de JS desarrollada por Facebook" },
-  { word: "HOOK", clue: "Permite usar estado en componentes funcionales" },
-  { word: "COMPONENT", clue: "Pieza reutilizable de la interfaz de usuario" },
-  { word: "PROPS", clue: "Argumentos que se pasan de padre a hijo" },
-  { word: "STATE", clue: "Información interna que maneja un componente" },
-  { word: "JSX", clue: "Extensión de sintaxis similar a HTML en JS" },
-  { word: "NODE", clue: "Entorno de ejecución de JS fuera del navegador" },
-  { word: "NPM", clue: "Gestor de paquetes por defecto de Node" },
-  { word: "TYPESCRIPT", clue: "Superset de JS con tipado estático" },
-  { word: "INTERFACE", clue: "Define la estructura de un objeto en TS" },
-  { word: "SUPABASE", clue: "Alternativa Open Source a Firebase" },
-  { word: "POSTGRES", clue: "Base de datos relacional potente" },
-  { word: "ROW", clue: "Una fila en una tabla de base de datos" },
-  { word: "TAILWIND", clue: "Framework de CSS basado en utilidades" },
-  { word: "FLEX", clue: "Propiedad CSS para diseños unidimensionales" },
-  { word: "GRID", clue: "Sistema de diseño bidimensional en CSS" },
-  { word: "VITE", clue: "Herramienta de construcción frontend muy rápida" },
-  { word: "LUCIDE", clue: "Biblioteca de iconos hermosa y ligera" },
-  { word: "API", clue: "Interfaz para que dos aplicaciones se comuniquen" },
-  { word: "JSON", clue: "Formato ligero de intercambio de datos" },
-  { word: "DEPLOY", clue: "Proceso de publicar una aplicación" },
-  { word: "VERCEL", clue: "Plataforma popular para alojar frontend" },
-  { word: "GIT", clue: "Sistema de control de versiones" },
-  { word: "BRANCH", clue: "Rama de desarrollo independiente en Git" },
-  { word: "COMMIT", clue: "Guardar cambios en el historial de Git" },
-  { word: "BUG", clue: "Error o fallo en el software" },
-];
+// YA NO NECESITAMOS LA CONSTANTE "WORD_DEFINITIONS" AQUÍ.
+// LOS DATOS VENDRÁN DE LA DB.
 
 type GamePhase = "waiting" | "playing" | "ranking";
 
@@ -89,7 +64,7 @@ const DIRECTIONS = [
   [1, 0],
   [1, 1],
   [-1, 1],
-]; // Horiz, Vert, Diag, DiagInv
+];
 
 const generateGrid = (words: string[], size: number) => {
   const grid = Array(size)
@@ -120,7 +95,6 @@ const generateGrid = (words: string[], size: number) => {
             break;
           }
         }
-
         if (!collision) {
           for (let i = 0; i < word.length; i++) {
             grid[rowStart + i * dRow][colStart + i * dCol] = word[i];
@@ -136,9 +110,7 @@ const generateGrid = (words: string[], size: number) => {
   const letters = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      if (grid[r][c] === "") {
-        grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
-      }
+      if (grid[r][c] === "") grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
     }
   }
 
@@ -169,11 +141,12 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
   const [grid, setGrid] = useState<string[][]>([]);
 
-  // targetWords guarda los objetos completos {word, clue}
+  // 2. NUEVO ESTADO: Diccionario cargado desde Supabase
+  const [dictionary, setDictionary] = useState<WordDef[]>([]);
+  const [isLoadingDictionary, setIsLoadingDictionary] = useState(true);
+
   const [targetWords, setTargetWords] = useState<WordDef[]>([]);
   const [myFoundWords, setMyFoundWords] = useState<string[]>([]);
-
-  // Estado para guardar coordenadas de palabras ya encontradas
   const [foundWordsCoords, setFoundWordsCoords] = useState<Coordinate[][]>([]);
 
   // Estados de Selección
@@ -193,6 +166,36 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   useEffect(() => {
     preloadSounds();
   }, [preloadSounds]);
+
+  // 3. EFFECT PARA CARGAR PALABRAS DESDE SUPABASE
+  useEffect(() => {
+    async function fetchWords() {
+      try {
+        setIsLoadingDictionary(true);
+        // Ajusta "wordsearch_dictionary" si tu tabla se llama distinto
+        // Traemos "word" y "clue". Puedes agregar .eq('category', category) si usas categorías.
+        const { data, error } = await supabase.from("wordsearch_dictionary").select("word, clue");
+
+        if (error) throw error;
+
+        if (data) {
+          // Asegurarnos que word sea string y clue string (y convertimos a mayúsculas por si acaso)
+          const formattedData: WordDef[] = data.map((item: any) => ({
+            word: item.word.toUpperCase(),
+            clue: item.clue,
+          }));
+          setDictionary(formattedData);
+        }
+      } catch (err) {
+        console.error("Error cargando diccionario:", err);
+        toast.error("Error cargando palabras del servidor");
+      } finally {
+        setIsLoadingDictionary(false);
+      }
+    }
+
+    fetchWords();
+  }, []); // Se ejecuta una sola vez al montar
 
   // --- SINCRONIZACIÓN DE JUEGO (GAME LOOP) ---
 
@@ -231,7 +234,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     return () => window.clearInterval(timer);
   }, [gamePhase, roundEndsAt, playSound, startRoundTimer]);
 
-  // Manejo de eventos del Host para Clientes
   useEffect(() => {
     if (isHostInRoom) return;
     if (!gameEvent) return;
@@ -265,19 +267,20 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
 
   const generateAndBroadcastRound = useCallback(
     async (difficultyVal: Difficulty, roundNum: number) => {
+      // Si el diccionario está vacío, no podemos jugar
+      if (dictionary.length === 0) {
+        toast.error("No hay palabras disponibles para jugar.");
+        return;
+      }
+
       const diffConfig = difficultyOptions.find((d) => d.value === difficultyVal) || difficultyOptions[1];
 
-      // 1. Seleccionar palabras aleatorias del banco de definiciones
-      const shuffled = [...WORD_DEFINITIONS].sort(() => 0.5 - Math.random());
+      // 4. USAMOS EL DICCIONARIO CARGADO (state) EN LUGAR DE LA CONSTANTE
+      const shuffled = [...dictionary].sort(() => 0.5 - Math.random());
       const selectedItems = shuffled.slice(0, diffConfig.wordCount);
 
-      // 2. Extraer solo los textos de las palabras para el generador de grilla
       const wordsOnly = selectedItems.map((item) => item.word);
-
-      // 3. Generar grilla
       const { grid: newGrid, placedWordsStrings } = generateGrid(wordsOnly, diffConfig.gridSize);
-
-      // 4. Filtrar los items originales para mantener solo los que cupieron en la grilla y conservar sus pistas
       const finalTargetWords = selectedItems.filter((item) => placedWordsStrings.includes(item.word));
 
       setGrid(newGrid);
@@ -300,7 +303,8 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         });
       }
     },
-    [gameRoomCode, broadcastGameEvent, playSound, startRoundTimer],
+    // Añadimos 'dictionary' a las dependencias
+    [gameRoomCode, broadcastGameEvent, playSound, startRoundTimer, dictionary],
   );
 
   const handleLobbyStart = useCallback(
@@ -312,24 +316,23 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
       const initialDiff = payload.difficulties[0] || "medium";
 
       if (payload.isHost) {
+        // Un pequeño delay para asegurar transición, luego generar
         setTimeout(() => generateAndBroadcastRound(initialDiff, 1), 500);
       }
     },
     [generateAndBroadcastRound],
   );
 
-  // --- LÓGICA DE SELECCIÓN EN LA GRILLA ---
+  // --- LÓGICA DE SELECCIÓN Y RENDERIZADO (IGUAL QUE ANTES) ---
 
   const getSelectedCells = (start: Coordinate, end: Coordinate): Coordinate[] => {
     const cells: Coordinate[] = [];
     const dr = end.r - start.r;
     const dc = end.c - start.c;
-
     if (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc)) {
       const steps = Math.max(Math.abs(dr), Math.abs(dc));
       const rStep = dr === 0 ? 0 : dr / steps;
       const cStep = dc === 0 ? 0 : dc / steps;
-
       for (let i = 0; i <= steps; i++) {
         cells.push({ r: start.r + i * rStep, c: start.c + i * cStep });
       }
@@ -349,11 +352,8 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   }, [isSelecting, startCell, currentCell]);
 
   const isSelected = (r: number, c: number) => currentSelectionCoords.some((cell) => cell.r === r && cell.c === c);
-
   const isPermanentlyFound = (r: number, c: number) =>
     foundWordsCoords.some((coords) => coords.some((cell) => cell.r === r && cell.c === c));
-
-  // --- HANDLERS DE INTERACCIÓN ---
 
   const handleMouseDown = (r: number, c: number) => {
     if (gamePhase !== "playing") return;
@@ -363,48 +363,32 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
   };
 
   const handleMouseEnter = (r: number, c: number) => {
-    if (isSelecting && gamePhase === "playing") {
-      setCurrentCell({ r, c });
-    }
+    if (isSelecting && gamePhase === "playing") setCurrentCell({ r, c });
   };
 
   const handleMouseUp = async () => {
     if (!isSelecting || !startCell || !currentCell) return;
-
     const wordStr = getSelectedWord();
     const reversedWordStr = wordStr.split("").reverse().join("");
     const candidateCoords = getSelectedCells(startCell, currentCell);
 
-    // Verificamos si la cadena seleccionada coincide con alguna WORD en nuestros objetos targetWords
     let foundItem = null;
-
-    // Buscar coincidencia normal
     const matchNormal = targetWords.find((t) => t.word === wordStr);
-    if (matchNormal && !myFoundWords.includes(matchNormal.word)) {
-      foundItem = matchNormal;
-    }
-    // Buscar coincidencia invertida
+    if (matchNormal && !myFoundWords.includes(matchNormal.word)) foundItem = matchNormal;
     else {
       const matchReverse = targetWords.find((t) => t.word === reversedWordStr);
-      if (matchReverse && !myFoundWords.includes(matchReverse.word)) {
-        foundItem = matchReverse;
-      }
+      if (matchReverse && !myFoundWords.includes(matchReverse.word)) foundItem = matchReverse;
     }
 
     if (foundItem) {
-      // --- ÉXITO ---
       const actualWord = foundItem.word;
-
       setFoundWordsCoords((prev) => [...prev, candidateCoords]);
-
       const newFound = [...myFoundWords, actualWord];
       setMyFoundWords(newFound);
       playSound("correct", 0.6);
-
       const wordPoints = actualWord.length * 15;
       const newScore = score + wordPoints;
       setScore(newScore);
-
       await updateScore(newScore, newFound.length, 0);
       await broadcastCorrectAnswer(actualWord, wordPoints);
       toast.success(`¡Correcto! ${actualWord} (+${wordPoints})`);
@@ -434,8 +418,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
     setRound(1);
   };
 
-  // --- RENDERIZADO ---
-
   if (gamePhase === "waiting") {
     return (
       <GameLobby
@@ -444,9 +426,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         existingRoomCode={gameRoomCode}
         isHostReturning={isHostInRoom}
         initialPlayerName={displayName || undefined}
-        buildStartPayload={async ({ difficulties }) => ({
-          difficulties,
-        })}
+        buildStartPayload={async ({ difficulties }) => ({ difficulties })}
         onStartGame={handleLobbyStart}
       />
     );
@@ -490,12 +470,10 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
             <span className="text-sm text-muted-foreground">{playerCount}</span>
           </div>
         </div>
-
         <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-full">
           <Clock className={`${timeLeft <= 10 ? "text-red-400" : "text-primary"}`} size={18} />
           <span className={`font-bold ${timeLeft <= 10 ? "text-red-400" : "text-foreground"}`}>{timeLeft}s</span>
         </div>
-
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium hidden sm:inline text-muted-foreground">
             Ronda {round}/{totalRounds}
@@ -522,7 +500,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
               row.map((letter, cIndex) => {
                 const isActive = isSelected(rIndex, cIndex);
                 const isAlreadyFound = isPermanentlyFound(rIndex, cIndex);
-
                 return (
                   <motion.div
                     key={`${rIndex}-${cIndex}`}
@@ -530,13 +507,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                     className={`
                       flex items-center justify-center font-bold text-lg sm:text-xl rounded-md cursor-pointer 
                       transition-colors duration-100
-                      ${
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20"
-                          : isAlreadyFound
-                            ? "bg-green-500/20 text-green-500 border border-green-500/30"
-                            : "bg-secondary/40 text-foreground hover:bg-secondary/70"
-                      } 
+                      ${isActive ? "bg-primary text-primary-foreground shadow-lg scale-105 z-20" : isAlreadyFound ? "bg-green-500/20 text-green-500 border border-green-500/30" : "bg-secondary/40 text-foreground hover:bg-secondary/70"} 
                     `}
                     onMouseDown={() => handleMouseDown(rIndex, cIndex)}
                     onMouseEnter={() => handleMouseEnter(rIndex, cIndex)}
@@ -549,7 +520,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
           </div>
         </div>
 
-        {/* LADO DERECHO: PISTAS (TARJETAS MEJORADAS) */}
+        {/* LADO DERECHO: PISTAS */}
         <div className="w-full md:w-96 border-l border-border bg-card flex flex-col">
           <div className="p-4 border-b border-border bg-secondary/5">
             <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
@@ -557,7 +528,6 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
               PISTAS ({myFoundWords.length}/{targetWords.length})
             </h3>
           </div>
-
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             <AnimatePresence>
               {targetWords.map((item) => {
@@ -567,17 +537,9 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                     key={item.word}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className={`
-                      relative p-3 rounded-lg border text-sm transition-all duration-300 group
-                      ${
-                        found
-                          ? "bg-green-500/10 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.1)]"
-                          : "bg-card border-border hover:border-primary/50 hover:bg-secondary/40"
-                      }
-                    `}
+                    className={`relative p-3 rounded-lg border text-sm transition-all duration-300 group ${found ? "bg-green-500/10 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.1)]" : "bg-card border-border hover:border-primary/50 hover:bg-secondary/40"}`}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Ícono de estado */}
                       <div
                         className={`mt-1 transition-colors duration-300 ${found ? "text-green-500" : "text-primary/40"}`}
                       >
@@ -587,29 +549,18 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
                           <div className="w-4 h-4 rounded-full border-2 border-current" />
                         )}
                       </div>
-
                       <div className="flex-1">
-                        {/* La Pista */}
                         <p
                           className={`mb-2 leading-relaxed ${found ? "text-muted-foreground line-through decoration-green-500/50 decoration-2" : "text-foreground font-medium"}`}
                         >
                           {item.clue}
                         </p>
-
-                        {/* Footer de la tarjeta: Contador de letras y Respuesta */}
                         <div className="flex items-center justify-between">
-                          {/* Badge de conteo de letras */}
                           <div
-                            className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md border ${
-                              found
-                                ? "bg-background/50 border-transparent text-muted-foreground"
-                                : "bg-primary/10 border-primary/20 text-primary"
-                            }`}
+                            className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md border ${found ? "bg-background/50 border-transparent text-muted-foreground" : "bg-primary/10 border-primary/20 text-primary"}`}
                           >
                             <span>{item.word.length} letras</span>
                           </div>
-
-                          {/* Respuesta Revelada */}
                           <AnimatePresence>
                             {found && (
                               <motion.span
