@@ -30,9 +30,12 @@ import VocabularyGames from "./pages/VocabularyGames";
 import GrammarGames from "./pages/GrammarGames";
 import PronunciationGames from "./pages/PronunciationGames";
 
-// --- Modos de Juego (Últimas añadidas) ---
+// --- Modos de Juego ---
 import MultiplayerGames from "./pages/MultiplayerGames";
 import SinglePlayerGames from "./pages/SinglePlayerGames";
+
+// --- ⚙️ NUEVA PÁGINA ---
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +69,9 @@ const App = () => (
             {/* 🎮 Rutas de Juego Core */}
             <Route path="/game/:slug" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
+
+            {/* ⚙️ Ruta de Configuración */}
+            <Route path="/settings" element={<Settings />} />
 
             {/* 🔐 Rutas de Auth y Admin */}
             <Route path="/auth" element={<AuthPage />} />
