@@ -33,6 +33,7 @@ interface GameLobbyProps {
   existingRoomCode?: string;
   isHostReturning?: boolean;
   initialPlayerName?: string;
+  multiplayerEnabled?: boolean;
   onStartGame: (payload: GameLobbyStartParams) => void;
   buildStartPayload?: StartPayloadBuilder;
 }
@@ -47,6 +48,7 @@ export default function GameLobby({
   existingRoomCode,
   isHostReturning,
   initialPlayerName,
+  multiplayerEnabled = true,
   onStartGame,
   buildStartPayload,
 }: GameLobbyProps) {
@@ -276,21 +278,23 @@ export default function GameLobby({
               <Play size={20} fill="currentColor" /> SOLO PLAY
             </button>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleCreateRoom}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
-              >
-                <Users size={18} /> CREATE
-              </button>
+            {multiplayerEnabled && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleCreateRoom}
+                  className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
+                >
+                  <Users size={18} /> CREATE
+                </button>
 
-              <button
-                onClick={() => setView("join_menu")}
-                className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
-              >
-                <LogIn size={18} /> JOIN
-              </button>
-            </div>
+                <button
+                  onClick={() => setView("join_menu")}
+                  className="py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold transition border border-white/10 flex items-center justify-center gap-2"
+                >
+                  <LogIn size={18} /> JOIN
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

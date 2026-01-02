@@ -30,10 +30,11 @@ interface WordBattleGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  multiplayerEnabled?: boolean;
   category?: string;
 }
 
-export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled = true, category }: WordBattleGameProps) {
+export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled = true, multiplayerEnabled = true, category }: WordBattleGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -583,6 +584,7 @@ export default function WordBattleGame({ roomCode, onBack, microlessonsEnabled =
               existingRoomCode={gameRoomCode}
               isHostReturning={isHostInRoom}
               initialPlayerName={displayName || undefined}
+              multiplayerEnabled={multiplayerEnabled}
               onStartGame={handleLobbyStart}
             />
           )}

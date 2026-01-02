@@ -27,6 +27,7 @@ interface Game {
   is_active: boolean;
   sort_order: number;
   microlessons_enabled: boolean;
+  multiplayer_enabled: boolean;
   base_game_slug: string | null;
   content_category: string | null;
 }
@@ -85,6 +86,7 @@ export default function AdminPage() {
     is_active: true,
     sort_order: 0,
     microlessons_enabled: true,
+    multiplayer_enabled: true,
     base_game_slug: null,
     content_category: null,
   });
@@ -130,6 +132,7 @@ export default function AdminPage() {
       is_active: true,
       sort_order: 0,
       microlessons_enabled: true,
+      multiplayer_enabled: true,
       base_game_slug: null,
       content_category: null,
     });
@@ -150,6 +153,7 @@ export default function AdminPage() {
         is_active: game.is_active,
         sort_order: game.sort_order,
         microlessons_enabled: game.microlessons_enabled ?? true,
+        multiplayer_enabled: game.multiplayer_enabled ?? true,
         base_game_slug: game.base_game_slug,
         content_category: game.content_category,
       });
@@ -409,7 +413,7 @@ export default function AdminPage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sort_order">Orden</Label>
                     <Input
@@ -428,12 +432,23 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Microlecciones</Label>
                     <div className="pt-2">
                       <Switch
                         checked={formData.microlessons_enabled}
                         onCheckedChange={(checked) => setFormData({ ...formData, microlessons_enabled: checked })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Multijugador</Label>
+                    <div className="pt-2">
+                      <Switch
+                        checked={formData.multiplayer_enabled}
+                        onCheckedChange={(checked) => setFormData({ ...formData, multiplayer_enabled: checked })}
                       />
                     </div>
                   </div>
