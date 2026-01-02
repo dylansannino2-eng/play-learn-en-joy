@@ -33,10 +33,21 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   const playerRef = useRef<YouTubePlayerRef>(null);
   const { configs, isLoading, saveConfig, loadConfig, deleteConfig } = useSubtitleConfig();
 
-  const extractVideoId = (input: string) => {
+  // --- CORRECCIÓN IMPORTANTE: Extracción de ID robusta ---
+  const extractVideoId = (input: string): string | null => {
+    if (!input) return null;
+
+    // 1. Si el usuario pegó solo el ID (11 caracteres)
+    if (input.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(input)) {
+      return input;
+    }
+
+    // 2. Intentar extraer de URL estándar
     const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = input.match(regExp);
-    return match && match[2].length === 11 ? match[2] : input;
+
+    // Si hay coincidencia y tiene 11 caracteres, es el ID. Si no, devolvemos null.
+    return match && match[2].length === 11 ? match[2] : null;
   };
 
   const handleTimeUpdate = useCallback((time: number) => {
@@ -48,32 +59,49 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
   }, []);
 
   const handleSave = async () => {
+    // 1. Usar la función corregida
     const finalVideoId = extractVideoId(videoId);
+
+    // 2. Validación estricta
     if (!finalVideoId) {
-      toast.error("Debes ingresar un ID de video");
+      toast.error("El ID del video no es válido. Revisa el enlace de YouTube.");
+      return;
+    }
+
+    if (!configName.trim()) {
+      toast.error("Por favor escribe un nombre para la lección");
       return;
     }
 
     try {
       const configData = {
-        name: configName.trim() || "Sin nombre",
-        video_id: finalVideoId,
-        start_time: startTime,
-        end_time: endTime,
-        subtitles: subtitles,
-        translations: translations,
+        name: configName.trim(),
+        video_id: finalVideoId, // Aquí aseguramos que va solo el ID
+        start_time: startTime || 0,
+        end_time: endTime || 0,
+        subtitles: subtitles || [],
+        translations: translations || [],
         repeat_enabled: repeatConfig?.enabled || false,
         repeat_start_time: repeatConfig?.startTime || 0,
         repeat_end_time: repeatConfig?.endTime || 0,
         repeat_count: repeatConfig?.repeatCount || 0,
+        // Añadimos campos por defecto para evitar errores en Supabase
+        is_active: true,
+        category: "general",
+        difficulty: "medium",
       };
 
       await saveConfig(configData as any);
-      toast.success("¡Configuración guardada!");
+      toast.success("¡Configuración guardada correctamente!");
       onSuccess();
       onOpenChange(false);
+
+      // Limpiar un poco el estado
+      setConfigName("");
+      setVideoId("");
     } catch (error) {
-      toast.error("Error al guardar");
+      console.error(error);
+      toast.error("Error al guardar la configuración");
     }
   };
 
@@ -100,6 +128,9 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
 
   const currentSubtitle = getCurrentSubtitle(subtitles, currentTime);
   const currentTranslation = getCurrentSubtitle(translations, currentTime);
+
+  // Variable auxiliar para el reproductor (intenta extraer para la vista previa)
+  const playerVideoId = extractVideoId(videoId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -128,13 +159,16 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                   <div className="space-y-2">
                     <Label>Nombre de la lección</Label>
                     <Input
-                      placeholder="Ej: Matrix Scene"
+                      placeholder="Ej: Matrix Scene - Lobby"
                       value={configName}
                       onChange={(e) => setConfigName(e.target.value)}
                     />
                   </div>
+
                   <ConfigPanel
-                    onVideoChange={(val) => setVideoId(extractVideoId(val))}
+                    // Modificamos esto para permitir pegar la URL completa en el input
+                    // y dejar que extractVideoId haga el trabajo sucio al guardar o renderizar
+                    onVideoChange={(val) => setVideoId(val)}
                     onTimeRangeChange={(start, end) => {
                       setStartTime(start);
                       setEndTime(end);
@@ -143,8 +177,9 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                     onTranslationLoad={(content) => setTranslations(parseSRT(content))}
                     onRepeatConfigChange={setRepeatConfig}
                   />
+
                   <Button onClick={handleSave} className="w-full gap-2">
-                    <Save className="w-4 h-4" /> Guardar
+                    <Save className="w-4 h-4" /> Guardar Configuración
                   </Button>
                 </TabsContent>
 
@@ -160,18 +195,26 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl overflow-hidden border bg-black aspect-video">
-                {videoId && (
+              <div className="rounded-xl overflow-hidden border bg-black aspect-video relative">
+                {playerVideoId ? (
                   <YouTubePlayer
                     ref={playerRef}
-                    videoId={videoId}
+                    videoId={playerVideoId}
                     startTime={startTime}
                     endTime={endTime}
                     onTimeUpdate={handleTimeUpdate}
-                    onReady={() => {}} // 👈 CORRECCIÓN: Añadido para cumplir con YouTubePlayerProps
+                    onReady={() => {}}
                   />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Film className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Ingresa una URL válida para ver la vista previa</p>
+                    </div>
+                  </div>
                 )}
               </div>
+
               {subtitles.length > 0 && (
                 <div className="space-y-4">
                   <SubtitleDisplay currentSubtitle={currentSubtitle} currentTranslation={currentTranslation} />
