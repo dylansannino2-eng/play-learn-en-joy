@@ -45,10 +45,11 @@ interface TheTranslatorGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  multiplayerEnabled?: boolean;
   category?: string;
 }
 
-export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnabled = true, category }: TheTranslatorGameProps) {
+export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnabled = true, multiplayerEnabled = true, category }: TheTranslatorGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -855,6 +856,7 @@ export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnable
         existingRoomCode={gameRoomCode}
         isHostReturning={isHostInRoom}
         initialPlayerName={displayName || undefined}
+        multiplayerEnabled={multiplayerEnabled}
         buildStartPayload={async ({ difficulties }) => {
           const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
           const phraseId = await pickRandomPhraseId(randomDifficulty, new Set());

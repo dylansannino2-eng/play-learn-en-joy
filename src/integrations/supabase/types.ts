@@ -72,6 +72,7 @@ export type Database = {
           image: string
           is_active: boolean
           microlessons_enabled: boolean
+          multiplayer_enabled: boolean | null
           slug: string | null
           sort_order: number
           title: string
@@ -90,6 +91,7 @@ export type Database = {
           image: string
           is_active?: boolean
           microlessons_enabled?: boolean
+          multiplayer_enabled?: boolean | null
           slug?: string | null
           sort_order?: number
           title: string
@@ -108,6 +110,7 @@ export type Database = {
           image?: string
           is_active?: boolean
           microlessons_enabled?: boolean
+          multiplayer_enabled?: boolean | null
           slug?: string | null
           sort_order?: number
           title?: string

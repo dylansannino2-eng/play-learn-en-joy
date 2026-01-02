@@ -47,6 +47,7 @@ type GamePhase = "waiting" | "playing" | "ranking";
 interface WordSearchGameProps {
   roomCode?: string;
   onBack?: () => void;
+  multiplayerEnabled?: boolean;
   category?: string;
 }
 
@@ -116,7 +117,7 @@ const generateGrid = (words: string[], size: number) => {
 
 // --- COMPONENTE PRINCIPAL ---
 
-export default function WordSearchGame({ roomCode, onBack, category }: WordSearchGameProps) {
+export default function WordSearchGame({ roomCode, onBack, multiplayerEnabled = true, category }: WordSearchGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState("");
@@ -401,6 +402,7 @@ export default function WordSearchGame({ roomCode, onBack, category }: WordSearc
         existingRoomCode={gameRoomCode}
         isHostReturning={isHostInRoom}
         initialPlayerName={displayName || undefined}
+        multiplayerEnabled={multiplayerEnabled}
         buildStartPayload={async ({ difficulties }) => ({ difficulties })}
         onStartGame={handleLobbyStart}
       />

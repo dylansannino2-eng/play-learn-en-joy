@@ -123,10 +123,11 @@ interface TheMovieInterpreterGameProps {
   roomCode?: string;
   onBack?: () => void;
   microlessonsEnabled?: boolean;
+  multiplayerEnabled?: boolean;
   category?: string;
 }
 
-export default function TheMovieInterpreterGame({ roomCode, onBack, microlessonsEnabled = true, category }: TheMovieInterpreterGameProps) {
+export default function TheMovieInterpreterGame({ roomCode, onBack, microlessonsEnabled = true, multiplayerEnabled = true, category }: TheMovieInterpreterGameProps) {
   const { playSound, preloadSounds } = useGameSounds();
 
   const [displayName, setDisplayName] = useState('');
@@ -1126,6 +1127,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         initialRoomCode={roomCode}
         existingRoomCode={gameRoomCode}
         isHostReturning={isHostInRoom && !!gameRoomCode}
+        multiplayerEnabled={multiplayerEnabled}
       />
     );
   }
