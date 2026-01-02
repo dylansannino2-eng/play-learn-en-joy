@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Subtitle } from '@/lib/srtParser';
-import { RepeatConfig } from '@/components/ConfigPanel';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Subtitle } from "@/lib/srtParser";
+import { RepeatConfig } from "@/components/ConfigPanel";
+import { toast } from "sonner";
 
 export interface SubtitleConfig {
   id: string;
@@ -29,15 +29,15 @@ export function useSubtitleConfig() {
   const loadConfigs = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
-      .from('subtitle_configs')
-      .select('*')
-      .order('updated_at', { ascending: false });
+      .from("subtitle_configs")
+      .select("*")
+      .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error('Error loading configs:', error);
-      toast.error('Error al cargar configuraciones');
+      console.error("Error loading configs:", error);
+      toast.error("Error al cargar configuraciones");
     } else {
-      const mappedData = (data || []).map(item => ({
+      const mappedData = (data || []).map((item) => ({
         id: item.id,
         name: item.name,
         video_id: item.video_id,
@@ -50,7 +50,7 @@ export function useSubtitleConfig() {
         repeat_end_time: Number(item.repeat_end_time),
         repeat_count: item.repeat_count || 3,
         created_at: item.created_at,
-        updated_at: item.updated_at
+        updated_at: item.updated_at,
       }));
       setConfigs(mappedData);
     }
@@ -62,56 +62,43 @@ export function useSubtitleConfig() {
   }, [loadConfigs]);
 
   // Guardar configuración
-  const saveConfig = async (config: {
-    name?: string;
-    videoId: string;
-    startTime: number;
-    endTime: number;
-    subtitles: Subtitle[];
-    translations: Subtitle[];
-    repeatConfig: RepeatConfig | null;
-  }) => {
-    const payload = {
-      name: config.name || 'Sin nombre',
-      video_id: config.videoId,
-      start_time: config.startTime,
-      end_time: config.endTime,
-      subtitles: JSON.parse(JSON.stringify(config.subtitles)),
-      translations: JSON.parse(JSON.stringify(config.translations)),
-      repeat_enabled: config.repeatConfig?.enabled || false,
-      repeat_start_time: config.repeatConfig?.startTime || 0,
-      repeat_end_time: config.repeatConfig?.endTime || 0,
-      repeat_count: config.repeatConfig?.repeatCount || 3,
-    };
+  const saveConfig = async (configData: any) => {
+    // Log para ver qué llega al hook exactamente
+    console.log("Hook recibiendo datos:", configData);
 
     const { data, error } = await supabase
-      .from('subtitle_configs')
-      .insert([payload])
-      .select()
-      .single();
+      .from("subtitle_configs")
+      .insert([
+        {
+          name: configData.name,
+          video_id: configData.video_id, // <--- ASEGÚRATE QUE ESTO COINCIDA CON TU COLUMNA
+          start_time: configData.start_time || 0,
+          end_time: configData.end_time || 0,
+          subtitles: configData.subtitles || [],
+          translations: configData.translations || [],
+          repeat_enabled: configData.repeat_enabled || false,
+          repeat_start_time: configData.repeat_start_time || 0,
+          repeat_end_time: configData.repeat_end_time || 0,
+          repeat_count: configData.repeat_count || 0,
+          is_active: true,
+        },
+      ])
+      .select();
 
     if (error) {
-      console.error('Error saving config:', error);
-      toast.error('Error al guardar configuración');
-      return null;
+      console.error("Error de Supabase:", error);
+      throw error;
     }
-
-    toast.success('Configuración guardada');
-    await loadConfigs();
     return data;
   };
 
   // Cargar una configuración específica
   const loadConfig = useCallback(async (id: string) => {
-    const { data, error } = await supabase
-      .from('subtitle_configs')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await supabase.from("subtitle_configs").select("*").eq("id", id).maybeSingle();
 
     if (error || !data) {
-      console.error('Error loading config:', error);
-      toast.error('Error al cargar configuración');
+      console.error("Error loading config:", error);
+      toast.error("Error al cargar configuración");
       return null;
     }
 
@@ -128,7 +115,7 @@ export function useSubtitleConfig() {
       repeat_end_time: Number(data.repeat_end_time),
       repeat_count: data.repeat_count || 3,
       created_at: data.created_at,
-      updated_at: data.updated_at
+      updated_at: data.updated_at,
     };
 
     setCurrentConfig(mapped);
@@ -137,18 +124,15 @@ export function useSubtitleConfig() {
 
   // Eliminar configuración
   const deleteConfig = async (id: string) => {
-    const { error } = await supabase
-      .from('subtitle_configs')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("subtitle_configs").delete().eq("id", id);
 
     if (error) {
-      console.error('Error deleting config:', error);
-      toast.error('Error al eliminar configuración');
+      console.error("Error deleting config:", error);
+      toast.error("Error al eliminar configuración");
       return false;
     }
 
-    toast.success('Configuración eliminada');
+    toast.success("Configuración eliminada");
     await loadConfigs();
     return true;
   };
@@ -161,6 +145,6 @@ export function useSubtitleConfig() {
     saveConfig,
     loadConfig,
     deleteConfig,
-    setCurrentConfig
+    setCurrentConfig,
   };
 }
