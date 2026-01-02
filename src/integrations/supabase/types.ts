@@ -398,26 +398,32 @@ export type Database = {
       wordsearch_dictionary: {
         Row: {
           category: string | null
+          clue: string | null
           created_at: string | null
           difficulty: string | null
           id: string
           is_active: boolean | null
+          topic: string | null
           word: string
         }
         Insert: {
           category?: string | null
+          clue?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
           is_active?: boolean | null
+          topic?: string | null
           word: string
         }
         Update: {
           category?: string | null
+          clue?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
           is_active?: boolean | null
+          topic?: string | null
           word?: string
         }
         Relationships: []
