@@ -38,7 +38,6 @@ const skillCategories = ["listening", "speaking", "writing", "reading"];
 const otherCategories = ["new", "popular", "multiplayer", "brain", "ranking"];
 const badges = ["new", "hot", "top", "updated"];
 
-// Base game slugs - these are the actual game components that can be rendered
 const baseGameSlugs = [
   { value: "word-battle", label: "Word Battle" },
   { value: "the-translator", label: "The Translator" },
@@ -110,14 +109,16 @@ export default function AdminPage() {
 
   const fetchGames = async () => {
     setIsLoadingGames(true);
-    const { data, error } = await supabase.from("games").select("*").order("category").order("sort_order");
+    try {
+      const { data, error } = await supabase.from("games").select("*").order("category").order("sort_order");
 
-    if (error) {
-      toast.error("Error al cargar juegos");
-    } else {
+      if (error) throw error;
       setGames(data || []);
+    } catch (error: any) {
+      toast.error("Error al cargar juegos: " + error.message);
+    } finally {
+      setIsLoadingGames(false);
     }
-    setIsLoadingGames(false);
   };
 
   const resetForm = () => {
@@ -171,49 +172,49 @@ export default function AdminPage() {
       return;
     }
 
-    if (editingGame) {
-      const { error } = await supabase.from("games").update(formData).eq("id", editingGame.id);
+    try {
+      if (editingGame) {
+        const { error } = await supabase.from("games").update(formData).eq("id", editingGame.id);
 
-      if (error) {
-        toast.error("Error al actualizar juego");
-      } else {
+        if (error) throw error;
         toast.success("Juego actualizado");
-        setDialogOpen(false);
-        fetchGames();
-      }
-    } else {
-      const { error } = await supabase.from("games").insert([formData]);
-
-      if (error) {
-        toast.error("Error al crear juego");
       } else {
+        const { error } = await supabase.from("games").insert([formData]);
+
+        if (error) throw error;
         toast.success("Juego creado");
-        setDialogOpen(false);
-        fetchGames();
       }
+
+      setDialogOpen(false);
+      fetchGames();
+    } catch (error: any) {
+      console.error("Error completo de Supabase:", error);
+      // Esto te mostrará el error real (ej: "duplicate key", "violates RLS policy", etc.)
+      toast.error(`Error: ${error.message || "No se pudo procesar la solicitud"}`);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de eliminar este juego?")) return;
 
-    const { error } = await supabase.from("games").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Error al eliminar juego");
-    } else {
+    try {
+      const { error } = await supabase.from("games").delete().eq("id", id);
+      if (error) throw error;
       toast.success("Juego eliminado");
       fetchGames();
+    } catch (error: any) {
+      toast.error("Error al eliminar: " + error.message);
     }
   };
 
   const toggleActive = async (game: Game) => {
-    const { error } = await supabase.from("games").update({ is_active: !game.is_active }).eq("id", game.id);
+    try {
+      const { error } = await supabase.from("games").update({ is_active: !game.is_active }).eq("id", game.id);
 
-    if (error) {
-      toast.error("Error al actualizar estado");
-    } else {
+      if (error) throw error;
       fetchGames();
+    } catch (error: any) {
+      toast.error("Error al actualizar estado: " + error.message);
     }
   };
 
@@ -260,210 +261,204 @@ export default function AdminPage() {
                   Agregar Juego
                 </Button>
               </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingGame ? "Editar Juego" : "Nuevo Juego"}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* --- Datos Principales --- */}
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                  />
-                </div>
-                
-                {/* Slug field */}
-                <div className="space-y-2">
-                  <Label htmlFor="slug">Slug (URL) *</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug || ""}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value || null })}
-                    placeholder="the-movie-interpreter-phrasal-verbs"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">URL del juego: /game/{formData.slug || "tu-slug"}</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="image">URL de Imagen *</Label>
-                  <Input
-                    id="image"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="https://..."
-                    required
-                  />
-                </div>
-
-                {/* Base Game Slug - for variants */}
-                <div className="space-y-2">
-                  <Label>Juego Base (para variantes)</Label>
-                  <Select
-                    value={formData.base_game_slug || "none"}
-                    onValueChange={(value) => setFormData({ ...formData, base_game_slug: value === "none" ? null : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona juego base" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Ninguno (usar slug propio)</SelectItem>
-                      {baseGameSlugs.map((game) => (
-                        <SelectItem key={game.value} value={game.value}>
-                          {game.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Si es una variante, selecciona el juego base. Dejarlo vacío si es un juego principal.
-                  </p>
-                </div>
-
-                {/* Content Category - filter for variants */}
-                <div className="space-y-2">
-                  <Label htmlFor="content_category">Categoría de Contenido (filtro)</Label>
-                  <Input
-                    id="content_category"
-                    value={formData.content_category || ""}
-                    onChange={(e) => setFormData({ ...formData, content_category: e.target.value || null })}
-                    placeholder="phrasal-verbs, idioms, etc."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Filtra el contenido del juego por esta categoría (ej: phrasal-verbs, idioms).
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Habilidad (Skill)</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {skillCategories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {categoryLabels[cat]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Categorías adicionales</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[...skillCategories, ...otherCategories].map((cat) => {
-                      const isSelected = formData.categories.includes(cat);
-                      return (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              categories: isSelected
-                                ? prev.categories.filter(c => c !== cat)
-                                : [...prev.categories, cat]
-                            }));
-                          }}
-                          className={`px-3 py-1 rounded-full text-sm border transition ${
-                            isSelected
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted border-border hover:bg-muted/80"
-                          }`}
-                        >
-                          {categoryLabels[cat]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Badge</Label>
-                  <Select
-                    value={formData.badge || "none"}
-                    onValueChange={(value) => setFormData({ ...formData, badge: value === "none" ? null : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin badge</SelectItem>
-                      {badges.map((badge) => (
-                        <SelectItem key={badge} value={badge}>
-                          {badgeLabels[badge]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descripción (Interna/Visible en tarjeta)</Label>
-                  <Input
-                    id="description"
-                    value={formData.description || ""}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingGame ? "Editar Juego" : "Nuevo Juego"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sort_order">Orden</Label>
+                    <Label htmlFor="title">Título *</Label>
                     <Input
-                      id="sort_order"
-                      type="number"
-                      value={formData.sort_order}
-                      onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Activo</Label>
-                    <div className="pt-2">
-                      <Switch
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Microlecciones</Label>
-                    <div className="pt-2">
-                      <Switch
-                        checked={formData.microlessons_enabled}
-                        onCheckedChange={(checked) => setFormData({ ...formData, microlessons_enabled: checked })}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Multijugador</Label>
-                    <div className="pt-2">
-                      <Switch
-                        checked={formData.multiplayer_enabled}
-                        onCheckedChange={(checked) => setFormData({ ...formData, multiplayer_enabled: checked })}
-                      />
-                    </div>
-                  </div>
-                </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="slug">Slug (URL) *</Label>
+                    <Input
+                      id="slug"
+                      value={formData.slug || ""}
+                      onChange={(e) => setFormData({ ...formData, slug: e.target.value || null })}
+                      placeholder="the-movie-interpreter-phrasal-verbs"
+                      required
+                    />
+                  </div>
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">{editingGame ? "Guardar Cambios" : "Crear Juego"}</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-2">
+                    <Label htmlFor="image">URL de Imagen *</Label>
+                    <Input
+                      id="image"
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                      placeholder="https://..."
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Juego Base (para variantes)</Label>
+                    <Select
+                      value={formData.base_game_slug || "none"}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, base_game_slug: value === "none" ? null : value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona juego base" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Ninguno (usar slug propio)</SelectItem>
+                        {baseGameSlugs.map((game) => (
+                          <SelectItem key={game.value} value={game.value}>
+                            {game.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="content_category">Categoría de Contenido (filtro)</Label>
+                    <Input
+                      id="content_category"
+                      value={formData.content_category || ""}
+                      onChange={(e) => setFormData({ ...formData, content_category: e.target.value || null })}
+                      placeholder="phrasal-verbs, idioms, etc."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Habilidad (Skill)</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {skillCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {categoryLabels[cat]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Categorías adicionales</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[...skillCategories, ...otherCategories].map((cat) => {
+                        const isSelected = formData.categories.includes(cat);
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                categories: isSelected
+                                  ? prev.categories.filter((c) => c !== cat)
+                                  : [...prev.categories, cat],
+                              }));
+                            }}
+                            className={`px-3 py-1 rounded-full text-sm border transition ${
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-muted border-border hover:bg-muted/80"
+                            }`}
+                          >
+                            {categoryLabels[cat]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Badge</Label>
+                    <Select
+                      value={formData.badge || "none"}
+                      onValueChange={(value) => setFormData({ ...formData, badge: value === "none" ? null : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin badge</SelectItem>
+                        {badges.map((badge) => (
+                          <SelectItem key={badge} value={badge}>
+                            {badgeLabels[badge]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descripción</Label>
+                    <Input
+                      id="description"
+                      value={formData.description || ""}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sort_order">Orden</Label>
+                      <Input
+                        id="sort_order"
+                        type="number"
+                        value={formData.sort_order}
+                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Activo</Label>
+                      <div className="pt-2">
+                        <Switch
+                          checked={formData.is_active}
+                          onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Microlecciones</Label>
+                      <div className="pt-2">
+                        <Switch
+                          checked={formData.microlessons_enabled}
+                          onCheckedChange={(checked) => setFormData({ ...formData, microlessons_enabled: checked })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Multijugador</Label>
+                      <div className="pt-2">
+                        <Switch
+                          checked={formData.multiplayer_enabled}
+                          onCheckedChange={(checked) => setFormData({ ...formData, multiplayer_enabled: checked })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">{editingGame ? "Guardar Cambios" : "Crear Juego"}</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -499,15 +494,17 @@ export default function AdminPage() {
                         <TableCell>
                           <img src={game.image} alt={game.title} className="w-16 h-12 object-cover rounded" />
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {game.title}
-                        </TableCell>
+                        <TableCell className="font-medium">{game.title}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             <Badge variant="secondary">{categoryLabels[game.category] || game.category}</Badge>
-                            {game.categories?.filter(c => c !== game.category).map(cat => (
-                              <Badge key={cat} variant="outline">{categoryLabels[cat] || cat}</Badge>
-                            ))}
+                            {game.categories
+                              ?.filter((c) => c !== game.category)
+                              .map((cat) => (
+                                <Badge key={cat} variant="outline">
+                                  {categoryLabels[cat] || cat}
+                                </Badge>
+                              ))}
                           </div>
                         </TableCell>
                         <TableCell>
