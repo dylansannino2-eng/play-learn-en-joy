@@ -432,13 +432,14 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     setIsLoading(true);
     const targetDifficulty = difficulty || getRandomDifficulty();
 
-    // Build query with category filter if provided
+    // Build query with category filter if provided - ensure video_id is not empty
     let query = supabase
       .from('subtitle_configs')
       .select('*')
       .not('hidden_word', 'is', null)
+      .not('video_id', 'is', null)
+      .neq('video_id', '')
       .eq('difficulty', targetDifficulty);
-    
     // Apply category filter if specified
     if (category) {
       query = query.eq('category', category);
@@ -451,7 +452,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       let fallbackQuery = supabase
         .from('subtitle_configs')
         .select('*')
-        .not('hidden_word', 'is', null);
+        .not('hidden_word', 'is', null)
+        .not('video_id', 'is', null)
+        .neq('video_id', '');
       
       if (category) {
         fallbackQuery = fallbackQuery.eq('category', category);
@@ -467,7 +470,9 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       const finalFallback = await supabase
         .from('subtitle_configs')
         .select('*')
-        .not('hidden_word', 'is', null);
+        .not('hidden_word', 'is', null)
+        .not('video_id', 'is', null)
+        .neq('video_id', '');
       data = finalFallback.data;
       error = finalFallback.error;
     }
