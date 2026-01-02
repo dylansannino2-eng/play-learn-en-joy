@@ -21,23 +21,18 @@ interface VideoImportModalProps {
 }
 
 export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportModalProps) {
+  // Estados para capturar la información
   const [videoId, setVideoId] = useState("");
+  const [configName, setConfigName] = useState("");
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [translations, setTranslations] = useState<Subtitle[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [repeatConfig, setRepeatConfig] = useState<RepeatConfig | null>(null);
-  const [configName, setConfigName] = useState("");
 
   const playerRef = useRef<YouTubePlayerRef>(null);
   const { configs, isLoading, saveConfig, loadConfig, deleteConfig } = useSubtitleConfig();
-
-  const extractVideoId = (input: string) => {
-    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = input.match(regExp);
-    return match && match[2].length === 11 ? match[2] : input;
-  };
 
   const handleTimeUpdate = useCallback((time: number) => {
     setCurrentTime(time);
@@ -47,17 +42,22 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
     playerRef.current?.seekTo(subtitle.startTime);
   }, []);
 
+  // --- FUNCIÓN DE GUARDADO MODIFICADA ---
   const handleSave = async () => {
-    const finalVideoId = extractVideoId(videoId);
-    if (!finalVideoId) {
-      toast.error("Debes ingresar un ID de video");
+    // Forzamos el uso del estado actual de videoId
+    const idAEnviar = videoId.trim();
+
+    console.log("Botón Guardar presionado. ID detectado:", idAEnviar);
+
+    if (!idAEnviar) {
+      toast.error("El campo de ID de video está vacío");
       return;
     }
 
     try {
-      const configData = {
-        name: configName.trim() || "Sin nombre",
-        video_id: finalVideoId,
+      const payload = {
+        name: configName.trim() || "Nueva Lección",
+        video_id: idAEnviar, // <--- Verificamos que se asigne aquí
         start_time: startTime,
         end_time: endTime,
         subtitles: subtitles,
@@ -68,15 +68,14 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
         repeat_count: repeatConfig?.repeatCount || 0,
       };
 
-      await saveConfig(configData as any);
-      toast.success("¡Configuración guardada!");
+      await saveConfig(payload as any);
+      toast.success("¡Guardado exitoso!");
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      toast.error("Error al guardar");
+      toast.error("Error al guardar en la base de datos");
     }
   };
-
   const handleLoadConfig = async (id: string) => {
     const config = await loadConfig(id);
     if (config) {
@@ -86,15 +85,6 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
       setSubtitles(config.subtitles || []);
       setTranslations(config.translations || []);
       setConfigName(config.name || "");
-
-      if (config.repeat_enabled) {
-        setRepeatConfig({
-          enabled: true,
-          startTime: config.repeat_start_time || 0,
-          endTime: config.repeat_end_time || 0,
-          repeatCount: config.repeat_count || 0,
-        });
-      }
     }
   };
 
@@ -107,12 +97,13 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
         <DialogHeader className="px-6 py-4 border-b bg-muted/30">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Film className="w-5 h-5 text-primary" />
-            Importador de Video
+            Configurador de Clips e Intérprete
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="grid lg:grid-cols-2 gap-6">
+            {/* Panel Izquierdo: Configuración */}
             <div className="space-y-6">
               <Tabs defaultValue="new">
                 <TabsList className="w-full">
@@ -128,13 +119,15 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                   <div className="space-y-2">
                     <Label>Nombre de la lección</Label>
                     <Input
-                      placeholder="Ej: Matrix Scene"
+                      placeholder="Ej: Futurama - Escena 1"
                       value={configName}
                       onChange={(e) => setConfigName(e.target.value)}
                     />
                   </div>
+
+                  {/* El ConfigPanel recibe la función para actualizar el videoId directamente */}
                   <ConfigPanel
-                    onVideoChange={(val) => setVideoId(extractVideoId(val))}
+                    onVideoChange={(val) => setVideoId(val)}
                     onTimeRangeChange={(start, end) => {
                       setStartTime(start);
                       setEndTime(end);
@@ -143,8 +136,9 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
                     onTranslationLoad={(content) => setTranslations(parseSRT(content))}
                     onRepeatConfigChange={setRepeatConfig}
                   />
+
                   <Button onClick={handleSave} className="w-full gap-2">
-                    <Save className="w-4 h-4" /> Guardar
+                    <Save className="w-4 h-4" /> Guardar Configuración
                   </Button>
                 </TabsContent>
 
@@ -159,24 +153,30 @@ export function VideoImportModal({ open, onOpenChange, onSuccess }: VideoImportM
               </Tabs>
             </div>
 
+            {/* Panel Derecho: Preview */}
             <div className="space-y-4">
-              <div className="rounded-xl overflow-hidden border bg-black aspect-video">
-                {videoId && (
+              <div className="rounded-xl overflow-hidden border bg-black aspect-video relative">
+                {videoId ? (
                   <YouTubePlayer
                     ref={playerRef}
                     videoId={videoId}
                     startTime={startTime}
                     endTime={endTime}
                     onTimeUpdate={handleTimeUpdate}
-                    onReady={() => {}} // 👈 CORRECCIÓN: Añadido para cumplir con YouTubePlayerProps
+                    onReady={() => {}}
                   />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                    <p>Ingresa el ID del video para la vista previa</p>
+                  </div>
                 )}
               </div>
+
               {subtitles.length > 0 && (
                 <div className="space-y-4">
                   <SubtitleDisplay currentSubtitle={currentSubtitle} currentTranslation={currentTranslation} />
                   <div className="border rounded-xl h-[300px] overflow-hidden flex flex-col">
-                    <div className="p-2 bg-muted border-b text-sm font-bold">Línea de Tiempo</div>
+                    <div className="p-2 bg-muted border-b text-xs font-bold uppercase">Línea de Tiempo</div>
                     <div className="flex-1 overflow-y-auto">
                       <SubtitleList
                         subtitles={subtitles}
