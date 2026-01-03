@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, ArrowLeft, Film, Eye, Check, Sparkles, Loader2, BookOpen } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,8 @@ interface SubtitleConfig {
   difficulty: string | null;
   is_active: boolean | null;
   category: string | null;
+  microlesson_meaning: string | null;
+  microlesson_examples: string[] | null;
 }
 
 // --- Componente de Auto-Selección ---
@@ -145,6 +147,12 @@ export default function SubtitleConfigAdmin() {
     is_active: true,
   });
 
+  const [microlessonData, setMicrolessonData] = useState<{
+    meaning: string | null;
+    examples: string[] | null;
+  }>({ meaning: null, examples: null });
+  const [isGeneratingMicrolesson, setIsGeneratingMicrolesson] = useState(false);
+
   useEffect(() => {
     if (!isLoading && (!user || !isAdmin)) navigate(user ? "/" : "/auth");
   }, [user, isAdmin, isLoading, navigate]);
@@ -179,8 +187,53 @@ export default function SubtitleConfigAdmin() {
       setSelectedWordIndex(config.hidden_word_index);
       setSelectedWord(config.hidden_word || "");
       setManualWord(config.hidden_word || "");
+      setMicrolessonData({
+        meaning: config.microlesson_meaning || null,
+        examples: config.microlesson_examples || null,
+      });
+    } else {
+      setMicrolessonData({ meaning: null, examples: null });
     }
     setDialogOpen(true);
+  };
+
+  const generateMicrolesson = async () => {
+    const word = manualWord || selectedWord;
+    if (!word) {
+      toast.error("Primero selecciona una palabra");
+      return;
+    }
+
+    // Get context from the target subtitle
+    const subtitles = editingConfig?.subtitles || [];
+    const targetIndex = selectedSubtitleIndex ?? editingConfig?.target_subtitle_index;
+    const context = targetIndex !== null && targetIndex !== undefined && subtitles[targetIndex]
+      ? subtitles[targetIndex].text
+      : "";
+
+    setIsGeneratingMicrolesson(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-microlesson', {
+        body: { word: word.toLowerCase(), context }
+      });
+
+      if (error) throw error;
+
+      if (data && data.meaning) {
+        setMicrolessonData({
+          meaning: data.meaning,
+          examples: data.examples || [],
+        });
+        toast.success("Microlección generada correctamente");
+      } else {
+        toast.error("No se pudo generar la microlección");
+      }
+    } catch (err) {
+      console.error("Error generating microlesson:", err);
+      toast.error("Error al generar la microlección");
+    } finally {
+      setIsGeneratingMicrolesson(false);
+    }
   };
 
   const handleWordClick = (subtitleIndex: number, wordIndex: number, word: string) => {
@@ -207,6 +260,8 @@ export default function SubtitleConfigAdmin() {
         target_subtitle_index: selectedSubtitleIndex,
         hidden_word: manualWord || selectedWord || null,
         hidden_word_index: selectedWordIndex,
+        microlesson_meaning: microlessonData.meaning,
+        microlesson_examples: microlessonData.examples,
       })
       .eq("id", editingConfig.id);
 
@@ -378,9 +433,59 @@ export default function SubtitleConfigAdmin() {
                           </Badge>
                         )}
                       </div>
-                      <div className="max-h-[400px] overflow-y-auto pr-2 space-y-1 border rounded-lg p-2 bg-background">
+                      <div className="max-h-[300px] overflow-y-auto pr-2 space-y-1 border rounded-lg p-2 bg-background">
                         {editingConfig?.subtitles?.map((sub, idx) => renderSubtitleWithSelection(sub, idx))}
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Microlesson Section */}
+                  <Card className="border-2 border-amber-500/30 bg-amber-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 text-amber-600">
+                        <BookOpen className="w-4 h-4" /> Microlección
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          onClick={generateMicrolesson}
+                          disabled={isGeneratingMicrolesson || !selectedWord}
+                          className="bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                        >
+                          {isGeneratingMicrolesson ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                          {isGeneratingMicrolesson ? "Generando..." : "Generar con IA"}
+                        </Button>
+                        {microlessonData.meaning && (
+                          <Badge className="bg-green-600">
+                            <Check className="mr-1 w-3 h-3" /> Generada
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {microlessonData.meaning && (
+                        <div className="space-y-3 p-4 bg-background rounded-lg border">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Significado</Label>
+                            <p className="text-sm mt-1">{microlessonData.meaning}</p>
+                          </div>
+                          {microlessonData.examples && microlessonData.examples.length > 0 && (
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Ejemplos</Label>
+                              <ul className="text-sm mt-1 space-y-1">
+                                {microlessonData.examples.map((ex, i) => (
+                                  <li key={i} className="text-muted-foreground">• {ex}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

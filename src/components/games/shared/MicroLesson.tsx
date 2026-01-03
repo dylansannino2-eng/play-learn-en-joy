@@ -8,6 +8,9 @@ interface MicroLessonProps {
   context?: string; // The subtitle/sentence where the word appears
   duration?: number;
   onComplete: () => void;
+  // Pre-generated microlesson data (if available from subtitle_configs)
+  pregeneratedMeaning?: string | null;
+  pregeneratedExamples?: string[] | null;
 }
 
 interface MicroLessonData {
@@ -47,7 +50,14 @@ function getGenericDefinition(word: string): MicroLessonData {
   };
 }
 
-export default function MicroLesson({ word, context, duration = 10, onComplete }: MicroLessonProps) {
+export default function MicroLesson({ 
+  word, 
+  context, 
+  duration = 10, 
+  onComplete,
+  pregeneratedMeaning,
+  pregeneratedExamples
+}: MicroLessonProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isVisible, setIsVisible] = useState(true);
   const [definition, setDefinition] = useState<MicroLessonData | null>(null);
@@ -62,7 +72,17 @@ export default function MicroLesson({ word, context, duration = 10, onComplete }
       setIsAIGenerated(false);
       
       try {
-        // First, try to get from database
+        // First, check if we have pregenerated data from subtitle_configs
+        if (pregeneratedMeaning) {
+          setDefinition({ 
+            meaning: pregeneratedMeaning, 
+            examples: pregeneratedExamples || [] 
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Then, try to get from microlessons database
         const { data, error } = await supabase
           .from("microlessons")
           .select("meaning, examples")
@@ -104,7 +124,7 @@ export default function MicroLesson({ word, context, duration = 10, onComplete }
       setIsLoading(false);
     };
     fetchDefinition();
-  }, [normalizedWord, word, context]);
+  }, [normalizedWord, word, context, pregeneratedMeaning, pregeneratedExamples]);
 
   useEffect(() => {
     if (isLoading) return;

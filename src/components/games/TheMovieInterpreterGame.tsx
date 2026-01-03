@@ -32,10 +32,13 @@ interface SubtitleConfig {
   end_time: number | null;
   subtitles: SubtitleItem[] | null;
   translations: SubtitleItem[] | null;
-  // New fields for predefined hidden word
+  // Fields for predefined hidden word
   target_subtitle_index: number | null;
   hidden_word: string | null;
   hidden_word_index: number | null;
+  // Pre-generated microlesson data
+  microlesson_meaning: string | null;
+  microlesson_examples: string[] | null;
 }
 
 // Generates a blank version of subtitle with one word hidden
@@ -199,6 +202,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
   // Microlesson state
   const [microlessonWord, setMicrolessonWord] = useState('');
   const [microlessonContext, setMicrolessonContext] = useState('');
+  const [microlessonMeaning, setMicrolessonMeaning] = useState<string | null>(null);
+  const [microlessonExamples, setMicrolessonExamples] = useState<string[] | null>(null);
 
   // Sync refs (multiplayer)
   const lastSyncedConfigRef = useRef<string | null>(null);
@@ -508,6 +513,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
       target_subtitle_index: randomConfig.target_subtitle_index,
       hidden_word: randomConfig.hidden_word,
       hidden_word_index: randomConfig.hidden_word_index,
+      microlesson_meaning: randomConfig.microlesson_meaning ?? null,
+      microlesson_examples: randomConfig.microlesson_examples ?? null,
     };
 
     applyConfig(config);
@@ -522,14 +529,19 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     // Start microlesson phase with the hidden word (if enabled)
     const word = blankSubtitle?.hiddenWord || '';
     const context = blankSubtitle?.originalText || '';
+    const meaning = subtitleConfig?.microlesson_meaning || null;
+    const examples = subtitleConfig?.microlesson_examples || null;
+    
     if (microlessonsEnabled && word) {
       setMicrolessonWord(word);
       setMicrolessonContext(context);
+      setMicrolessonMeaning(meaning);
+      setMicrolessonExamples(examples);
       setGamePhase('microlesson');
       
-      // Host broadcasts microlesson phase
+      // Host broadcasts microlesson phase with pregenerated data
       if (gameRoomCode && isHostInRoom) {
-        await broadcastGameEvent('sync_microlesson', { word, context });
+        await broadcastGameEvent('sync_microlesson', { word, context, meaning, examples });
       }
     } else {
       setGamePhase('ranking');
@@ -542,7 +554,7 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     if (ytPlayerRef.current) {
       ytPlayerRef.current.pauseVideo();
     }
-  }, [blankSubtitle, gameRoomCode, isHostInRoom, broadcastGameEvent, microlessonsEnabled]);
+  }, [blankSubtitle, subtitleConfig, gameRoomCode, isHostInRoom, broadcastGameEvent, microlessonsEnabled]);
 
   // Listen for sync events (host <-> joiners)
   useEffect(() => {
@@ -613,10 +625,17 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
 
     // Sync microlesson from host
     if (gameEvent.type === 'sync_microlesson' && !isHostInRoom && gameRoomCode) {
-      const payload = gameEvent.payload as { word: string; context?: string };
+      const payload = gameEvent.payload as { 
+        word: string; 
+        context?: string;
+        meaning?: string | null;
+        examples?: string[] | null;
+      };
       if (payload.word) {
         setMicrolessonWord(payload.word);
         setMicrolessonContext(payload.context || '');
+        setMicrolessonMeaning(payload.meaning ?? null);
+        setMicrolessonExamples(payload.examples ?? null);
         setGamePhase('microlesson');
         if (ytPlayerRef.current) {
           ytPlayerRef.current.pauseVideo();
@@ -1060,6 +1079,8 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
         context={microlessonContext}
         duration={10}
         onComplete={() => setGamePhase('ranking')}
+        pregeneratedMeaning={microlessonMeaning}
+        pregeneratedExamples={microlessonExamples}
       />
     );
   }
