@@ -246,6 +246,8 @@ export type Database = {
           hidden_word_index: number | null
           id: string
           is_active: boolean | null
+          microlesson_examples: string[] | null
+          microlesson_meaning: string | null
           name: string | null
           repeat_count: number | null
           repeat_enabled: boolean | null
@@ -267,6 +269,8 @@ export type Database = {
           hidden_word_index?: number | null
           id?: string
           is_active?: boolean | null
+          microlesson_examples?: string[] | null
+          microlesson_meaning?: string | null
           name?: string | null
           repeat_count?: number | null
           repeat_enabled?: boolean | null
@@ -288,6 +292,8 @@ export type Database = {
           hidden_word_index?: number | null
           id?: string
           is_active?: boolean | null
+          microlesson_examples?: string[] | null
+          microlesson_meaning?: string | null
           name?: string | null
           repeat_count?: number | null
           repeat_enabled?: boolean | null
