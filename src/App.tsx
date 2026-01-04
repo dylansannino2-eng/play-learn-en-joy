@@ -68,6 +68,8 @@ const App = () => (
 
             {/* 🎮 Rutas de Juego Core */}
             <Route path="/game/:slug" element={<GamePage />} />
+            {/* Alias para compatibilidad: permitir acceder por /:slug */}
+            <Route path="/:slug" element={<GamePage />} />
             <Route path="/game-mobile/:slug" element={<GamePageMobile />} />
 
             {/* ⚙️ Ruta de Configuración */}
