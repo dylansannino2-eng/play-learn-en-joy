@@ -172,14 +172,24 @@ export default function AdminPage() {
       return;
     }
 
+    // Ensure the primary skill category is included in the categories array
+    const finalCategories = formData.categories.includes(formData.category)
+      ? formData.categories
+      : [...formData.categories, formData.category];
+
+    const dataToSave = {
+      ...formData,
+      categories: finalCategories,
+    };
+
     try {
       if (editingGame) {
-        const { error } = await supabase.from("games").update(formData).eq("id", editingGame.id);
+        const { error } = await supabase.from("games").update(dataToSave).eq("id", editingGame.id);
 
         if (error) throw error;
         toast.success("Juego actualizado");
       } else {
-        const { error } = await supabase.from("games").insert([formData]);
+        const { error } = await supabase.from("games").insert([dataToSave]);
 
         if (error) throw error;
         toast.success("Juego creado");
@@ -189,7 +199,6 @@ export default function AdminPage() {
       fetchGames();
     } catch (error: any) {
       console.error("Error completo de Supabase:", error);
-      // Esto te mostrará el error real (ej: "duplicate key", "violates RLS policy", etc.)
       toast.error(`Error: ${error.message || "No se pudo procesar la solicitud"}`);
     }
   };
