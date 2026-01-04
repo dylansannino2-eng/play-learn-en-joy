@@ -2,13 +2,16 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import { supabase } from "@/integrations/supabase/client";
+
+// --- IMPORTACIÓN DE JUEGOS ---
 import WordBattleGame from "@/components/games/WordBattleGame";
 import TheTranslatorGame from "@/components/games/TheTranslatorGame";
 import TheMovieInterpreterGame from "@/components/games/TheMovieInterpreterGame";
 import WordSearchGame from "@/components/games/WordSearchGame";
-// IMPORTACIÓN AÑADIDA:
 import MemoryGame from "@/components/games/MemoryGame";
-import { supabase } from "@/integrations/supabase/client";
+// AÑADIDO: Importación del nuevo juego de Anagrama
+import AnagramGame from "@/components/games/AnagramGame";
 
 interface Game {
   id: string;
@@ -30,6 +33,7 @@ const GamePage = () => {
   const [game, setGame] = useState<Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Obtener código de sala de la URL si existe (para invitaciones)
   const roomCode = searchParams.get("room") || undefined;
 
   useEffect(() => {
@@ -41,7 +45,9 @@ const GamePage = () => {
 
       const { data, error } = await supabase
         .from("games")
-        .select("id, title, image, slug, description, uses_chat, microlessons_enabled, multiplayer_enabled, base_game_slug, content_category")
+        .select(
+          "id, title, image, slug, description, uses_chat, microlessons_enabled, multiplayer_enabled, base_game_slug, content_category",
+        )
         .eq("slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -58,35 +64,77 @@ const GamePage = () => {
   const renderGameComponent = () => {
     if (!game?.slug) return null;
 
+    // Configuración por defecto o desde la base de datos
     const microlessonsEnabled = game.microlessons_enabled ?? true;
     const multiplayerEnabled = game.multiplayer_enabled ?? true;
-    // Use base_game_slug if it's a variant, otherwise use the game's own slug
+
+    // Si es una variante (ej: 'vocabulario-negocios'), usamos el base_game_slug (ej: 'word-battle')
+    // Si no, usamos el slug normal.
     const gameToRender = game.base_game_slug || game.slug;
-    // Use content_category from the game record
+
+    // Categoría de contenido para filtrar preguntas (ej: 'business', 'travel')
     const contentCategory = game.content_category || undefined;
 
     switch (gameToRender) {
       case "word-battle":
-        return <WordBattleGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} multiplayerEnabled={multiplayerEnabled} category={contentCategory} />;
+        return (
+          <WordBattleGame
+            roomCode={roomCode}
+            microlessonsEnabled={microlessonsEnabled}
+            multiplayerEnabled={multiplayerEnabled}
+            category={contentCategory}
+          />
+        );
       case "the-translator":
-        return <TheTranslatorGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} multiplayerEnabled={multiplayerEnabled} category={contentCategory} />;
+        return (
+          <TheTranslatorGame
+            roomCode={roomCode}
+            microlessonsEnabled={microlessonsEnabled}
+            multiplayerEnabled={multiplayerEnabled}
+            category={contentCategory}
+          />
+        );
       case "the-movie-interpreter":
-        return <TheMovieInterpreterGame roomCode={roomCode} microlessonsEnabled={microlessonsEnabled} multiplayerEnabled={multiplayerEnabled} category={contentCategory} />;
+        return (
+          <TheMovieInterpreterGame
+            roomCode={roomCode}
+            microlessonsEnabled={microlessonsEnabled}
+            multiplayerEnabled={multiplayerEnabled}
+            category={contentCategory}
+          />
+        );
       case "word-search":
-        return <WordSearchGame roomCode={roomCode} multiplayerEnabled={multiplayerEnabled} category={contentCategory} />;
+        return (
+          <WordSearchGame roomCode={roomCode} multiplayerEnabled={multiplayerEnabled} category={contentCategory} />
+        );
       case "memorama":
         return <MemoryGame category={contentCategory} />;
+
+      // AÑADIDO: Renderizado del Anagrama
+      case "anagram-battle":
+        return (
+          <AnagramGame
+            roomCode={roomCode}
+            multiplayerEnabled={multiplayerEnabled}
+            category={contentCategory}
+            microlessonsEnabled={microlessonsEnabled}
+          />
+        );
+
       default:
         return (
           <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
+            <div className="text-center p-6">
               <h2 className="text-2xl font-bold text-foreground mb-2">{game.title}</h2>
-              <p className="text-muted-foreground">Este juego estará disponible pronto</p>
+              <p className="text-muted-foreground">Este juego está en desarrollo y estará disponible pronto.</p>
+              <p className="text-xs text-muted-foreground mt-4 font-mono">Slug: {gameToRender}</p>
             </div>
           </div>
         );
     }
   };
+
+  // --- Renderizado de Estados de Carga ---
 
   if (isLoading) {
     return (
@@ -101,7 +149,8 @@ const GamePage = () => {
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Juego no encontrado</h1>
-          <Link to="/" className="text-primary hover:underline">
+          <p className="text-muted-foreground mb-6">No pudimos encontrar el juego que buscas.</p>
+          <Link to="/" className="text-primary hover:underline font-medium">
             Volver al catálogo
           </Link>
         </div>
@@ -109,23 +158,27 @@ const GamePage = () => {
     );
   }
 
+  // --- Renderizado Principal ---
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       <Sidebar />
 
       <main className="flex-1 ml-16 p-4 flex flex-col h-screen overflow-y-auto scrollbar-thin">
+        {/* Botón Volver y Título */}
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-4"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-4 w-fit"
         >
           <ArrowLeft size={20} />
-          <span>{game.title}</span>
+          <span className="font-medium">{game.title}</span>
         </Link>
 
         <div className="flex flex-col gap-6 pb-10">
-          {/* El contenedor del juego */}
+          {/* Contenedor del Juego */}
           <div className="flex gap-4 min-h-[600px] w-full">{renderGameComponent()}</div>
 
+          {/* Sección de Información */}
           <section className="w-full">
             <div className="max-w-3xl bg-card border border-border rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
