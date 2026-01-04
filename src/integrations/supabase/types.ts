@@ -311,6 +311,7 @@ export type Database = {
       translator_phrases: {
         Row: {
           category: string | null
+          correct_translations: string[] | null
           created_at: string
           difficulty: string
           english_translation: string
@@ -322,6 +323,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          correct_translations?: string[] | null
           created_at?: string
           difficulty?: string
           english_translation: string
@@ -333,6 +335,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          correct_translations?: string[] | null
           created_at?: string
           difficulty?: string
           english_translation?: string

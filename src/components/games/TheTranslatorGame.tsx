@@ -34,6 +34,7 @@ interface TranslatorPhrase {
   id: string;
   spanish_text: string;
   english_translation: string;
+  correct_translations: string[];
   difficulty: string;
   category: string | null;
   gif: string | null;
@@ -586,35 +587,44 @@ export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnable
     if (!currentPhrase) return { isCorrect: false, similarity: 0 };
 
     const normalizedAnswer = normalizeText(answer);
-    const normalizedCorrect = normalizeText(currentPhrase.english_translation);
-
-    // Exact match after normalization (including contraction expansion)
-    if (normalizedAnswer === normalizedCorrect) {
-      return { isCorrect: true, similarity: 1 };
+    
+    // Get all correct translations (use array if available, fallback to single translation)
+    const allCorrectTranslations = currentPhrase.correct_translations?.length > 0
+      ? currentPhrase.correct_translations
+      : [currentPhrase.english_translation];
+    
+    // Check against all correct translations
+    let bestSimilarity = 0;
+    
+    for (const correctTranslation of allCorrectTranslations) {
+      const normalizedCorrect = normalizeText(correctTranslation);
+      
+      // Exact match after normalization (including contraction expansion)
+      if (normalizedAnswer === normalizedCorrect) {
+        return { isCorrect: true, similarity: 1 };
+      }
+      
+      // Calculate similarity for feedback purposes
+      const answerWords = normalizedAnswer.split(' ').filter(w => w.length > 0);
+      const correctWords = normalizedCorrect.split(' ').filter(w => w.length > 0);
+      
+      let similarity = 0;
+      if (answerWords.length === correctWords.length) {
+        let matchCount = 0;
+        answerWords.forEach(word => {
+          if (correctWords.includes(word)) matchCount++;
+        });
+        similarity = matchCount / correctWords.length;
+      } else {
+        similarity = Math.min(answerWords.length, correctWords.length) / Math.max(answerWords.length, correctWords.length);
+      }
+      
+      if (similarity > bestSimilarity) {
+        bestSimilarity = similarity;
+      }
     }
-
-    // Calculate similarity for feedback purposes only
-    const answerWords = normalizedAnswer.split(' ').filter(w => w.length > 0);
-    const correctWords = normalizedCorrect.split(' ').filter(w => w.length > 0);
     
-    // Must have the same number of words
-    if (answerWords.length !== correctWords.length) {
-      const similarity = Math.min(answerWords.length, correctWords.length) / Math.max(answerWords.length, correctWords.length);
-      return { isCorrect: false, similarity };
-    }
-    
-    // Count matching words
-    let matchCount = 0;
-    answerWords.forEach(word => {
-      if (correctWords.includes(word)) matchCount++;
-    });
-    
-    const similarity = matchCount / correctWords.length;
-    
-    // Only accept if ALL words match (similarity === 1)
-    const isCorrect = similarity === 1;
-    
-    return { isCorrect, similarity };
+    return { isCorrect: false, similarity: bestSimilarity };
   };
 
   const handleSendMessage = async (message: string) => {
@@ -753,6 +763,13 @@ export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnable
 
   // Show reveal phase
   if (gamePhase === 'reveal') {
+    // Get all correct translations
+    const allCorrectTranslations = currentPhrase?.correct_translations?.length > 0
+      ? currentPhrase.correct_translations
+      : currentPhrase?.english_translation
+        ? [currentPhrase.english_translation]
+        : [];
+
     return (
       <>
         <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex flex-col items-center justify-center p-8">
@@ -763,13 +780,17 @@ export default function TheTranslatorGame({ roomCode, onBack, microlessonsEnable
           >
             <Languages className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-4">
-              Traducción correcta
+              {allCorrectTranslations.length > 1 ? 'Traducciones correctas' : 'Traducción correcta'}
             </h2>
             <div className="bg-secondary/50 rounded-xl p-6 mb-4">
               <p className="text-muted-foreground mb-2">Español:</p>
               <p className="text-xl text-foreground mb-4">{currentPhrase?.spanish_text}</p>
               <p className="text-muted-foreground mb-2">Inglés:</p>
-              <p className="text-2xl font-bold text-primary">{currentPhrase?.english_translation}</p>
+              {allCorrectTranslations.map((translation, index) => (
+                <p key={index} className={`text-xl font-bold ${index === 0 ? 'text-primary' : 'text-primary/70'} ${index > 0 ? 'mt-2' : ''}`}>
+                  {translation}
+                </p>
+              ))}
             </div>
             <p className="text-muted-foreground">
               {hasAnsweredCorrectly ? '¡Acertaste!' : 'Sigue practicando'}
