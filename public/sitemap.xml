@@ -5,9 +5,51 @@
     <lastmod>2026-01-05</lastmod>
     <priority>1.0</priority>
   </url>
+
   <url>
-    <loc>https://gameyourlanguage.com/about</loc>
+    <loc>https://gameyourlanguage.com/listening</loc>
     <lastmod>2026-01-05</lastmod>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/writing</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/speaking</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/reading</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/vocabulary</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/grammar</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/pronunciation</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://gameyourlanguage.com/multiplayer</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://gameyourlanguage.com/single-player</loc>
+    <lastmod>2026-01-05</lastmod>
+    <priority>0.7</priority>
   </url>
 </urlset>
