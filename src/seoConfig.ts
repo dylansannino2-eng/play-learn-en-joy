@@ -5,8 +5,9 @@ export interface SEOData {
 
 export const seoConfig: Record<string, SEOData> = {
   "/": {
-    title: "Movie Interpreter | Aprende Inglés con Películas",
-    description: "La plataforma definitiva para mejorar tu listening y vocabulario usando clips de tus películas favoritas.",
+    title: "Best ESL Games To Practice and Learn English",
+    description:
+      "La plataforma definitiva para mejorar tu listening y vocabulario usando clips de tus películas favoritas.",
   },
   "/listening": {
     title: "Práctica de Listening | Movie Interpreter",
@@ -31,7 +32,7 @@ export const seoConfig: Record<string, SEOData> = {
   "/admin/seo": {
     title: "Gestión SEO | Panel de Control",
     description: "Administración centralizada de metadatos y títulos del sitio.",
-  }
+  },
 };
 
 export const defaultSEO: SEOData = {
