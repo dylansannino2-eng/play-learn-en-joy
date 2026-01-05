@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { seoConfig, defaultSEO } from "@/seoConfig";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Search, Globe, Save, Loader2, ExternalLink } from "lucide-react";
+import { Search, Globe, Save, Loader2, ExternalLink, FileText, Gamepad2 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface GameSEO {
   id: string;
@@ -18,12 +21,26 @@ interface GameSEO {
   noindex: boolean;
 }
 
+interface StaticPageSEO {
+  path: string;
+  title: string;
+  description: string;
+}
+
 export default function SEOManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [games, setGames] = useState<GameSEO[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editedGames, setEditedGames] = useState<Map<string, Partial<GameSEO>>>(new Map());
+  const [activeTab, setActiveTab] = useState("all");
+
+  // Convert static seoConfig to array
+  const staticPages: StaticPageSEO[] = Object.entries(seoConfig).map(([path, data]) => ({
+    path,
+    title: data.title,
+    description: data.description,
+  }));
 
   useEffect(() => {
     fetchGames();
@@ -44,6 +61,13 @@ export default function SEOManager() {
     }
     setLoading(false);
   };
+
+  // Filter based on search and active tab
+  const filteredStaticPages = staticPages.filter(
+    (page) =>
+      page.path.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      page.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const filteredGames = games.filter(
     (game) =>
@@ -108,6 +132,8 @@ export default function SEOManager() {
 
   const hasChanges = editedGames.size > 0;
 
+  const totalUrls = staticPages.length + games.length;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -116,7 +142,7 @@ export default function SEOManager() {
             <Globe className="text-primary" /> SEO Manager
           </h1>
           <p className="text-muted-foreground">
-            Gestiona los metadatos SEO de cada juego
+            {totalUrls} URLs totales • {staticPages.length} páginas estáticas • {games.length} juegos
           </p>
         </div>
         <Button onClick={handleSave} disabled={!hasChanges || saving} className="gap-2">
@@ -128,93 +154,283 @@ export default function SEOManager() {
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por título o slug..."
+          placeholder="Buscar por URL o título..."
           className="pl-10"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">URL / Juego</TableHead>
-                  <TableHead>Meta Title</TableHead>
-                  <TableHead>Meta Description</TableHead>
-                  <TableHead className="w-[100px] text-center">Indexar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredGames.map((game) => (
-                  <TableRow key={game.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium text-sm">{game.title}</p>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all" className="gap-2">
+            <Globe className="w-4 h-4" />
+            Todas ({totalUrls})
+          </TabsTrigger>
+          <TabsTrigger value="static" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Páginas ({staticPages.length})
+          </TabsTrigger>
+          <TabsTrigger value="games" className="gap-2">
+            <Gamepad2 className="w-4 h-4" />
+            Juegos ({games.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-4">
+          <Card>
+            <CardContent className="pt-6">
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[220px]">URL</TableHead>
+                      <TableHead>Meta Title</TableHead>
+                      <TableHead>Meta Description</TableHead>
+                      <TableHead className="w-[100px] text-center">Indexar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* Static pages */}
+                    {(activeTab === "all" || activeTab === "static") &&
+                      filteredStaticPages.map((page) => (
+                        <TableRow key={page.path}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant="secondary" className="text-xs">Página</Badge>
+                              <a
+                                href={page.path}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline flex items-center gap-1"
+                              >
+                                {page.path}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                              {page.title}
+                            </div>
+                            <span className="text-xs text-muted-foreground">{page.title.length}/60</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground bg-muted/50 rounded px-2 py-1 line-clamp-2">
+                              {page.description}
+                            </div>
+                            <span className="text-xs text-muted-foreground">{page.description.length}/160</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col items-center gap-1">
+                              <Badge variant="outline" className="text-xs">En código</Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+
+                    {/* Games */}
+                    {(activeTab === "all" || activeTab === "games") &&
+                      filteredGames.map((game) => (
+                        <TableRow key={game.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge className="text-xs">Juego</Badge>
+                              <p className="font-medium text-sm">{game.title}</p>
+                              <a
+                                href={`/${game.slug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline flex items-center gap-1"
+                              >
+                                /{game.slug}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              placeholder={game.title}
+                              value={(getFieldValue(game, "meta_title") as string) || ""}
+                              onChange={(e) => handleFieldChange(game.id, "meta_title", e.target.value)}
+                              className="text-sm"
+                            />
+                            <span className={`text-xs ${((getFieldValue(game, "meta_title") as string) || game.title).length > 60 ? "text-destructive" : "text-muted-foreground"}`}>
+                              {((getFieldValue(game, "meta_title") as string) || game.title).length}/60
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              placeholder="Descripción para buscadores..."
+                              value={(getFieldValue(game, "meta_description") as string) || ""}
+                              onChange={(e) => handleFieldChange(game.id, "meta_description", e.target.value)}
+                              className="text-sm"
+                            />
+                            <span className={`text-xs ${((getFieldValue(game, "meta_description") as string) || "").length > 160 ? "text-destructive" : "text-muted-foreground"}`}>
+                              {((getFieldValue(game, "meta_description") as string) || "").length}/160
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col items-center gap-1">
+                              <Switch
+                                checked={!(getFieldValue(game, "noindex") as boolean)}
+                                onCheckedChange={(checked) => handleFieldChange(game.id, "noindex", !checked)}
+                              />
+                              <Label className="text-xs text-muted-foreground">
+                                {(getFieldValue(game, "noindex") as boolean) ? "No indexar" : "Indexar"}
+                              </Label>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+
+                    {filteredStaticPages.length === 0 && filteredGames.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          No se encontraron URLs
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="static" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Páginas Estáticas
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Estas páginas se configuran en el archivo seoConfig.ts
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>URL</TableHead>
+                    <TableHead>Meta Title</TableHead>
+                    <TableHead>Meta Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStaticPages.map((page) => (
+                    <TableRow key={page.path}>
+                      <TableCell>
                         <a
-                          href={`/${game.slug}`}
+                          href={page.path}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                          className="text-sm text-primary hover:underline flex items-center gap-1"
                         >
-                          /{game.slug}
+                          {page.path}
                           <ExternalLink className="w-3 h-3" />
                         </a>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        placeholder={game.title}
-                        value={(getFieldValue(game, "meta_title") as string) || ""}
-                        onChange={(e) => handleFieldChange(game.id, "meta_title", e.target.value)}
-                        className="text-sm"
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {((getFieldValue(game, "meta_title") as string) || game.title).length}/60
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        placeholder="Descripción para buscadores..."
-                        value={(getFieldValue(game, "meta_description") as string) || ""}
-                        onChange={(e) => handleFieldChange(game.id, "meta_description", e.target.value)}
-                        className="text-sm"
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {((getFieldValue(game, "meta_description") as string) || "").length}/160
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-center gap-1">
-                        <Switch
-                          checked={!(getFieldValue(game, "noindex") as boolean)}
-                          onCheckedChange={(checked) => handleFieldChange(game.id, "noindex", !checked)}
-                        />
-                        <Label className="text-xs text-muted-foreground">
-                          {(getFieldValue(game, "noindex") as boolean) ? "No indexar" : "Indexar"}
-                        </Label>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredGames.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No se encontraron juegos
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                      </TableCell>
+                      <TableCell className="text-sm">{page.title}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{page.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="games" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Gamepad2 className="w-5 h-5" />
+                Juegos
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                SEO dinámico gestionado desde la base de datos
+              </p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Juego</TableHead>
+                      <TableHead>Meta Title</TableHead>
+                      <TableHead>Meta Description</TableHead>
+                      <TableHead className="w-[100px] text-center">Indexar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGames.map((game) => (
+                      <TableRow key={game.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium text-sm">{game.title}</p>
+                            <a
+                              href={`/${game.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              /{game.slug}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            placeholder={game.title}
+                            value={(getFieldValue(game, "meta_title") as string) || ""}
+                            onChange={(e) => handleFieldChange(game.id, "meta_title", e.target.value)}
+                            className="text-sm"
+                          />
+                          <span className={`text-xs ${((getFieldValue(game, "meta_title") as string) || game.title).length > 60 ? "text-destructive" : "text-muted-foreground"}`}>
+                            {((getFieldValue(game, "meta_title") as string) || game.title).length}/60
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            placeholder="Descripción para buscadores..."
+                            value={(getFieldValue(game, "meta_description") as string) || ""}
+                            onChange={(e) => handleFieldChange(game.id, "meta_description", e.target.value)}
+                            className="text-sm"
+                          />
+                          <span className={`text-xs ${((getFieldValue(game, "meta_description") as string) || "").length > 160 ? "text-destructive" : "text-muted-foreground"}`}>
+                            {((getFieldValue(game, "meta_description") as string) || "").length}/160
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-center gap-1">
+                            <Switch
+                              checked={!(getFieldValue(game, "noindex") as boolean)}
+                              onCheckedChange={(checked) => handleFieldChange(game.id, "noindex", !checked)}
+                            />
+                            <Label className="text-xs text-muted-foreground">
+                              {(getFieldValue(game, "noindex") as boolean) ? "No indexar" : "Indexar"}
+                            </Label>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
