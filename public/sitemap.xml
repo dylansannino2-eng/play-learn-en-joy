@@ -7,40 +7,33 @@
   </url>
 
   <url>
-    <loc>https://gameyourlanguage.com/listening</loc>
+    <loc>https://gameyourlanguage.com/word-search</loc>
     <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://gameyourlanguage.com/writing</loc>
+    <loc>https://gameyourlanguage.com/the-translator</loc>
     <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://gameyourlanguage.com/speaking</loc>
+    <loc>https://gameyourlanguage.com/the-movie-interpreter</loc>
     <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://gameyourlanguage.com/reading</loc>
+    <loc>https://gameyourlanguage.com/word-battle</loc>
     <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
-  <url>
-    <loc>https://gameyourlanguage.com/vocabulary</loc>
-    <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://gameyourlanguage.com/grammar</loc>
-    <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://gameyourlanguage.com/pronunciation</loc>
-    <lastmod>2026-01-05</lastmod>
-    <priority>0.8</priority>
-  </url>
+
+  <url><loc>https://gameyourlanguage.com/listening</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/writing</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/speaking</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/reading</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/vocabulary</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/grammar</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
+  <url><loc>https://gameyourlanguage.com/pronunciation</loc><lastmod>2026-01-05</lastmod><priority>0.8</priority></url>
 
   <url>
     <loc>https://gameyourlanguage.com/multiplayer</loc>
