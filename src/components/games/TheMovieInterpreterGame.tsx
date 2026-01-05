@@ -725,7 +725,10 @@ export default function TheMovieInterpreterGame({ roomCode, onBack, microlessons
     // Multiplayer: only host checks and broadcasts
     if (!isHostInRoom) return;
     
-    const allAnswered = players.length > 0 && players.every(p => p.correctAnswers >= round);
+    // Check if all players answered correctly this round
+    // Use correctAnswers >= round since correctAnswers accumulates across rounds
+    // Also ensure we have at least 2 players for multiplayer auto-advance
+    const allAnswered = players.length >= 2 && players.every(p => p.correctAnswers >= round);
     
     if (allAnswered) {
       hasAdvancedRef.current = true;

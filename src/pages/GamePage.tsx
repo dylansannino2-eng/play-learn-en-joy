@@ -115,9 +115,6 @@ const GamePage = () => {
         return (
           <AnagramGame
             roomCode={roomCode}
-            multiplayerEnabled={multiplayerEnabled}
-            category={contentCategory}
-            microlessonsEnabled={microlessonsEnabled}
           />
         );
 
