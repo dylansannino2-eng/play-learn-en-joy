@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import GameCard from "@/components/GameCard"; 
+import GameCard from "@/components/GameCard";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, BookOpen } from "lucide-react"; // Importamos BookOpen para el icono
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Game {
@@ -25,7 +25,6 @@ const VocabularyGames = () => {
         .from("games")
         .select("id, title, image, slug, badge, category, categories")
         .eq("is_active", true)
-        // Filtramos por el array de categorías que contenga 'vocabulary'
         .contains("categories", ["vocabulary"])
         .order("sort_order");
 
@@ -51,10 +50,10 @@ const VocabularyGames = () => {
           </Link>
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              <BookOpen className="w-8 h-8 text-primary" /> Juegos de Vocabulario
+              <BookOpen className="w-8 h-8 text-primary" /> Best ESL Games For Improving English Vocabulary
             </h1>
             <p className="text-muted-foreground mt-1">
-              Expande tu léxico y domina nuevas palabras de forma divertida.
+              Expand your lexicon and master new words in a fun and interactive way.
             </p>
           </div>
         </div>
@@ -67,8 +66,8 @@ const VocabularyGames = () => {
         ) : games.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {games.map((game) => (
-              <GameCard 
-                key={game.id} 
+              <GameCard
+                key={game.id}
                 id={game.id}
                 slug={game.slug ?? undefined}
                 title={game.title}
@@ -79,7 +78,7 @@ const VocabularyGames = () => {
           </div>
         ) : (
           <div className="text-center py-20 text-muted-foreground">
-            <p>No se encontraron juegos de Vocabulario por el momento.</p>
+            <p>No games found for Vocabulary at the moment.</p>
           </div>
         )}
       </main>
