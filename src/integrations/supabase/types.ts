@@ -71,8 +71,11 @@ export type Database = {
           id: string
           image: string
           is_active: boolean
+          meta_description: string | null
+          meta_title: string | null
           microlessons_enabled: boolean
           multiplayer_enabled: boolean | null
+          noindex: boolean
           slug: string | null
           sort_order: number
           title: string
@@ -90,8 +93,11 @@ export type Database = {
           id?: string
           image: string
           is_active?: boolean
+          meta_description?: string | null
+          meta_title?: string | null
           microlessons_enabled?: boolean
           multiplayer_enabled?: boolean | null
+          noindex?: boolean
           slug?: string | null
           sort_order?: number
           title: string
@@ -109,8 +115,11 @@ export type Database = {
           id?: string
           image?: string
           is_active?: boolean
+          meta_description?: string | null
+          meta_title?: string | null
           microlessons_enabled?: boolean
           multiplayer_enabled?: boolean | null
+          noindex?: boolean
           slug?: string | null
           sort_order?: number
           title?: string
