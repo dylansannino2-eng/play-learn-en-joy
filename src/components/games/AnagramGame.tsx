@@ -59,17 +59,9 @@ export default function AnagramGame({ roomCode, onBack }: { roomCode?: string, o
   };
 
   const fetchCard = useCallback(async (difficulty: string) => {
-    const { data, error } = await supabase
-      .from('anagram_cards')
-      .select('*')
-      .eq('difficulty', difficulty)
-      .limit(10);
-
-    if (data && data.length > 0) {
-      const card = data[Math.floor(Math.random() * data.length)];
-      setCurrentCard(card);
-      setScrambledWord(scramble(card.word));
-    }
+    // Note: anagram_cards table doesn't exist yet - placeholder for future implementation
+    console.log('Fetching anagram card for difficulty:', difficulty);
+    // TODO: Create anagram_cards table and populate with data
   }, []);
 
   // --- Manejo de Respuesta ---

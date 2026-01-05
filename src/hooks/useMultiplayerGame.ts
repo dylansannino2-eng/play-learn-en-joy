@@ -5,11 +5,11 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface Player {
   odId: string;
-  odname: string;
-  odints: number;
-  odrrectAnswers: number;
-  odreak: number;
-  odline: boolean;
+  username: string;
+  points: number;
+  correctAnswers: number;
+  streak: number;
+  online: boolean;
 }
 
 interface GameState {
@@ -20,7 +20,7 @@ interface GameState {
 
 interface CorrectAnswerEvent {
   username: string;
-  odints: number;
+  points: number;
   answer: string;
 }
 
@@ -73,11 +73,11 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
         if (presence) {
           updatedPlayers.set(oderId, {
             odId: oderId,
-            odname: presence.username,
-            odints: presence.odints ?? presence.points ?? 0,
-            odrrectAnswers: presence.odrrectAnswers ?? presence.correctAnswers ?? 0,
-            odreak: presence.odreak ?? presence.streak ?? 0,
-            odline: true,
+            username: presence.username,
+            points: presence.points ?? 0,
+            correctAnswers: presence.correctAnswers ?? 0,
+            streak: presence.streak ?? 0,
+            online: true,
           });
         }
       });
@@ -125,9 +125,9 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
         // Track initial presence
         await channel.track({
           username,
-          odints: 0,
-          odrrectAnswers: 0,
-          odreak: 0,
+          points: 0,
+          correctAnswers: 0,
+          streak: 0,
           joinedAt: new Date().toISOString(),
         });
       }
@@ -147,9 +147,9 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
       if (channelRef.current) {
         await channelRef.current.track({
           username,
-          odints: points,
-          odrrectAnswers: correctAnswers,
-          odreak: streak,
+          points,
+          correctAnswers,
+          streak,
           joinedAt: new Date().toISOString(),
         });
       }
@@ -167,7 +167,7 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
           payload: {
             username,
             answer,
-            odints: points,
+            points,
           },
         });
       }
@@ -214,13 +214,13 @@ export function useMultiplayerGame(gameSlug: string, roomCode?: string, displayN
   // Get sorted player list
   const getSortedPlayers = useCallback(() => {
     return Array.from(players.values())
-      .sort((a, b) => b.odints - a.odints)
+      .sort((a, b) => b.points - a.points)
       .map((player, index) => ({
         rank: index + 1,
-        username: player.odname,
-        points: player.odints,
-        correctAnswers: player.odrrectAnswers,
-        streak: player.odreak,
+        username: player.username,
+        points: player.points,
+        correctAnswers: player.correctAnswers,
+        streak: player.streak,
         isCurrentUser: player.odId === oderId,
       }));
   }, [players, oderId]);
