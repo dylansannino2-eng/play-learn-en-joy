@@ -245,6 +245,36 @@ export type Database = {
         }
         Relationships: []
       }
+      static_pages_seo: {
+        Row: {
+          created_at: string | null
+          id: string
+          meta_description: string | null
+          meta_title: string | null
+          noindex: boolean | null
+          path: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          path: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          noindex?: boolean | null
+          path?: string
+          title?: string
+        }
+        Relationships: []
+      }
       subtitle_configs: {
         Row: {
           category: string | null

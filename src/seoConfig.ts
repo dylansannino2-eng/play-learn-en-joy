@@ -26,7 +26,7 @@ export const seoConfig: Record<string, SEOData> = {
   "/vocabulary": {
     title: "Best ESL Games For Improving Vocabulary",
     description: "Lee y analiza guiones originales para expandir tu vocabulario.",
-  }
+  },
   "/writing": {
     title: "Práctica de Writing | Escribe como un Pro",
     description: "Completa diálogos y mejora tu gramática mediante el contexto cinematográfico.",
