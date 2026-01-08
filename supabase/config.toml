@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.generate-microlesson]
 verify_jwt = false
+
+[functions.evaluate-writing]
+verify_jwt = false
