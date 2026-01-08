@@ -25,7 +25,7 @@ export const seoConfig: Record<string, SEOData> = {
   },  
   "/vocabulary": {
     title: "Best ESL Games For Improving Vocabulary",
-    description: "Lee y analiza guiones originales para expandir tu vocabulario.",
+    description: "Fun and engaging vocabulary games for beginners and adults. Practice new words with interactive challenges, beginner-friendly activities, and creative exercises. Includes fun vocabulary games, vocabulary practice activities for adults, and games to practice vocabulary that improve retention, confidence, and real-life communication.",
   },
   "/writing": {
     title: "Práctica de Writing | Escribe como un Pro",
