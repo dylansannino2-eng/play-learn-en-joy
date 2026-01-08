@@ -3,7 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import GameCard from "@/components/GameCard"; 
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, PenTool } from "lucide-react"; // Icono de pluma/escritura para gramática
+import { ArrowLeft, PenTool } from "lucide-react"; 
 import { Link } from "react-router-dom";
 
 interface Game {
@@ -46,12 +46,13 @@ const GrammarGames = () => {
       <main className="ml-16 pt-20 px-6 pb-8 space-y-8">
         {/* Cabecera de la Sección */}
         <div className="flex items-center gap-4">
-          <Link to="/" className="p-2 hover:bg-muted rounded-full transition">
+          <Link to="/" className="p-2 hover:bg-muted rounded-full transition" aria-label="Go back">
             <ArrowLeft className="w-6 h-6" />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <PenTool className="w-8 h-8 text-primary" /> Juegos de Gramática
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <PenTool className="w-8 h-8 text-primary shrink-0" /> 
+              Best ESL Grammar Games To Practice English
             </h1>
             <p className="text-muted-foreground mt-1">
               Domina las reglas del idioma y mejora tu estructura de forma interactiva.
