@@ -12,6 +12,7 @@ import WordSearchGame from "@/components/games/WordSearchGame";
 import MemoryGame from "@/components/games/MemoryGame";
 // AÑADIDO: Importación del nuevo juego de Anagrama
 import AnagramGame from "@/components/games/AnagramGame";
+import WritingGame from "@/components/games/WritingGame";
 
 interface Game {
   id: string;
@@ -117,6 +118,9 @@ const GamePage = () => {
             roomCode={roomCode}
           />
         );
+
+      case "writing-game":
+        return <WritingGame />;
 
       default:
         return (
