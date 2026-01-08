@@ -408,13 +408,13 @@ export default function WritingGame({ roomCode, multiplayerEnabled = false }: Wr
           </div>
           
           <div className="p-4 flex flex-col gap-4">
-            {/* Textarea con forma rectangular fija */}
+            {/* Textarea con forma rectangular fija y COLOR CORREGIDO */}
             <div className="relative w-full">
               <Textarea
                 value={userSentence}
                 onChange={(e) => setUserSentence(e.target.value.slice(0, MAX_CHARS))}
                 placeholder={`Write a sentence using "${currentWord}"...`}
-                className="w-full h-[240px] resize-none text-lg bg-white dark:bg-zinc-900 text-foreground border-4 border-amber-200 focus:border-amber-400 rounded-xl p-4 placeholder:text-muted-foreground/50 shadow-sm"
+                className="w-full h-[240px] resize-none text-lg bg-white dark:bg-zinc-900 text-slate-900 dark:text-slate-100 border-4 border-amber-200 focus:border-amber-400 rounded-xl p-4 placeholder:text-muted-foreground/50 shadow-sm"
               />
             </div>
 
