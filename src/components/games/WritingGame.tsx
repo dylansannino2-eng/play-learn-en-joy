@@ -399,37 +399,37 @@ export default function WritingGame({ roomCode, multiplayerEnabled = false }: Wr
         </div>
       </div>
 
-      {/* Writing Panel (replaces chat) */}
+      {/* Writing Panel (replaces chat) - MODIFIED SECTION */}
       {gamePhase === "playing" && (
-        <div className="w-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+        <div className="w-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0 h-fit">
           <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 p-4 border-b border-border">
             <h3 className="font-bold text-foreground text-lg">Writing Round</h3>
             <p className="text-sm text-muted-foreground">Round {round} / {totalRounds}</p>
           </div>
           
-          <div className="flex-1 p-4 flex flex-col">
-            {/* Textarea con estilo similar a la imagen */}
-            <div className="flex-1 relative">
+          <div className="p-4 flex flex-col gap-4">
+            {/* Textarea con forma rectangular fija */}
+            <div className="relative w-full">
               <Textarea
                 value={userSentence}
                 onChange={(e) => setUserSentence(e.target.value.slice(0, MAX_CHARS))}
                 placeholder={`Write a sentence using "${currentWord}"...`}
-                className="w-full h-full min-h-[200px] resize-none text-lg bg-white dark:bg-zinc-900 text-foreground border-2 border-amber-400/50 focus:border-amber-500 rounded-xl p-4"
+                className="w-full h-[240px] resize-none text-lg bg-white dark:bg-zinc-900 text-foreground border-4 border-amber-200 focus:border-amber-400 rounded-xl p-4 placeholder:text-muted-foreground/50 shadow-sm"
               />
             </div>
 
             {/* Footer con contador y botón */}
-            <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <Button 
                 onClick={handleSubmit}
                 disabled={!userSentence.trim()}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2"
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2 px-6"
               >
                 <Send className="w-4 h-4" />
                 SAVE REPLY
               </Button>
               
-              <span className="text-sm text-muted-foreground font-mono">
+              <span className="text-sm text-muted-foreground font-mono bg-secondary/50 px-2 py-1 rounded">
                 {userSentence.length} / {MAX_CHARS}
               </span>
             </div>
