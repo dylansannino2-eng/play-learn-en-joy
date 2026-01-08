@@ -31,6 +31,10 @@ export const seoConfig: Record<string, SEOData> = {
     title: "Práctica de Writing | Escribe como un Pro",
     description: "Completa diálogos y mejora tu gramática mediante el contexto cinematográfico.",
   },
+   "/grammar": {
+    title: "Best Grammar Games To Learn English",
+    description: "Fun and interactive grammar games online for adults and kids. Practice and recycle English rules with dynamic challenges, engaging activities, and interactive grammar games designed to reinforce, review, and apply real grammar naturally. Improve fluency, retention, and confidence while learning in a practical and enjoyable way.",
+  },
   "/admin": {
     title: "Panel de Administración | Gestión de Contenido",
     description: "Configuración de clips y subtítulos para la plataforma.",
