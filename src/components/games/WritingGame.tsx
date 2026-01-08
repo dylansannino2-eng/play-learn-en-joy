@@ -1,24 +1,36 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, RotateCcw, Clock, Sparkles, Trophy } from "lucide-react";
+import { Trophy, Clock, Zap, Send, RotateCcw, Sparkles } from "lucide-react";
+import GameLobby from "./shared/GameLobby";
+import RoundRanking from "./shared/RoundRanking";
+import { useGameSounds } from "@/hooks/useGameSounds";
 
-const WORDS = [
-  "adventure", "beautiful", "challenge", "discovery", "enthusiasm",
-  "freedom", "grateful", "harmony", "imagination", "journey",
-  "knowledge", "liberty", "mysterious", "nature", "opportunity",
-  "passionate", "question", "remarkable", "strength", "treasure",
-  "universe", "victory", "wonderful", "extraordinary", "yesterday",
-  "accomplish", "believe", "create", "determine", "embrace",
-  "flourish", "genuine", "humble", "inspire", "joyful"
-];
+const WORDS_BY_DIFFICULTY = {
+  easy: [
+    "happy", "book", "house", "water", "food", "friend", "family", "work", 
+    "school", "money", "time", "love", "life", "world", "music"
+  ],
+  medium: [
+    "adventure", "beautiful", "challenge", "discovery", "enthusiasm",
+    "freedom", "grateful", "harmony", "imagination", "journey",
+    "knowledge", "liberty", "mysterious", "nature", "opportunity"
+  ],
+  hard: [
+    "accomplished", "conscientious", "extraordinary", "incomprehensible",
+    "simultaneously", "unprecedented", "sophisticated", "quintessential",
+    "metaphorical", "philosophical", "revolutionary", "circumstantial"
+  ]
+};
 
-const ROUND_TIME = 60; // seconds
+const ROUND_SECONDS = 60;
+const MAX_CHARS = 280;
+
+type Difficulty = "easy" | "medium" | "hard";
+type GamePhase = "waiting" | "playing" | "evaluating" | "ranking";
 
 interface EvaluationResult {
   score: number;
@@ -31,278 +43,419 @@ interface EvaluationResult {
   comment: string;
 }
 
-const WritingGame = () => {
+interface WritingGameProps {
+  roomCode?: string;
+  multiplayerEnabled?: boolean;
+}
+
+export default function WritingGame({ roomCode, multiplayerEnabled = false }: WritingGameProps) {
+  const { playSound, preloadSounds } = useGameSounds();
+
+  const [displayName, setDisplayName] = useState("");
+  const [selectedDifficulties, setSelectedDifficulties] = useState<Difficulty[]>(["medium"]);
+
   const [currentWord, setCurrentWord] = useState("");
   const [userSentence, setUserSentence] = useState("");
-  const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [result, setResult] = useState<EvaluationResult | null>(null);
-  const [totalScore, setTotalScore] = useState(0);
-  const [roundsPlayed, setRoundsPlayed] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+  const [roundEndsAt, setRoundEndsAt] = useState<number | null>(null);
+  const lastTimerSecondRef = useRef<number>(ROUND_SECONDS);
 
-  const getRandomWord = useCallback(() => {
-    return WORDS[Math.floor(Math.random() * WORDS.length)];
+  const [gamePhase, setGamePhase] = useState<GamePhase>("waiting");
+  const [round, setRound] = useState(1);
+  const [totalRounds] = useState(5);
+  const [score, setScore] = useState(0);
+  const [result, setResult] = useState<EvaluationResult | null>(null);
+
+  useEffect(() => {
+    preloadSounds();
+  }, [preloadSounds]);
+
+  const getRandomWord = useCallback((difficulty: Difficulty) => {
+    const words = WORDS_BY_DIFFICULTY[difficulty];
+    return words[Math.floor(Math.random() * words.length)];
   }, []);
 
-  const startGame = () => {
-    setCurrentWord(getRandomWord());
-    setUserSentence("");
-    setTimeLeft(ROUND_TIME);
-    setIsPlaying(true);
-    setResult(null);
-  };
+  const getRandomDifficulty = useCallback(() => {
+    return selectedDifficulties[Math.floor(Math.random() * selectedDifficulties.length)];
+  }, [selectedDifficulties]);
 
-  const evaluateSentence = async () => {
+  const startRoundTimer = useCallback(() => {
+    const nextEndsAt = Date.now() + ROUND_SECONDS * 1000;
+    lastTimerSecondRef.current = ROUND_SECONDS;
+    setRoundEndsAt(nextEndsAt);
+    setTimeLeft(ROUND_SECONDS);
+    return nextEndsAt;
+  }, []);
+
+  const evaluateSentence = useCallback(async () => {
     if (!userSentence.trim()) {
-      toast.error("Please write a sentence first!");
+      // Si no escribió nada, dar puntuación 0
+      setResult({
+        score: 0,
+        feedback: { extension: 0, naturalness: 0, grammar: 0, wordUsage: false },
+        comment: "No escribiste ninguna oración. ¡Intenta de nuevo!"
+      });
+      setGamePhase("ranking");
       return;
     }
 
-    setIsPlaying(false);
-    setIsEvaluating(true);
+    setGamePhase("evaluating");
 
     try {
       const { data, error } = await supabase.functions.invoke("evaluate-writing", {
-        body: { 
-          word: currentWord, 
-          sentence: userSentence.trim() 
-        },
+        body: { word: currentWord, sentence: userSentence.trim() },
       });
 
       if (error) throw error;
 
       const evaluation: EvaluationResult = data;
       setResult(evaluation);
-      setTotalScore(prev => prev + evaluation.score);
-      setRoundsPlayed(prev => prev + 1);
+      setScore(prev => prev + evaluation.score);
+      playSound("correct", 0.6);
     } catch (error) {
       console.error("Evaluation error:", error);
-      toast.error("Error evaluating your sentence. Please try again.");
-      setIsPlaying(true);
-    } finally {
-      setIsEvaluating(false);
-    }
-  };
-
-  // Timer effect
-  useEffect(() => {
-    if (!isPlaying || timeLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          evaluateSentence();
-          return 0;
-        }
-        return prev - 1;
+      toast.error("Error evaluating your sentence");
+      // Fallback
+      const fallbackScore = userSentence.toLowerCase().includes(currentWord.toLowerCase()) ? 40 : 10;
+      setResult({
+        score: fallbackScore,
+        feedback: { extension: 40, naturalness: 40, grammar: 40, wordUsage: userSentence.toLowerCase().includes(currentWord.toLowerCase()) },
+        comment: "No pudimos evaluar tu oración con IA, pero aquí tienes una puntuación aproximada."
       });
-    }, 1000);
+      setScore(prev => prev + fallbackScore);
+    }
 
-    return () => clearInterval(timer);
-  }, [isPlaying, timeLeft]);
+    setGamePhase("ranking");
+  }, [currentWord, userSentence, playSound]);
+
+  // Timer
+  useEffect(() => {
+    if (gamePhase !== "playing") return;
+    if (!roundEndsAt) {
+      startRoundTimer();
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const remainingMs = roundEndsAt - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+
+      if (remainingSec !== lastTimerSecondRef.current) {
+        if (remainingSec <= 6 && remainingSec > 1) {
+          playSound("tick", 0.3);
+        }
+
+        if (remainingSec <= 0 && lastTimerSecondRef.current > 0) {
+          playSound("roundEnd", 0.6);
+          evaluateSentence();
+        }
+
+        lastTimerSecondRef.current = remainingSec;
+        setTimeLeft(remainingSec);
+      }
+    }, 250);
+
+    return () => window.clearInterval(timer);
+  }, [gamePhase, roundEndsAt, playSound, evaluateSentence, startRoundTimer]);
+
+  const handleLobbyStart = useCallback(
+    (payload: { difficulties: Difficulty[]; isHost: boolean; playerName: string }) => {
+      setDisplayName(payload.playerName);
+      setSelectedDifficulties(payload.difficulties);
+
+      const firstDifficulty = payload.difficulties[Math.floor(Math.random() * payload.difficulties.length)];
+      const word = getRandomWord(firstDifficulty);
+      
+      setCurrentWord(word);
+      setUserSentence("");
+      setResult(null);
+      setRound(1);
+      setScore(0);
+      startRoundTimer();
+      setGamePhase("playing");
+      playSound("gameStart", 0.6);
+    },
+    [getRandomWord, startRoundTimer, playSound]
+  );
 
   const handleSubmit = () => {
-    if (isPlaying) {
+    if (gamePhase === "playing" && userSentence.trim()) {
       evaluateSentence();
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
-    if (score >= 40) return "text-orange-500";
+  const nextRound = useCallback(() => {
+    if (round >= totalRounds) {
+      return;
+    }
+
+    setRound(r => r + 1);
+    setUserSentence("");
+    setResult(null);
+    const difficulty = getRandomDifficulty();
+    setCurrentWord(getRandomWord(difficulty));
+    startRoundTimer();
+    setGamePhase("playing");
+    playSound("gameStart", 0.5);
+  }, [round, totalRounds, getRandomDifficulty, getRandomWord, startRoundTimer, playSound]);
+
+  const handlePlayAgain = useCallback(() => {
+    playSound("gameStart", 0.5);
+    setGamePhase("waiting");
+    setRound(1);
+    setScore(0);
+    setResult(null);
+    setUserSentence("");
+  }, [playSound]);
+
+  const getDifficultyFromWord = () => {
+    if (WORDS_BY_DIFFICULTY.easy.includes(currentWord)) return "easy";
+    if (WORDS_BY_DIFFICULTY.hard.includes(currentWord)) return "hard";
+    return "medium";
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "easy": return "text-green-400";
+      case "medium": return "text-yellow-400";
+      case "hard": return "text-red-400";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  const getScoreColor = (s: number) => {
+    if (s >= 80) return "text-green-500";
+    if (s >= 60) return "text-yellow-500";
+    if (s >= 40) return "text-orange-500";
     return "text-red-500";
   };
 
-  const getScoreEmoji = (score: number) => {
-    if (score >= 90) return "🌟";
-    if (score >= 80) return "🎉";
-    if (score >= 60) return "👍";
-    if (score >= 40) return "💪";
-    return "📝";
-  };
+  // Show ranking between rounds
+  if (gamePhase === "ranking" && result) {
+    const isLastRound = round >= totalRounds;
+    const rankingPlayers = [
+      { rank: 1, username: displayName || "Player", points: score, correctAnswers: round, streak: 0, isCurrentUser: true }
+    ];
 
-  return (
-    <div className="w-full max-w-2xl mx-auto p-4 space-y-6">
-      {/* Header Stats */}
-      {roundsPlayed > 0 && (
-        <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            <span>Average: {Math.round(totalScore / roundsPlayed)}</span>
+    return (
+      <>
+        <RoundRanking
+          players={rankingPlayers}
+          roundNumber={round}
+          totalRounds={totalRounds}
+          countdownSeconds={8}
+          onCountdownComplete={isLastRound ? handlePlayAgain : nextRound}
+          isLastRound={isLastRound}
+          allPlayersCorrect={result.feedback.wordUsage}
+          isSoloMode={true}
+        />
+        
+        {/* Panel de Resultados */}
+        <div className="w-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+          <div className="bg-gradient-to-r from-accent/20 to-primary/20 p-3 border-b border-border">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              Evaluación IA
+            </h3>
           </div>
-          <div>Rounds: {roundsPlayed}</div>
-        </div>
-      )}
-
-      {/* Main Game Card */}
-      <Card className="p-6 space-y-6">
-        {!isPlaying && !isEvaluating && !result && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center space-y-4"
-          >
-            <Sparkles className="w-12 h-12 mx-auto text-primary" />
-            <h2 className="text-2xl font-bold">Writing Challenge</h2>
-            <p className="text-muted-foreground">
-              A word will appear. Write a creative sentence using it!
-              <br />
-              You'll be scored on extension, naturalness, and grammar.
-            </p>
-            <Button onClick={startGame} size="lg" className="mt-4">
-              Start Game
-            </Button>
-          </motion.div>
-        )}
-
-        {(isPlaying || isEvaluating) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            {/* Timer */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>Time remaining</span>
-                </div>
-                <span className={`font-mono font-bold ${timeLeft <= 10 ? "text-red-500" : ""}`}>
-                  {timeLeft}s
-                </span>
-              </div>
-              <Progress value={(timeLeft / ROUND_TIME) * 100} className="h-2" />
+          
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+            {/* Puntuación */}
+            <div className="text-center py-2">
+              <p className="text-xs text-muted-foreground mb-1">Tu puntuación</p>
+              <span className={`text-5xl font-black ${getScoreColor(result.score)}`}>
+                {result.score}
+              </span>
             </div>
 
-            {/* Word Display */}
-            <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground mb-2">Use this word:</p>
-              <motion.span
+            {/* Desglose */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-secondary/50 rounded-lg p-2">
+                <p className="text-[10px] text-muted-foreground">Extensión</p>
+                <p className={`text-lg font-bold ${getScoreColor(result.feedback.extension)}`}>
+                  {result.feedback.extension}
+                </p>
+              </div>
+              <div className="bg-secondary/50 rounded-lg p-2">
+                <p className="text-[10px] text-muted-foreground">Naturalidad</p>
+                <p className={`text-lg font-bold ${getScoreColor(result.feedback.naturalness)}`}>
+                  {result.feedback.naturalness}
+                </p>
+              </div>
+              <div className="bg-secondary/50 rounded-lg p-2">
+                <p className="text-[10px] text-muted-foreground">Gramática</p>
+                <p className={`text-lg font-bold ${getScoreColor(result.feedback.grammar)}`}>
+                  {result.feedback.grammar}
+                </p>
+              </div>
+            </div>
+
+            {/* Uso de palabra */}
+            <div className={`text-center p-2 rounded-lg text-sm ${result.feedback.wordUsage ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+              {result.feedback.wordUsage 
+                ? `✓ Usaste "${currentWord}" correctamente` 
+                : `✗ No usaste "${currentWord}" correctamente`}
+            </div>
+
+            {/* Tu oración */}
+            <div className="bg-muted/30 p-3 rounded-lg">
+              <p className="text-[10px] text-muted-foreground mb-1">Tu oración:</p>
+              <p className="text-sm italic">"{userSentence}"</p>
+            </div>
+
+            {/* Comentario IA */}
+            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+              <p className="text-[10px] text-primary mb-1">💡 Feedback</p>
+              <p className="text-sm text-foreground">{result.comment}</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Evaluating state
+  if (gamePhase === "evaluating") {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center space-y-4"
+        >
+          <div className="w-16 h-16 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-lg font-medium text-muted-foreground">Evaluando tu oración...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Game Area */}
+      <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden flex flex-col">
+        {/* Header Stats */}
+        <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Trophy className="text-yellow-400" size={20} />
+              <span className="font-bold text-lg">{score}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock
+                className={`${timeLeft <= 10 ? "text-destructive animate-pulse" : "text-muted-foreground"}`}
+                size={20}
+              />
+              <span className={`font-bold text-lg ${timeLeft <= 10 ? "text-destructive" : ""}`}>
+                {timeLeft}s
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">Ronda {round}/{totalRounds}</span>
+            {gamePhase === "playing" && (
+              <div className="flex items-center gap-2">
+                <Zap className={getDifficultyColor(getDifficultyFromWord())} size={18} />
+                <span className={`text-sm font-medium ${getDifficultyColor(getDifficultyFromWord())}`}>
+                  {getDifficultyFromWord() === "easy" ? "Fácil" : getDifficultyFromWord() === "hard" ? "Difícil" : "Medio"}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          {gamePhase === "playing" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-lg text-center"
+            >
+              <p className="text-sm text-muted-foreground mb-2">Escribe una oración usando:</p>
+              <motion.div
                 key={currentWord}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-4xl font-bold text-primary"
+                className="mb-8"
               >
-                {currentWord}
-              </motion.span>
-            </div>
-
-            {/* Input Area */}
-            <div className="space-y-4">
-              <Textarea
-                value={userSentence}
-                onChange={(e) => setUserSentence(e.target.value)}
-                placeholder={`Write a sentence using "${currentWord}"...`}
-                className="min-h-[120px] text-lg resize-none"
-                disabled={isEvaluating}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {userSentence.split(/\s+/).filter(w => w).length} words
-                </span>
-                <Button 
-                  onClick={handleSubmit} 
-                  disabled={isEvaluating || !userSentence.trim()}
-                  className="gap-2"
-                >
-                  {isEvaluating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Evaluating...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Submit
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Results */}
-        <AnimatePresence>
-          {result && !isPlaying && !isEvaluating && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              {/* Score Display */}
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground mb-2">Your Score</p>
-                <div className="flex items-center justify-center gap-2">
-                  <span className={`text-6xl font-bold ${getScoreColor(result.score)}`}>
-                    {result.score}
-                  </span>
-                  <span className="text-4xl">{getScoreEmoji(result.score)}</span>
-                </div>
-              </div>
-
-              {/* Breakdown */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Extension</p>
-                  <p className={`text-xl font-bold ${getScoreColor(result.feedback.extension)}`}>
-                    {result.feedback.extension}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Naturalness</p>
-                  <p className={`text-xl font-bold ${getScoreColor(result.feedback.naturalness)}`}>
-                    {result.feedback.naturalness}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Grammar</p>
-                  <p className={`text-xl font-bold ${getScoreColor(result.feedback.grammar)}`}>
-                    {result.feedback.grammar}
-                  </p>
-                </div>
-              </div>
-
-              {/* Word Usage Check */}
-              <div className={`text-center p-3 rounded-lg ${result.feedback.wordUsage ? "bg-green-500/10" : "bg-red-500/10"}`}>
-                <span className={result.feedback.wordUsage ? "text-green-600" : "text-red-600"}>
-                  {result.feedback.wordUsage 
-                    ? `✓ You correctly used "${currentWord}"` 
-                    : `✗ You didn't use "${currentWord}" correctly`}
-                </span>
-              </div>
-
-              {/* Your Sentence */}
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-xs text-muted-foreground mb-2">Your sentence:</p>
-                <p className="italic">"{userSentence}"</p>
-              </div>
-
-              {/* AI Comment */}
-              <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-                <p className="text-xs text-primary mb-2 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  AI Feedback
-                </p>
-                <p className="text-sm">{result.comment}</p>
-              </div>
-
-              {/* Play Again */}
-              <Button onClick={startGame} className="w-full gap-2" size="lg">
-                <RotateCcw className="w-4 h-4" />
-                Play Again
-              </Button>
+                <span className="text-5xl font-black text-primary">{currentWord}</span>
+              </motion.div>
+              
+              <p className="text-xs text-muted-foreground">
+                Serás evaluado por <strong>extensión</strong>, <strong>naturalidad</strong> y <strong>gramática</strong>
+              </p>
             </motion.div>
           )}
-        </AnimatePresence>
-      </Card>
-    </div>
-  );
-};
 
-export default WritingGame;
+          {gamePhase === "waiting" && (
+            <GameLobby
+              gameSlug="writing-game"
+              initialRoomCode={roomCode}
+              multiplayerEnabled={multiplayerEnabled}
+              onStartGame={handleLobbyStart}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Writing Panel (replaces chat) */}
+      {gamePhase === "playing" && (
+        <div className="w-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+          <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 p-4 border-b border-border">
+            <h3 className="font-bold text-foreground text-lg">Writing Round</h3>
+            <p className="text-sm text-muted-foreground">Round {round} / {totalRounds}</p>
+          </div>
+          
+          <div className="flex-1 p-4 flex flex-col">
+            {/* Textarea con estilo similar a la imagen */}
+            <div className="flex-1 relative">
+              <Textarea
+                value={userSentence}
+                onChange={(e) => setUserSentence(e.target.value.slice(0, MAX_CHARS))}
+                placeholder={`Write a sentence using "${currentWord}"...`}
+                className="w-full h-full min-h-[200px] resize-none text-lg bg-white dark:bg-zinc-900 text-foreground border-2 border-amber-400/50 focus:border-amber-500 rounded-xl p-4"
+              />
+            </div>
+
+            {/* Footer con contador y botón */}
+            <div className="mt-4 flex items-center justify-between">
+              <Button 
+                onClick={handleSubmit}
+                disabled={!userSentence.trim()}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2"
+              >
+                <Send className="w-4 h-4" />
+                SAVE REPLY
+              </Button>
+              
+              <span className="text-sm text-muted-foreground font-mono">
+                {userSentence.length} / {MAX_CHARS}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Panel placeholder when waiting */}
+      {gamePhase === "waiting" && (
+        <div className="w-96 bg-card rounded-xl border border-border overflow-hidden flex flex-col shrink-0">
+          <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 p-4 border-b border-border">
+            <h3 className="font-bold text-foreground text-lg">Writing Challenge</h3>
+            <p className="text-sm text-muted-foreground">Practica tu escritura</p>
+          </div>
+          
+          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+            <Sparkles className="w-12 h-12 text-amber-400 mb-4" />
+            <p className="text-muted-foreground mb-2">
+              Escribe oraciones creativas usando palabras aleatorias
+            </p>
+            <p className="text-xs text-muted-foreground">
+              La IA evaluará tu extensión, naturalidad y gramática
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
