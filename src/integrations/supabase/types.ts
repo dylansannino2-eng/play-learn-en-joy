@@ -79,6 +79,7 @@ export type Database = {
           slug: string | null
           sort_order: number
           title: string
+          topic: string | null
           updated_at: string
           uses_chat: boolean
         }
@@ -101,6 +102,7 @@ export type Database = {
           slug?: string | null
           sort_order?: number
           title: string
+          topic?: string | null
           updated_at?: string
           uses_chat?: boolean
         }
@@ -123,6 +125,7 @@ export type Database = {
           slug?: string | null
           sort_order?: number
           title?: string
+          topic?: string | null
           updated_at?: string
           uses_chat?: boolean
         }
