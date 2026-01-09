@@ -295,6 +295,7 @@ export type Database = {
           start_time: number | null
           subtitles: Json | null
           target_subtitle_index: number | null
+          topic: string | null
           translations: Json | null
           updated_at: string | null
           video_id: string | null
@@ -318,6 +319,7 @@ export type Database = {
           start_time?: number | null
           subtitles?: Json | null
           target_subtitle_index?: number | null
+          topic?: string | null
           translations?: Json | null
           updated_at?: string | null
           video_id?: string | null
@@ -341,6 +343,7 @@ export type Database = {
           start_time?: number | null
           subtitles?: Json | null
           target_subtitle_index?: number | null
+          topic?: string | null
           translations?: Json | null
           updated_at?: string | null
           video_id?: string | null
